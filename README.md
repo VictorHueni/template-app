@@ -1,3 +1,5 @@
+
+
 This guide documents how to deploy a full-stack application (Spring Boot backend + PostgreSQL + React frontend) 
 on AWS using ECS Fargate, RDS, and CloudFront/S3.  
 It's meant as a **reference architecture** and **learning resource**.
@@ -5,43 +7,224 @@ It's meant as a **reference architecture** and **learning resource**.
 > ⚠️ This repository contains **no credentials**.  
 > All AWS account IDs and names are placeholders.
 
+# To Do's
 
-- [High Level Architecture](#high-level-architecture)
-- [Deployment sequence](#deployment-sequence)
-  - [Phase 1 — Continuous Integration (CI)](#phase-1--continuous-integration-ci)
-  - [Phase 2 — Build \& Package](#phase-2--build--package)
-  - [Phase 3 — Deployment](#phase-3--deployment)
-  - [Phase 4 — Promotion, Monitoring \& Rollback](#phase-4--promotion-monitoring--rollback)
-- [AWS Components configuration](#aws-components-configuration)
-  - [Phase 0 - Prereqs \& Naming](#phase-0---prereqs--naming)
-  - [Phase 1 - Foundation (Networking \& Accounts)](#phase-1---foundation-networking--accounts)
-  - [Phase 2 - Data (RDS PostgreSQL)](#phase-2---data-rds-postgresql)
-  - [Phase 3 - Images (ECR) \& Build](#phase-3---images-ecr--build)
-  - [Phase 4 - IAM for CI/CD \& Tasks](#phase-4---iam-for-cicd--tasks)
-    - [GitHub → AWS (OIDC)](#github--aws-oidc)
-    - [ECS Roles](#ecs-roles)
-  - [Phase 5 - ECS (Cluster, Task Def, ALB, Service)](#phase-5---ecs-cluster-task-def-alb-service)
-  - [Phase 6 - GitHub Actions (CI/CD)](#phase-6---github-actions-cicd)
-    - [Build \& Push](#build--push)
-    - [Deploy](#deploy)
-  - [Phase 7 - Frontend (React on S3 + CloudFront)](#phase-7---frontend-react-on-s3--cloudfront)
-  - [Phase 8 - Observability \& Ops](#phase-8---observability--ops)
-  - [Phase 9 - Security Essentials](#phase-9---security-essentials)
-  - [Phase 10 - Test \& Promote](#phase-10---test--promote)
-  - [Creation Order Summary](#creation-order-summary)
-- [AWS Cloud Resource Naming Conventions](#aws-cloud-resource-naming-conventions)
-  - [1) Simple rules (use everywhere)](#1-simple-rules-use-everywhere)
-  - [2) Canonical pattern](#2-canonical-pattern)
-  - [3) Per-service naming templates](#3-per-service-naming-templates)
-  - [4) Tagging strategy (mandatory-your best friend)](#4-tagging-strategy-mandatory-your-best-friend)
-  - [5) Worked examples](#5-worked-examples)
-    - [A) External client – ACME, Invoicer project, API service, prod in eu-west-1](#a-external-client--acme-invoicer-project-api-service-prod-in-eu-west-1)
-    - [B) Your SaaS – “Ledger”, worker service, staging in eu-central-1](#b-your-saas--ledger-worker-service-staging-in-eu-central-1)
-    - [C) Portfolio – “portfolio-site”, no client, dev in eu-west-1](#c-portfolio--portfolio-site-no-client-dev-in-eu-west-1)
-    - [Image tags \& versions](#image-tags--versions)
-    - [Guardrails \& pitfalls](#guardrails--pitfalls)
-    - [Drop-in variables (IaC)](#drop-in-variables-iac)
+## 🎯 Goals & Scope
+- [ ] Add a short **Purpose** section explaining what the project does, who it’s for, and what it’s *not*.
+- [ ] Add a **Prerequisites** block listing versions (AWS CLI v2, Copilot v1.34+, Node 20+, Java 25, Docker, jq).
+- [ ] Add a concise **“What You’ll Deploy”** summary (ECS/Fargate API + S3/CloudFront SPA + optional RDS).
 
+## 🧭 Structure & Navigation
+- [ ] Add a top-level **Quickstart** (5–10 essential commands).
+- [ ] Move detailed content into `/docs/` (CI/CD, naming, teardown, security).
+- [ ] Ensure a clean **Table of Contents** with stable anchors.
+- [ ] Add a one-page **Architecture Overview** with a simplified diagram + legend.
+
+## 🔒 Security & Privacy Hygiene
+- [ ] Replace all real IDs, ARNs, and URLs with `<PLACEHOLDER>` consistently.
+- [ ] Highlight “**Do not commit**” list early (IDs, ARNs, `.env*`, `cloudfront.json`, ALB URLs).
+- [ ] Add a `.env.example` file with safe defaults.
+- [ ] Clarify that ACM certificates for CloudFront **must be in us-east-1**.
+
+## ⚙️ Copilot-Specific Clarifications
+- [ ] Note that `http.public: false` does *not* make an LBWS private — recommend using a **Backend Service**.
+- [ ] Provide example of `allowed_source_ips` to restrict public LBWS access.
+- [ ] Include actual `healthcheck` path, port, and ALB behavior details.
+- [ ] Document CLI commands to get **ALB DNS**, **DIST_ID**, and **OAC_ID**.
+
+## 💻 Frontend (Vite) Clarity
+- [ ] Show full `vite.config.ts` with `base: '/'` and dev `proxy` setup.
+- [ ] Explain `.env.development` vs `.env.production` usage.
+- [ ] Clarify `VITE_` prefix requirement for environment variables.
+- [ ] Describe SPA routing fix via CloudFront `CustomErrorResponses` (403/404 → `/index.html`).
+
+## 🌐 CloudFront + S3 Configuration
+- [ ] Emphasize S3 **REST** endpoint (`bucket.s3.<region>.amazonaws.com`) with OAC.
+- [ ] Include validated **cloudfront.json** that matches AWS CLI schema.
+- [ ] Add caching strategy: immutable assets vs `index.html` no-cache.
+- [ ] Include **cache invalidation** command and when to use it.
+
+## 🧱 Backend Containerization
+- [ ] Keep minimal, secure **Dockerfile** (non-root, healthcheck, BuildKit caching).
+- [ ] Add a **Makefile** or scripts for `build`, `run`, and `deploy`.
+- [ ] Include test examples: `curl /actuator/health` and `curl /api/hello`.
+
+## 🗄️ Optional RDS Integration
+- [ ] Clearly mark RDS as optional in the README.
+- [ ] Document Flyway migration flow (local dry-run + ECS task).
+- [ ] Note use of private subnets + SG rules (no public access).
+
+## 🚀 CI/CD Workflows
+- [ ] Provide **frontend workflow** example (OIDC auth + S3 sync + CF invalidate).
+- [ ] Provide **backend workflow** example (ECR push + ECS deploy by digest).
+- [ ] Add environments and manual approval for production deployment.
+- [ ] Add **release workflow** example (tag + release notes).
+- [ ] Add **rollback workflow** example (rollback to previous version).
+- [ ] Add **cleanup workflow** example (delete all resources).
+- [ ] Add **security workflow** example (security scan).
+- [ ] Add **test workflow** example (unit tests).
+- [ ] Add **deploy workflow** example (ECS deploy by digest/tag).
+- [ ] Add **promote workflow** example (promote to staging).
+- [ ] Add **Secret management** 
+- 
+
+## 🧩 Troubleshooting & Teardown
+- [ ] Add a **Common Errors** section (SSO expired, InvalidIfMatch, OAC in use, SPA 403/404).
+- [ ] Include **Teardown Checklist** (Copilot delete → CF disable → S3 delete → OAC delete).
+- [ ] Include AWS cost notes for each resource (ALB, CF, S3, ECR, logs).
+
+## 🧾 Consistency & Readability
+- [ ] Use consistent placeholders (`<ACCOUNT_ID>`, `<DIST_ID>`, `<ALB_DNS>`, `<REGION>`).
+- [ ] Use `bash` syntax in fenced code blocks.
+- [ ] Keep commands copy-pasteable; store long JSON in `file://` references.
+- [ ] Remove emojis or excessive decoration for enterprise readability.
+
+## 📚 Documentation Hygiene
+- [ ] Move detailed content to `/docs/`:
+    - `/docs/cheatsheet.md`
+    - `/docs/teardown.md`
+    - `/docs/troubleshooting.md`
+    - `/docs/naming.md`
+- [ ] Add `CHANGELOG.md`, `VERSIONING.md`, and `LICENSE`.
+- [ ] Add minimal `CONTRIBUTING.md` with pull request and security disclosure info.
+
+## ✅ Verification Steps
+- [ ] Add short **verify commands** after each section (e.g., `aws … --query …`, `curl …`, `copilot svc status`).
+- [ ] Add a final **end-to-end test checklist**:
+    - SPA loads via CloudFront
+    - `/api/hello` returns JSON
+    - ALB healthchecks return 200
+
+## 💡 Optional Enhancements
+- [ ] Add cleaned-up **Mermaid** diagrams (no real resource names).
+- [ ] Provide `scripts/` folder with helper scripts:
+    - `deploy-frontend.sh`
+    - `update-cloudfront.sh`
+    - `teardown.sh`
+- [ ] Add **Glossary** for AWS/Copilot terms (OAC, LBWS, ECR, etc.).
+- [ ] Add **FAQ** for recurring issues (ACM region, OAC vs OAI, ECS vs App Runner).
+
+---
+# Reference Resources & Templates
+
+## Official AWS Sources
+- **AWS Copilot CLI – “First App” Tutorial**  
+  Official walkthrough for deploying containerized apps on ECS Fargate using Copilot.  
+  [https://aws.github.io/copilot-cli/docs/first-app-tutorial/](https://aws.github.io/copilot-cli/docs/first-app-tutorial/)
+
+- **AWS Copilot CLI – GitHub Samples Repository**  
+  Example manifests and service templates maintained by AWS.  
+  [https://github.com/aws-samples/aws-copilot-sample-service](https://github.com/aws-samples/aws-copilot-sample-service)
+
+- **AWS Prescriptive Guidance – Host a SPA on S3 and CloudFront**  
+  Step-by-step deployment guide for React/Vue/Angular SPAs, including CloudFront behaviors, OAC/OAI setup, and cache rules.  
+  [https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/host-a-static-website-on-amazon-s3-and-cloudfront.html](https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/host-a-static-website-on-amazon-s3-and-cloudfront.html)
+
+- **AWS Prescriptive Guidance – Deploy a Java Application on ECS Fargate**  
+  Recommended architecture, Dockerfile, and deployment steps for Spring Boot / Java workloads.  
+  [https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/deploy-a-java-application-on-amazon-ecs-using-aws-fargate.html](https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/deploy-a-java-application-on-amazon-ecs-using-aws-fargate.html)
+
+## AWS Samples & Community Templates
+- **react-cors-spa** (AWS Samples)  
+  Example CloudFront + S3 setup for a React single-page app with correct 403/404 routing and CORS headers.  
+  [https://github.com/aws-samples/react-cors-spa](https://github.com/aws-samples/react-cors-spa)
+
+- **Spring Boot on ECS Fargate via AWS Copilot**  
+  Community repo and article showing how to containerize and deploy a Spring Boot app with Copilot, including ALB and health checks.  
+  [https://github.com/aws-samples/spring-boot-on-aws-fargate-using-aws-copilot](https://github.com/aws-samples/spring-boot-on-aws-fargate-using-aws-copilot)
+
+- **Copilot End-to-End Encryption Example**  
+  Demonstrates setting up HTTPS, ALB listener rules, and internal service communication.  
+  [https://github.com/aws-samples/copilot-encryption-example](https://github.com/aws-samples/copilot-encryption-example)
+
+- **AWS Copilot Demo Applications**  
+  Collection of microservices deployed with Copilot CLI, showing multi-service environments and private APIs.  
+  [https://github.com/aws-samples/copilot-demo](https://github.com/aws-samples/copilot-demo)
+
+## Supplemental
+- **AWS Copilot CLI Documentation**  
+  Full command reference and manifest syntax.  
+  [https://aws.github.io/copilot-cli/docs/commands/](https://aws.github.io/copilot-cli/docs/commands/)
+
+- **AWS ECS Developer Guide**  
+  Underlying ECS concepts used by Copilot (task definitions, services, clusters).  
+  [https://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html)
+
+- **AWS CloudFront Developer Guide**  
+  Details of distributions, behaviors, origins, and OAC/OAI configuration.  
+  [https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html)
+
+---
+
+# Table of Contents
+<!-- TOC -->
+* [Table of Contents](#table-of-contents)
+* [High Level Architecture](#high-level-architecture-)
+* [Deployment sequence](#deployment-sequence)
+  * [Phase 1 — Continuous Integration (CI)](#phase-1--continuous-integration-ci)
+  * [Phase 2 — Build & Package](#phase-2--build--package)
+  * [Phase 3 — Deployment](#phase-3--deployment)
+  * [Phase 4 — Promotion, Monitoring & Rollback](#phase-4--promotion-monitoring--rollback)
+* [AWS Components configuration](#aws-components-configuration)
+  * [Phase 0 - Prereqs & Naming](#phase-0---prereqs--naming)
+  * [Phase 1 - Foundation (Networking & Accounts)](#phase-1---foundation-networking--accounts)
+  * [Phase 2 - Data (RDS PostgreSQL)](#phase-2---data-rds-postgresql)
+  * [Phase 3 - Images (ECR) & Build](#phase-3---images-ecr--build)
+  * [Phase 4 - IAM for CI/CD & Tasks](#phase-4---iam-for-cicd--tasks)
+    * [GitHub → AWS (OIDC)](#github--aws-oidc)
+    * [ECS Roles](#ecs-roles)
+  * [Phase 5 - ECS (Cluster, Task Def, ALB, Service)](#phase-5---ecs-cluster-task-def-alb-service)
+  * [Phase 6 - GitHub Actions (CI/CD)](#phase-6---github-actions-cicd)
+    * [Build & Push](#build--push)
+    * [Deploy](#deploy)
+  * [Phase 7 - Frontend (React on S3 + CloudFront)](#phase-7---frontend-react-on-s3--cloudfront)
+  * [Phase 8 - Observability & Ops](#phase-8---observability--ops)
+  * [Phase 9 - Security Essentials](#phase-9---security-essentials)
+  * [Phase 10 - Test & Promote](#phase-10---test--promote)
+  * [Creation Order Summary](#creation-order-summary)
+* [AWS Cloud Resource Naming Conventions](#aws-cloud-resource-naming-conventions)
+  * [1) Simple rules (use everywhere)](#1-simple-rules-use-everywhere)
+  * [2) Canonical pattern](#2-canonical-pattern)
+  * [3) Per-service naming templates](#3-per-service-naming-templates)
+  * [4) Tagging strategy (mandatory-your best friend)](#4-tagging-strategy-mandatory-your-best-friend)
+  * [5) Worked examples](#5-worked-examples)
+    * [A) External client – ACME, Invoicer project, API service, prod in eu-west-1](#a-external-client--acme-invoicer-project-api-service-prod-in-eu-west-1)
+    * [B) Your SaaS – “Ledger”, worker service, staging in eu-central-1](#b-your-saas--ledger-worker-service-staging-in-eu-central-1)
+    * [C) Portfolio – “portfolio-site”, no client, dev in eu-west-1](#c-portfolio--portfolio-site-no-client-dev-in-eu-west-1)
+    * [Image tags & versions](#image-tags--versions)
+    * [Guardrails & pitfalls](#guardrails--pitfalls)
+    * [Drop-in variables (IaC)](#drop-in-variables-iac)
+* [AWS + Copilot Cheatsheet](#aws--copilot-cheatsheet)
+  * [1. Project Structure](#1-project-structure)
+  * [2. Backend Setup (Spring Boot + Docker + AWS Copilot)](#2-backend-setup-spring-boot--docker--aws-copilot)
+    * [Build + Test Locally](#build--test-locally)
+    * [Copilot App Initialization](#copilot-app-initialization)
+    * [Create and Deploy Service](#create-and-deploy-service)
+    * [Modify manifest (for internal/private API)](#modify-manifest-for-internalprivate-api)
+  * [3. Frontend Setup (React + TypeScript + Vite)](#3-frontend-setup-react--typescript--vite)
+    * [Create project](#create-project)
+  * [4. Deploy Frontend (S3 + CloudFront)](#4-deploy-frontend-s3--cloudfront)
+    * [Create S3 bucket](#create-s3-bucket)
+    * [Create Origin Access Control (OAC)](#create-origin-access-control-oac)
+    * [Create CloudFront Distribution](#create-cloudfront-distribution)
+    * [S3 Bucket Policy](#s3-bucket-policy)
+    * [Build and Upload](#build-and-upload)
+    * [Invalidate CloudFront Cache](#invalidate-cloudfront-cache)
+    * [Verify](#verify)
+  * [5. Never Commit These](#5-never-commit-these)
+    * [Sensitive / private files](#sensitive--private-files)
+* [Delete all AWS Ressources](#delete-all-aws-ressources)
+  * [1. Delete the backend (ECS) via Copilot](#1-delete-the-backend-ecs-via-copilot)
+    * [Verify deletion (optional sanity check)](#verify-deletion-optional-sanity-check)
+    * [3. Delete the CloudFront distribution](#3-delete-the-cloudfront-distribution)
+    * [4. Delete the frontend S3 bucket](#4-delete-the-frontend-s3-bucket)
+    * [5. Remove Origin Access Control (OAC)](#5-remove-origin-access-control-oac)
+    * [6. Optional: Clean leftover ECR repositories (if Copilot didn’t)](#6-optional-clean-leftover-ecr-repositories-if-copilot-didnt)
+    * [7. Optional: Clean IAM roles (Copilot sometimes leaves environment roles)](#7-optional-clean-iam-roles-copilot-sometimes-leaves-environment-roles)
+    * [8. Optional: Delete CloudWatch log groups](#8-optional-delete-cloudwatch-log-groups)
+    * [9. Validate your AWS account is clean](#9-validate-your-aws-account-is-clean)
+    * [Common Misses (and hidden costs)](#common-misses-and-hidden-costs)
+<!-- TOC -->
 
 # High Level Architecture 
 ```mermaid
@@ -355,7 +538,7 @@ sequenceDiagram
 ## Phase 0 - Prereqs & Naming
 - **Region:** `eu-central-2` (Zurich)
 - **IAM Identity Center (SSO)** enabled with admin profile
-- **CLI Profile:** `aws configure sso` → e.g. `VhAdmin`
+- **CLI Profile:** `aws configure sso`
 - **Naming convention:**
   - Org: `ghost`
   - Project: `template`
@@ -659,7 +842,7 @@ locals {
 ``` 
 
 
-## AWS + Copilot Cheatsheet
+# AWS + Copilot Cheatsheet
 
 ## 1. Project Structure
 template-app/
@@ -771,7 +954,7 @@ export default defineConfig(({ mode }) => ({
 
 ### Create S3 bucket
 ``` bash 
-aws s3 mb s3://spring-react-demo-frontend-eu-central-1
+aws s3 mb s3://<BUCKET NAME>
 ``` 
 
 ### Create Origin Access Control (OAC)
@@ -892,7 +1075,7 @@ aws cloudfront create-distribution --distribution-config file://cloudfront.json
 
 ### S3 Bucket Policy
 ``` bash
-aws s3api put-bucket-policy --bucket <spring-react-demo-frontend-eu-central-1> --policy "{
+aws s3api put-bucket-policy --bucket <YOUR BUCKET NAME> --policy "{
   \"Version\":\"2012-10-17\",
   \"Statement\":[
     {
@@ -900,7 +1083,8 @@ aws s3api put-bucket-policy --bucket <spring-react-demo-frontend-eu-central-1> -
       \"Effect\":\"Allow\",
       \"Principal\":{\"Service\":\"cloudfront.amazonaws.com\"},
       \"Action\":\"s3:GetObject\",
-      \"Resource\":\"arn:aws:s3:::spring-react-demo-frontend-eu-central-1/*\",
+      \"Resource\":\"arn:aws:s3:::<BUCKET NAME>/*\"
+    }>/*\",
       \"Condition\":{
         \"StringEquals\":{
           \"AWS:SourceArn\":\"arn:aws:cloudfront::<ACCOUNT_ID>:distribution/<DIST_ID>\"
@@ -915,13 +1099,13 @@ aws s3api put-bucket-policy --bucket <spring-react-demo-frontend-eu-central-1> -
 ``` bash
 cd frontend
 npm run build
-aws s3 sync ./dist s3://spring-react-demo-frontend-eu-central-1 --delete
+aws s3 sync ./dist s3://<BUCKET NAME> --delete
 ```
 
 Optional cache header
 ``` bash
-aws s3 cp ./dist s3://spring-react-demo-frontend-eu-central-1 --recursive --exclude index.html --cache-control "public,max-age=31536000,immutable"
-aws s3 cp ./dist/index.html s3://spring-react-demo-frontend-eu-central-1/index.html --cache-control "no-cache"
+aws s3 cp ./dist s3://<BUCKET NAME>--recursive --exclude index.html --cache-control "public,max-age=31536000,immutable"
+aws s3 cp ./dist/index.html s3://<BUCKET NAME> /index.html --cache-control "no-cache"
 ```
 
 
