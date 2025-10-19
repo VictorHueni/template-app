@@ -1,33 +1,73 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# ===== OS / Tools =====
+.DS_Store
+Thumbs.db
 
-### STS ###
-.apt_generated
+# ===== IDEs =====
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+# IntelliJ / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+# Eclipse / STS
+.apt_generated/
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
+
+# ===== Logs & Dumps =====
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.pid
+*.seed
+*.pid.lock
+
+# ===== Environment / Secrets (keep templates) =====
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ===== Backend (Java / Maven / Gradle) =====
+target/
 build/
+out/
+!**/src/main/**/target/
+!**/src/test/**/target/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+# Maven wrapper (commit the wrapper files; do NOT ignore them)
+# (If you intentionally exclude the JAR, uncomment the next line)
+# .mvn/wrapper/maven-wrapper.jar
+
+# ===== Frontend (Node / Vite / React) =====
+node_modules/
+dist/
+dist-ssr/
+*.local
+.cache/
+coverage/
+*.tsbuildinfo
+
+# ===== Docker / Misc =====
+*.sw?
+*.swp
+*.swo
+*.tmp
+*.orig
