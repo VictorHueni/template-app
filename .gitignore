@@ -42,6 +42,16 @@ lerna-debug.log*
 .env.*
 !.env.example
 !.env.*.example
+**/.env
+**/.env.*
+
+# ===== AWS =====
+**/cloudfront.json
+copilot/.workspace
+copilot/**/manifest.yml  # optional, if it contains secrets
+*.pem
+*.key
+*.crt
 
 # ===== Backend (Java / Maven / Gradle) =====
 target/
