@@ -6,31 +6,31 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  // Global ignores for linting
-  globalIgnores(["dist", "node_modules"]),
+    // Global ignores for linting
+    globalIgnores(["dist", "node_modules"]),
 
-  {
-    files: ["**/*.{ts,tsx}"],
+    {
+        files: ["**/*.{ts,tsx}"],
 
-    extends: [
-      js.configs.recommended,
-      ...tseslint.configs.recommended,
-      reactHooks.configs["recommended-latest"],
-      reactRefresh.configs.vite,
-    ],
+        extends: [
+            js.configs.recommended,
+            ...tseslint.configs.recommended,
+            reactHooks.configs["recommended-latest"],
+            reactRefresh.configs.vite,
+        ],
 
-    languageOptions: {
-      ecmaVersion: 2020,
-      sourceType: "module",
-      globals: {
-        ...globals.browser,
-        ...globals.es2021,
-      },
+        languageOptions: {
+            ecmaVersion: 2020,
+            sourceType: "module",
+            globals: {
+                ...globals.browser,
+                ...globals.es2021,
+            },
+        },
+
+        rules: {
+            "no-console": "warn",
+            "no-debugger": "error",
+        },
     },
-
-    rules: {
-      "no-console": "warn",
-      "no-debugger": "error",
-    },
-  },
 ]);

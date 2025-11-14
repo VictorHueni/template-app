@@ -90,7 +90,8 @@ export default function App() {
                 {loading && <p aria-label="loading">Loading greeting…</p>}
                 {!loading && message && (
                     <p>
-                        <strong>Message:</strong> <span aria-label="greeting-message">{message}</span>
+                        <strong>Message:</strong>{" "}
+                        <span aria-label="greeting-message">{message}</span>
                     </p>
                 )}
                 {!loading && !message && !error && <p>No greeting loaded yet.</p>}

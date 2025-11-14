@@ -38,7 +38,6 @@ describe("App", () => {
 
         // Fetch called once, with default URL (default param is world)
         expect(globalThis.fetch).toHaveBeenCalledWith(`${API_BASE}/api/hello?name=world`);
-
     });
 
     it("shows an error when the fetch fails", async () => {
@@ -76,9 +75,7 @@ describe("App", () => {
             expect(screen.getByLabelText("greeting-message")).toHaveTextContent("Hello Alice"),
         );
 
-        expect(globalThis.fetch).toHaveBeenLastCalledWith(
-            `${API_BASE}/api/hello?name=Alice`,
-        );
+        expect(globalThis.fetch).toHaveBeenLastCalledWith(`${API_BASE}/api/hello?name=Alice`);
     });
 
     it("clears the message when clicking Clear", async () => {
