@@ -7,10 +7,12 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 # IntelliJ / JetBrains
+
 .idea/
 *.iml
 *.iws
 *.ipr
+
 # Eclipse / STS
 .apt_generated/
 .classpath
@@ -19,6 +21,7 @@ Thumbs.db
 .settings/
 .springBeans
 .sts4-cache
+
 # NetBeans
 /nbproject/private/
 /nbbuild/

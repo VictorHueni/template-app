@@ -333,6 +333,63 @@ flowchart TB
    - For accidentally committed secrets  
    If any high-severity issue is found → the pipeline fails.
 
+### 1. Repo hygiene
+- Conventional commit check: commitlint (optional, local pre-commit).
+- Formatting/lint: Frontend → Prettier, ESLint; Backend → SpotBugs, PMD, Checkstyle.
+- Type checks: tsc --noEmit for TypeScript projects.
+
+### 2. Build & unit tests (+ coverage)
+Frontend: Node 23 LTS; pnpm/npm ci → jest/vitest unit tests; coverage → c8/nyc.
+Backend: JDK 25 LTS; Maven; unit tests via Surefire; coverage via JaCoCo.
+
+### 3. Integration tests (backend)
+Use Failsafe + Testcontainers (Postgres/Redis/etc.) so tests run hermetically in CI.
+
+### 4. End-to-end (E2E) UI tests
+Playwright (OSS; headless browsers auto-provisioned), or Cypress (runner OSS; no paid dashboard).
+
+### 5. API contract / smoke tests
+- Newman (OSS CLI for Postman collections) or REST Assured tests in the backend module.
+
+### 6. Dependency & license compliance
+Java: OWASP Dependency-Check (Maven plugin).
+JS: osv-scanner (Google OSV), plus license-checker or CycloneDX SBOM for license review.
+
+### 7. SAST
+Semgrep OSS ruleset (JS/TS + Java) including security rules.
+Java-specific: SpotBugs + FindSecBugs plugin.
+
+### 8. Secrets scanning
+Gitleaks (fast OSS).
+
+### 9. SBOM generation
+CycloneDX: Maven plugin for Java; cyclonedx-npm (or cyclonedx-bom) for JS.
+Syft (alternative, multi-ecosystem and for container images).
+
+### 10. Container build & scan
+Build image with Docker Buildx.
+Scan with Trivy (vulns + misconfig) and Grype (optional second opinion).
+Produce image SBOM with Syft (CycloneDX or SPDX).
+
+### 11. Lightweight DAST
+OWASP ZAP Baseline Scan against the ephemeral app (run backend container + mock dependencies).
+
+### 12. Artifacts & reporting
+Upload coverage reports, HTML linters, JUnit XML, SBOMs, SARIF from Semgrep/Trivy/Gitleaks.
+Fail PR on high/critical issues; warn on medium.
+
+### 13. Caching
+actions/setup-node with cache: 'npm' | 'pnpm' | 'yarn'.
+actions/setup-java with cache: 'maven' | 'gradle'.
+Docker Buildx layer cache (type=gha).
+
+### 14. Triggers & concurrency
+Run on pull_request and push to main.
+Path filters (frontend/**, backend/**) to skip unrelated jobs.
+concurrency group per-branch to cancel superseded runs.
+
+### 15. Optional: pre-commit automation
+Husky + lint-staged for local dev parity (not required by CI but recommended).
 
 ## Phase 2 — Build & Package
 
