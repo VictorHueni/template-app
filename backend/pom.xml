@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>25</java.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -97,7 +98,6 @@
 				<configuration>
 					<!-- use builtin google_checks.xml to start with -->
 					<configLocation>google_checks.xml</configLocation>
-					<encoding>UTF-8</encoding>
 					<failOnViolation>true</failOnViolation>
 				</configuration>
 				<executions>
