@@ -154,16 +154,43 @@ jobs:
 
   e2e_test:
     runs-on: ubuntu-latest
-    # Now depend on integration tests instead of just unit tests
     needs: [unit_test_frontend, integration_test_backend]
     defaults:
       run:
         working-directory: frontend
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
+      # --- BACKEND -----------------------------------------------------------
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build backend (skip tests, they already ran)
+        run: cd backend && ./mvnw -B -DskipTests package
+
+      - name: Start backend
+        run: |
+          cd backend
+          nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
+          echo $! > backend.pid
+
+      - name: Wait for backend readiness
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health | grep -q "ok"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend did not become ready" >&2
+          exit 1
+
+      # --- FRONTEND -----------------------------------------------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -171,22 +198,49 @@ jobs:
           cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
 
-      - name: Install dependencies
+      - name: Install frontend deps
         run: npm ci
 
+      - name: Build frontend
+        run: npm run build
+
+      - name: Start frontend preview server
+        run: |
+          nohup npm run preview > preview.log 2>&1 &
+          echo $! > frontend.pid
+        # If your Vite preview is not on port 4173 set BASE_URL accordingly
+
+      - name: Wait for frontend readiness
+        run: |
+          for i in {1..20}; do
+            if curl -s http://localhost:4173 | grep -q "<html"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Frontend did not become ready" >&2
+          exit 1
+
+      # --- E2E ---------------------------------------------------------------
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Build frontend for preview
-        run: npm run build
-
-      - name: Run Playwright E2E tests (Chromium)
+      - name: Run Playwright E2E tests
         run: npm run test:e2e:ci
+        env:
+          BASE_URL: http://localhost:4173
 
-      - name: Upload Playwright report (if you configure html reporter)
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: frontend/playwright-report
           if-no-files-found: ignore
+
+      # --- CLEANUP -----------------------------------------------------------
+      - name: Stop backend + frontend
+        if: always()
+        run: |
+          kill $(cat backend.pid) || true
+          kill $(cat frontend.pid) || true
