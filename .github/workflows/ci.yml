@@ -161,7 +161,6 @@ jobs:
 
       # --- BACKEND -----------------------------------------------------------
       - name: Setup Java
-        # this is fine from repo root
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -205,28 +204,18 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Start frontend preview server
-        working-directory: frontend
-        run: |
-          nohup npm run preview > preview.log 2>&1 &
-          echo $! > frontend.pid
+      # Cache Playwright browsers
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json') }}
 
-      - name: Wait for frontend readiness
-        run: |
-          for i in {1..20}; do
-            if curl -s http://localhost:4173 | grep -q "<html"; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Frontend did not become ready" >&2
-          exit 1
-
-      # --- E2E ---------------------------------------------------------------
       - name: Install Playwright browsers
         working-directory: frontend
         run: npx playwright install --with-deps
 
+      # --- E2E ---------------------------------------------------------------
       - name: Run Playwright E2E tests
         working-directory: frontend
         run: npm run test:e2e:ci
@@ -242,9 +231,6 @@ jobs:
           if-no-files-found: ignore
 
       # --- CLEANUP -----------------------------------------------------------
-      - name: Stop backend + frontend
-        # run from repo root, but kill by PID only
+      - name: Stop backend
         if: always()
-        run: |
-          kill $(cat backend/backend.pid) 2>/dev/null || true
-          kill $(cat frontend/frontend.pid) 2>/dev/null || true
+        run: kill $(cat backend/backend.pid) 2>/dev/null || true

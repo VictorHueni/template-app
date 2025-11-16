@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 4173; // Vite preview default
 
+const baseURL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
+
 export default defineConfig({
     testDir: "./e2e",
     timeout: 30_000,
@@ -13,7 +15,7 @@ export default defineConfig({
     reporter: [["list"]],
 
     use: {
-        baseURL: `http://localhost:${PORT}`,
+        baseURL: baseURL,
         trace: "on-first-retry",
     },
 
@@ -21,7 +23,7 @@ export default defineConfig({
         // Locally: this will build then start preview
         // In CI: you can still pre-build in a separate step for speed, but this is fine too
         command: "npm run preview -- --port 4173",
-        port: PORT,
+        url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
     },
