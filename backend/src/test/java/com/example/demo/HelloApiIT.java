@@ -1,26 +1,21 @@
 package com.example.demo;
 
-import io.restassured.RestAssured;
+import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 import io.restassured.http.ContentType;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class HelloApiIT {
-
-    @LocalServerPort
-    int port;
-
-    @BeforeEach
-    void configureRestAssured() {
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
-    }
+/**
+ * API-level integration tests for the legacy /api/hello endpoints.
+ * <p>
+ * Uses:
+ * - Spring Boot @SpringBootTest (RANDOM_PORT)
+ * - RestAssured for HTTP calls
+ * - PostgreSQL via Testcontainers (from AbstractIntegrationTest)
+ */
+class HelloApiIT extends AbstractRestAssuredIntegrationTest {
 
     @Test
     void healthEndpointIsOk() {

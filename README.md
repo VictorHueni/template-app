@@ -435,7 +435,6 @@ sequenceDiagram
     GRA-->>GS: Greeting (domain)
     GS-->>GC: GreetingDto
     GC-->>C: 200 OK + JSON body
-
 ```
 ---
 

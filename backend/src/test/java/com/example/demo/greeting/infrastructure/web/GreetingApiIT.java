@@ -1,30 +1,21 @@
 package com.example.demo.greeting.infrastructure.web;
 
-import com.example.demo.DemoApplication;
-import com.example.demo.greeting.infrastructure.db.AbstractPostgresIT;
+
+import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-@SpringBootTest(
-        classes = DemoApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
-)
-class GreetingApiIT extends AbstractPostgresIT {
-
-    @LocalServerPort
-    int port;
-
-    @BeforeEach
-    void setup() {
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
-    }
+/**
+ * API-level integration tests for Greeting HTTP endpoints.
+ * Hits the real Spring Boot app and real PostgreSQL (via Testcontainers).
+ */
+class GreetingApiIT extends AbstractRestAssuredIntegrationTest {
 
     @Test
     void createsGreetingAndReturnsContract() {
