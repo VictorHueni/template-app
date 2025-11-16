@@ -158,75 +158,113 @@ It's meant as a **reference architecture** and **learning resource**.
 
 # Table of Contents
 <!-- TOC -->
-* [Table of Contents](#table-of-contents)
-* [High Level Architecture](#high-level-architecture-)
-* [Deployment sequence](#deployment-sequence)
-  * [Phase 1 — Continuous Integration (CI)](#phase-1--continuous-integration-ci)
-  * [Phase 2 — Build & Package](#phase-2--build--package)
-  * [Phase 3 — Deployment](#phase-3--deployment)
-  * [Phase 4 — Promotion, Monitoring & Rollback](#phase-4--promotion-monitoring--rollback)
-* [AWS Components configuration](#aws-components-configuration)
-  * [Phase 0 - Prereqs & Naming](#phase-0---prereqs--naming)
-  * [Phase 1 - Foundation (Networking & Accounts)](#phase-1---foundation-networking--accounts)
-  * [Phase 2 - Data (RDS PostgreSQL)](#phase-2---data-rds-postgresql)
-  * [Phase 3 - Images (ECR) & Build](#phase-3---images-ecr--build)
-  * [Phase 4 - IAM for CI/CD & Tasks](#phase-4---iam-for-cicd--tasks)
-    * [GitHub → AWS (OIDC)](#github--aws-oidc)
-    * [ECS Roles](#ecs-roles)
-  * [Phase 5 - ECS (Cluster, Task Def, ALB, Service)](#phase-5---ecs-cluster-task-def-alb-service)
-  * [Phase 6 - GitHub Actions (CI/CD)](#phase-6---github-actions-cicd)
-    * [Build & Push](#build--push)
-    * [Deploy](#deploy)
-  * [Phase 7 - Frontend (React on S3 + CloudFront)](#phase-7---frontend-react-on-s3--cloudfront)
-  * [Phase 8 - Observability & Ops](#phase-8---observability--ops)
-  * [Phase 9 - Security Essentials](#phase-9---security-essentials)
-  * [Phase 10 - Test & Promote](#phase-10---test--promote)
-  * [Creation Order Summary](#creation-order-summary)
-* [AWS Cloud Resource Naming Conventions](#aws-cloud-resource-naming-conventions)
-  * [1) Simple rules (use everywhere)](#1-simple-rules-use-everywhere)
-  * [2) Canonical pattern](#2-canonical-pattern)
-  * [3) Per-service naming templates](#3-per-service-naming-templates)
-  * [4) Tagging strategy (mandatory-your best friend)](#4-tagging-strategy-mandatory-your-best-friend)
-  * [5) Worked examples](#5-worked-examples)
-    * [A) External client – ACME, Invoicer project, API service, prod in eu-west-1](#a-external-client--acme-invoicer-project-api-service-prod-in-eu-west-1)
-    * [B) Your SaaS – “Ledger”, worker service, staging in eu-central-1](#b-your-saas--ledger-worker-service-staging-in-eu-central-1)
-    * [C) Portfolio – “portfolio-site”, no client, dev in eu-west-1](#c-portfolio--portfolio-site-no-client-dev-in-eu-west-1)
-    * [Image tags & versions](#image-tags--versions)
-    * [Guardrails & pitfalls](#guardrails--pitfalls)
-    * [Drop-in variables (IaC)](#drop-in-variables-iac)
-* [AWS + Copilot Cheatsheet](#aws--copilot-cheatsheet)
-  * [1. Project Structure](#1-project-structure)
-  * [2. Backend Setup (Spring Boot + Docker + AWS Copilot)](#2-backend-setup-spring-boot--docker--aws-copilot)
-    * [Build + Test Locally](#build--test-locally)
-    * [Copilot App Initialization](#copilot-app-initialization)
-    * [Create and Deploy Service](#create-and-deploy-service)
-    * [Modify manifest (for internal/private API)](#modify-manifest-for-internalprivate-api)
-  * [3. Frontend Setup (React + TypeScript + Vite)](#3-frontend-setup-react--typescript--vite)
-    * [Create project](#create-project)
-  * [4. Deploy Frontend (S3 + CloudFront)](#4-deploy-frontend-s3--cloudfront)
-    * [Create S3 bucket](#create-s3-bucket)
-    * [Create Origin Access Control (OAC)](#create-origin-access-control-oac)
-    * [Create CloudFront Distribution](#create-cloudfront-distribution)
-    * [S3 Bucket Policy](#s3-bucket-policy)
-    * [Build and Upload](#build-and-upload)
-    * [Invalidate CloudFront Cache](#invalidate-cloudfront-cache)
-    * [Verify](#verify)
-  * [5. Never Commit These](#5-never-commit-these)
-    * [Sensitive / private files](#sensitive--private-files)
-* [Delete all AWS Ressources](#delete-all-aws-ressources)
-  * [1. Delete the backend (ECS) via Copilot](#1-delete-the-backend-ecs-via-copilot)
-    * [Verify deletion (optional sanity check)](#verify-deletion-optional-sanity-check)
-    * [3. Delete the CloudFront distribution](#3-delete-the-cloudfront-distribution)
-    * [4. Delete the frontend S3 bucket](#4-delete-the-frontend-s3-bucket)
-    * [5. Remove Origin Access Control (OAC)](#5-remove-origin-access-control-oac)
-    * [6. Optional: Clean leftover ECR repositories (if Copilot didn’t)](#6-optional-clean-leftover-ecr-repositories-if-copilot-didnt)
-    * [7. Optional: Clean IAM roles (Copilot sometimes leaves environment roles)](#7-optional-clean-iam-roles-copilot-sometimes-leaves-environment-roles)
-    * [8. Optional: Delete CloudWatch log groups](#8-optional-delete-cloudwatch-log-groups)
-    * [9. Validate your AWS account is clean](#9-validate-your-aws-account-is-clean)
-    * [Common Misses (and hidden costs)](#common-misses-and-hidden-costs)
+- [To Do's](#to-dos)
+  - [🎯 Goals \& Scope](#-goals--scope)
+  - [🧭 Structure \& Navigation](#-structure--navigation)
+  - [🔒 Security \& Privacy Hygiene](#-security--privacy-hygiene)
+  - [⚙️ Copilot-Specific Clarifications](#️-copilot-specific-clarifications)
+  - [💻 Frontend (Vite) Clarity](#-frontend-vite-clarity)
+  - [🌐 CloudFront + S3 Configuration](#-cloudfront--s3-configuration)
+  - [🧱 Backend Containerization](#-backend-containerization)
+  - [🗄️ Optional RDS Integration](#️-optional-rds-integration)
+  - [🚀 CI/CD Workflows](#-cicd-workflows)
+  - [🧩 Troubleshooting \& Teardown](#-troubleshooting--teardown)
+  - [🧾 Consistency \& Readability](#-consistency--readability)
+  - [📚 Documentation Hygiene](#-documentation-hygiene)
+  - [✅ Verification Steps](#-verification-steps)
+  - [💡 Optional Enhancements](#-optional-enhancements)
+- [Reference Resources \& Templates](#reference-resources--templates)
+  - [Official AWS Sources](#official-aws-sources)
+  - [AWS Samples \& Community Templates](#aws-samples--community-templates)
+  - [Supplemental](#supplemental)
+- [Table of Contents](#table-of-contents)
+- [Architecture](#architecture)
+  - [High Level Architecture](#high-level-architecture)
+- [Backend Clean Architecture](#backend-clean-architecture)
+- [Continuous Integration CI](#continuous-integration-ci)
+  - [1. Repo hygiene](#1-repo-hygiene)
+  - [2. Build \& unit tests (+ coverage)](#2-build--unit-tests--coverage)
+  - [3. Integration tests (backend)](#3-integration-tests-backend)
+  - [4. End-to-end (E2E) UI tests](#4-end-to-end-e2e-ui-tests)
+  - [5. API contract / smoke tests](#5-api-contract--smoke-tests)
+  - [6. Dependency \& license compliance](#6-dependency--license-compliance)
+  - [7. SAST](#7-sast)
+  - [8. Secrets scanning](#8-secrets-scanning)
+  - [9. SBOM generation](#9-sbom-generation)
+  - [10. Container build \& scan](#10-container-build--scan)
+  - [11. Lightweight DAST](#11-lightweight-dast)
+  - [12. Artifacts \& reporting](#12-artifacts--reporting)
+  - [13. Caching](#13-caching)
+  - [14. Triggers \& concurrency](#14-triggers--concurrency)
+  - [15. Optional: pre-commit automation](#15-optional-pre-commit-automation)
+- [Continuous Deployment CD](#continuous-deployment-cd)
+  - [Build \& Package](#build--package)
+  - [Deployment](#deployment)
+  - [Promotion, Monitoring \& Rollback](#promotion-monitoring--rollback)
+- [AWS Components configuration](#aws-components-configuration)
+  - [Phase 0 - Prereqs \& Naming](#phase-0---prereqs--naming)
+  - [Phase 1 - Foundation (Networking \& Accounts)](#phase-1---foundation-networking--accounts)
+  - [Phase 2 - Data (RDS PostgreSQL)](#phase-2---data-rds-postgresql)
+  - [Phase 3 - Images (ECR) \& Build](#phase-3---images-ecr--build)
+  - [Phase 4 - IAM for CI/CD \& Tasks](#phase-4---iam-for-cicd--tasks)
+    - [GitHub → AWS (OIDC)](#github--aws-oidc)
+    - [ECS Roles](#ecs-roles)
+  - [Phase 5 - ECS (Cluster, Task Def, ALB, Service)](#phase-5---ecs-cluster-task-def-alb-service)
+  - [Phase 6 - GitHub Actions (CI/CD)](#phase-6---github-actions-cicd)
+    - [Build \& Push](#build--push)
+    - [Deploy](#deploy)
+  - [Phase 7 - Frontend (React on S3 + CloudFront)](#phase-7---frontend-react-on-s3--cloudfront)
+  - [Phase 8 - Observability \& Ops](#phase-8---observability--ops)
+  - [Phase 9 - Security Essentials](#phase-9---security-essentials)
+  - [Phase 10 - Test \& Promote](#phase-10---test--promote)
+  - [Creation Order Summary](#creation-order-summary)
+- [AWS Cloud Resource Naming Conventions](#aws-cloud-resource-naming-conventions)
+  - [1) Simple rules (use everywhere)](#1-simple-rules-use-everywhere)
+  - [2) Canonical pattern](#2-canonical-pattern)
+  - [3) Per-service naming templates](#3-per-service-naming-templates)
+  - [4) Tagging strategy (mandatory-your best friend)](#4-tagging-strategy-mandatory-your-best-friend)
+  - [5) Worked examples](#5-worked-examples)
+    - [A) External client – ACME, Invoicer project, API service, prod in eu-west-1](#a-external-client--acme-invoicer-project-api-service-prod-in-eu-west-1)
+    - [B) Your SaaS – “Ledger”, worker service, staging in eu-central-1](#b-your-saas--ledger-worker-service-staging-in-eu-central-1)
+    - [C) Portfolio – “portfolio-site”, no client, dev in eu-west-1](#c-portfolio--portfolio-site-no-client-dev-in-eu-west-1)
+    - [Image tags \& versions](#image-tags--versions)
+    - [Guardrails \& pitfalls](#guardrails--pitfalls)
+    - [Drop-in variables (IaC)](#drop-in-variables-iac)
+- [AWS + Copilot Cheatsheet](#aws--copilot-cheatsheet)
+  - [1. Project Structure](#1-project-structure)
+  - [2. Backend Setup (Spring Boot + Docker + AWS Copilot)](#2-backend-setup-spring-boot--docker--aws-copilot)
+    - [Build + Test Locally](#build--test-locally)
+    - [Copilot App Initialization](#copilot-app-initialization)
+    - [Create and Deploy Service](#create-and-deploy-service)
+    - [Modify manifest (for internal/private API)](#modify-manifest-for-internalprivate-api)
+  - [3. Frontend Setup (React + TypeScript + Vite)](#3-frontend-setup-react--typescript--vite)
+    - [Create project](#create-project)
+  - [4. Deploy Frontend (S3 + CloudFront)](#4-deploy-frontend-s3--cloudfront)
+    - [Create S3 bucket](#create-s3-bucket)
+    - [Create Origin Access Control (OAC)](#create-origin-access-control-oac)
+    - [Create CloudFront Distribution](#create-cloudfront-distribution)
+    - [S3 Bucket Policy](#s3-bucket-policy)
+    - [Build and Upload](#build-and-upload)
+    - [Invalidate CloudFront Cache](#invalidate-cloudfront-cache)
+    - [Verify](#verify)
+  - [5. Never Commit These](#5-never-commit-these)
+    - [Sensitive / private files](#sensitive--private-files)
+  - [Delete all AWS Ressources](#delete-all-aws-ressources)
+    - [1. Delete the backend (ECS) via Copilot](#1-delete-the-backend-ecs-via-copilot)
+      - [Verify deletion (optional sanity check)](#verify-deletion-optional-sanity-check)
+    - [3. Delete the CloudFront distribution](#3-delete-the-cloudfront-distribution)
+    - [4. Delete the frontend S3 bucket](#4-delete-the-frontend-s3-bucket)
+    - [5. Remove Origin Access Control (OAC)](#5-remove-origin-access-control-oac)
+    - [6. Optional: Clean leftover ECR repositories (if Copilot didn’t)](#6-optional-clean-leftover-ecr-repositories-if-copilot-didnt)
+    - [7. Optional: Clean IAM roles (Copilot sometimes leaves environment roles)](#7-optional-clean-iam-roles-copilot-sometimes-leaves-environment-roles)
+    - [8. Optional: Delete CloudWatch log groups](#8-optional-delete-cloudwatch-log-groups)
+    - [9. Validate your AWS account is clean](#9-validate-your-aws-account-is-clean)
+    - [10. Common Misses (and hidden costs)](#10-common-misses-and-hidden-costs)
 <!-- TOC -->
 
-# High Level Architecture 
+# Architecture
+
+## High Level Architecture 
 ```mermaid
 flowchart TB
   %% Style / groups
@@ -293,23 +331,115 @@ flowchart TB
 ```
 
 
-| Component | Responsibility |
-|------------|----------------|
-| **GitHub Actions** | Runs CI/CD, builds and deploys code. |
-| **OIDC + IAM Roles** | Securely authorize GitHub to assume AWS roles. |
-| **Amazon ECR** | Stores versioned Docker images. |
-| **Amazon ECS (Fargate)** | Runs backend containers with zero server management. |
-| **RDS PostgreSQL** | Persistent managed database. |
-| **S3 + CloudFront** | Host and distribute the React frontend globally. |
-| **CloudWatch** | Logs, metrics, and alarms for monitoring and rollback visibility. |
+| Component                | Responsibility                                                    |
+| ------------------------ | ----------------------------------------------------------------- |
+| **GitHub Actions**       | Runs CI/CD, builds and deploys code.                              |
+| **OIDC + IAM Roles**     | Securely authorize GitHub to assume AWS roles.                    |
+| **Amazon ECR**           | Stores versioned Docker images.                                   |
+| **Amazon ECS (Fargate)** | Runs backend containers with zero server management.              |
+| **RDS PostgreSQL**       | Persistent managed database.                                      |
+| **S3 + CloudFront**      | Host and distribute the React frontend globally.                  |
+| **CloudWatch**           | Logs, metrics, and alarms for monitoring and rollback visibility. |
 
 
+# Backend Clean Architecture
+
+```mermaid
+classDiagram
+    class GreetingController {
+      +GET /api/greetings
+      +GET /api/greetings/id
+      -GreetingService greetingService
+    }
+
+    class GreetingService {
+      -GreetingRepository greetingRepository
+      -Clock clock
+      +GreetingDto greet(name)
+      +GreetingDto getById(id)
+    }
+
+    class GreetingRepository {
+      <<domain port>>
+      +Greeting save(Greeting)
+      +Optional~Greeting~ findById(Long)
+    }
+
+    class GreetingRepositoryAdapter {
+      <<infrastructure adapter>>
+      -GreetingRepositoryJpa jpa
+      +Greeting save(Greeting)
+      +Optional~Greeting~ findById(Long)
+    }
+
+    class GreetingRepositoryJpa {
+      <<Spring Data JPA>>
+      +save(GreetingEntity)
+      +findById(Long)
+    }
+
+    class GreetingEntity {
+      <<JPA entity>>
+      Long id
+      String name
+      String message
+      Instant createdAt
+    }
+
+    class GreetingConfiguration {
+      <<@Configuration>>
+      +Clock clock()
+      +GreetingService greetingService(...)
+      +GreetingRepository greetingRepository(...)
+    }
+
+    class Clock {
+      <<java.time.Clock>>
+    }
+
+    class PostgreSQL {
+      <<DB>>
+    }
+
+    GreetingController --> GreetingService
+    GreetingService --> GreetingRepository
+    GreetingRepositoryAdapter ..|> GreetingRepository
+    GreetingRepositoryAdapter --> GreetingRepositoryJpa
+    GreetingRepositoryJpa --> GreetingEntity
+    GreetingRepositoryJpa --> PostgreSQL
+    GreetingService --> Clock
+    GreetingConfiguration --> GreetingService
+    GreetingConfiguration --> GreetingRepositoryAdapter
+    GreetingConfiguration --> Clock
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Client (Browser/Frontend)
+    participant GC as GreetingController
+    participant GS as GreetingService
+    participant GR as GreetingRepository (port)
+    participant GRA as GreetingRepositoryAdapter
+    participant JPA as GreetingRepositoryJpa
+    participant DB as PostgreSQL DB
+
+    C->>GC: HTTP GET /api/greetings?name=Alice
+    GC->>GS: greet("Alice")
+    GS->>GS: build domain Greeting (uses Clock)
+    GS->>GR: save(greeting)
+    GR->>GRA: (interface call)
+    GRA->>JPA: save(GreetingEntity)
+    JPA->>DB: INSERT INTO greetings (...)
+    DB-->>JPA: persisted row
+    JPA-->>GRA: GreetingEntity
+    GRA-->>GS: Greeting (domain)
+    GS-->>GC: GreetingDto
+    GC-->>C: 200 OK + JSON body
+
+```
 ---
 
-# Deployment sequence
-
-
-## Phase 1 — Continuous Integration (CI)
+# Continuous Integration CI
 
 1. **Developer pushes code**  
    A developer pushes changes to the `main` branch or opens a Pull Request (PR).  
@@ -333,65 +463,67 @@ flowchart TB
    - For accidentally committed secrets  
    If any high-severity issue is found → the pipeline fails.
 
-### 1. Repo hygiene
+## 1. Repo hygiene
 - Conventional commit check: commitlint (optional, local pre-commit).
 - Formatting/lint: Frontend → Prettier, ESLint; Backend → SpotBugs, PMD, Checkstyle.
 - Type checks: tsc --noEmit for TypeScript projects.
 
-### 2. Build & unit tests (+ coverage)
+## 2. Build & unit tests (+ coverage)
 Frontend: Node 23 LTS; pnpm/npm ci → jest/vitest unit tests; coverage → c8/nyc.
 Backend: JDK 25 LTS; Maven; unit tests via Surefire; coverage via JaCoCo.
 
-### 3. Integration tests (backend)
+## 3. Integration tests (backend)
 Use Failsafe + Testcontainers (Postgres/Redis/etc.) so tests run hermetically in CI.
 
-### 4. End-to-end (E2E) UI tests
+## 4. End-to-end (E2E) UI tests
 Playwright (OSS; headless browsers auto-provisioned), or Cypress (runner OSS; no paid dashboard).
 
-### 5. API contract / smoke tests
+## 5. API contract / smoke tests
 - Newman (OSS CLI for Postman collections) or REST Assured tests in the backend module.
 
-### 6. Dependency & license compliance
+## 6. Dependency & license compliance
 Java: OWASP Dependency-Check (Maven plugin).
 JS: osv-scanner (Google OSV), plus license-checker or CycloneDX SBOM for license review.
 
-### 7. SAST
+## 7. SAST
 Semgrep OSS ruleset (JS/TS + Java) including security rules.
 Java-specific: SpotBugs + FindSecBugs plugin.
 
-### 8. Secrets scanning
+## 8. Secrets scanning
 Gitleaks (fast OSS).
 
-### 9. SBOM generation
+## 9. SBOM generation
 CycloneDX: Maven plugin for Java; cyclonedx-npm (or cyclonedx-bom) for JS.
 Syft (alternative, multi-ecosystem and for container images).
 
-### 10. Container build & scan
+## 10. Container build & scan
 Build image with Docker Buildx.
 Scan with Trivy (vulns + misconfig) and Grype (optional second opinion).
 Produce image SBOM with Syft (CycloneDX or SPDX).
 
-### 11. Lightweight DAST
+## 11. Lightweight DAST
 OWASP ZAP Baseline Scan against the ephemeral app (run backend container + mock dependencies).
 
-### 12. Artifacts & reporting
+## 12. Artifacts & reporting
 Upload coverage reports, HTML linters, JUnit XML, SBOMs, SARIF from Semgrep/Trivy/Gitleaks.
 Fail PR on high/critical issues; warn on medium.
 
-### 13. Caching
+## 13. Caching
 actions/setup-node with cache: 'npm' | 'pnpm' | 'yarn'.
 actions/setup-java with cache: 'maven' | 'gradle'.
 Docker Buildx layer cache (type=gha).
 
-### 14. Triggers & concurrency
+## 14. Triggers & concurrency
 Run on pull_request and push to main.
 Path filters (frontend/**, backend/**) to skip unrelated jobs.
 concurrency group per-branch to cancel superseded runs.
 
-### 15. Optional: pre-commit automation
+## 15. Optional: pre-commit automation
 Husky + lint-staged for local dev parity (not required by CI but recommended).
 
-## Phase 2 — Build & Package
+# Continuous Deployment CD
+
+## Build & Package
 
 6. **Authenticate GitHub → AWS via OIDC**  
    GitHub Actions requests an OpenID Connect (OIDC) token from `token.actions.githubusercontent.com`.  
@@ -421,7 +553,7 @@ Husky + lint-staged for local dev parity (not required by CI but recommended).
     If any migration fails → deployment is blocked until fixed.
 
 
-## Phase 3 — Deployment
+## Deployment
 
 12. **Authenticate again with AWS (deployment role)**  
     The pipeline assumes a second AWS IAM role:  
@@ -466,7 +598,7 @@ Husky + lint-staged for local dev parity (not required by CI but recommended).
     If any fail → automatically roll back to the previous ECS task definition.
 
 
-## Phase 4 — Promotion, Monitoring & Rollback
+## Promotion, Monitoring & Rollback
 
 20. **Promotion**  
     After the first environment (e.g. `staging`) passes health & smoke tests, the same image digest is promoted to `prod` via manual GitHub approval.
@@ -767,42 +899,42 @@ If a service is whole-app, you can drop `{svc}` and use `{proj}`.
 
 ## 3) Per-service naming templates
 
-| Category | Resource | Naming Convention / Example |
-|-----------|-----------|-----------------------------|
-| **Compute** | **ECR repo** | `{org}`[-`{client}`]/`{proj}`/`{svc}`-`{env}` |
-|  | **Tags (image)** | :v`{semver}`, :git-`{shortsha}`, :`{env}` |
-|  | **App Runner service** | `{org}`-`{opt_client}`-`{proj}`-`{svc}`-`{env}`-`{region}` |
-| **ECS** | **Cluster** | `{org}`-`{opt_client}`-`{proj}`-`{env}`-`{region}`-ecs |
-|  | **Service** | `{org}`-`{opt_client}`-`{proj}`-`{svc}`-`{env}`-`{region}`-svc |
-|  | **Task def (family)** | `{org}`-`{proj}`-`{svc}` |
-|  | **Lambda function** | `{org}`-`{opt_client}`-`{proj}`-`{svc}`-`{env}` (keep ≤ 64 chars) |
-| **Networking & Edge** | **VPC** | `{org}`-`{opt_client}`-`{proj}`-`{env}`-`{region}`-vpc |
-|  | **Subnets** | `{org}`-`{proj}`-`{env}`-`{region}`-`{tier}`-`{az}` e.g., `zenbyte-invoicer-dev-euw1-app-a` |
-|  | **Security Group** | `{org}`-`{proj}`-`{svc}`-`{env}`-sg |
-|  | **ALB/NLB** | `{org}`-`{proj}`-`{env}`-`{region}`-alb |
-|  | **Target group** | `{org}`-`{proj}`-`{svc}`-`{env}`-tg |
-|  | **Route 53 records** | `{svc}`.`{env}`.`{proj}`.`{domain}` e.g., `api.dev.invoicer.example.com` |
-|  | **CloudFront distro** | `{org}`-`{proj}`-`{env}`-cdn |
-| **Data & Storage** | **S3 buckets** | `{org}`-`{opt_client}`-`{proj}`-`{tier}`-`{env}`-`{region}`-`{seq}` e.g., `zenbyte-invoicer-artifacts-dev-euw1-1` |
-|  | **RDS instance/cluster** | `{org}`-`{proj}`-`{env}`-`{region}`-db |
-|  | **DynamoDB table** | `{org}`-`{proj}`-`{svc}`-`{env}` |
-|  | **ElastiCache** | `{org}`-`{proj}`-`{env}`-`{region}`-cache |
-| **Messaging & Integration** | **SQS queue** | `{org}`-`{proj}`-`{svc}`-`{env}`-q |
-|  | **SNS topic** | `{org}`-`{proj}`-`{svc}`-`{env}`-topic |
-|  | **EventBridge bus/rule** | `{org}`-`{proj}`-`{env}`-bus, `{org}`-`{proj}`-`{svc}`-`{env}`-rule |
-| **Config, Secrets, Keys** | **SSM Parameter prefix** | /`{org}`/`{opt_client}`/`{proj}`/`{env}`/`{svc}`/... e.g., `/zenbyte/invoicer/prod/api/SPRING_DATASOURCE_URL` |
-|  | **Secrets Manager name** | `{org}`/`{opt_client}`/`{proj}`/`{env}`/`{svc}`/db |
-|  | **KMS key alias** | `alias/{org}-{proj}-{env}` |
-| **Observability** | **CloudWatch log group** | `/aws/{runtime}/{org}/{proj}/{svc}/{env}` e.g., `/aws/ecs/zenbyte/invoicer/api/prod` |
-|  | **X-Ray group** | `{org}`-`{proj}`-`{env}`-xray |
-| **CI/CD & Artifacts** | **CodeBuild/CodePipeline/Artifacts S3** |  |
-|  | **Project** | `{org}`-`{proj}`-`{env}`-build |
-|  | **Pipeline** | `{org}`-`{proj}`-`{env}`-pipe |
-|  | **Artifacts bucket** | `{org}`-`{proj}`-artifacts-`{region}` |
-|  | **GitHub Actions env names** | `{proj}`-`{env}` |
-| **IAM (≤ 64 chars)** | **Roles** | `role-{org}-{proj}-{svc}-{env}-{purpose}` e.g., `role-zenbyte-invoicer-api-prod-task` |
-|  | **Policies** | `pol-{org}-{proj}-{svc}-{purpose}` |
-|  | **Instance profiles** | `ip-{org}-{proj}-{svc}-{env}` |
+| Category                    | Resource                                | Naming Convention / Example                                                                                       |
+| --------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Compute**                 | **ECR repo**                            | `{org}`[-`{client}`]/`{proj}`/`{svc}`-`{env}`                                                                     |
+|                             | **Tags (image)**                        | :v`{semver}`, :git-`{shortsha}`, :`{env}`                                                                         |
+|                             | **App Runner service**                  | `{org}`-`{opt_client}`-`{proj}`-`{svc}`-`{env}`-`{region}`                                                        |
+| **ECS**                     | **Cluster**                             | `{org}`-`{opt_client}`-`{proj}`-`{env}`-`{region}`-ecs                                                            |
+|                             | **Service**                             | `{org}`-`{opt_client}`-`{proj}`-`{svc}`-`{env}`-`{region}`-svc                                                    |
+|                             | **Task def (family)**                   | `{org}`-`{proj}`-`{svc}`                                                                                          |
+|                             | **Lambda function**                     | `{org}`-`{opt_client}`-`{proj}`-`{svc}`-`{env}` (keep ≤ 64 chars)                                                 |
+| **Networking & Edge**       | **VPC**                                 | `{org}`-`{opt_client}`-`{proj}`-`{env}`-`{region}`-vpc                                                            |
+|                             | **Subnets**                             | `{org}`-`{proj}`-`{env}`-`{region}`-`{tier}`-`{az}` e.g., `zenbyte-invoicer-dev-euw1-app-a`                       |
+|                             | **Security Group**                      | `{org}`-`{proj}`-`{svc}`-`{env}`-sg                                                                               |
+|                             | **ALB/NLB**                             | `{org}`-`{proj}`-`{env}`-`{region}`-alb                                                                           |
+|                             | **Target group**                        | `{org}`-`{proj}`-`{svc}`-`{env}`-tg                                                                               |
+|                             | **Route 53 records**                    | `{svc}`.`{env}`.`{proj}`.`{domain}` e.g., `api.dev.invoicer.example.com`                                          |
+|                             | **CloudFront distro**                   | `{org}`-`{proj}`-`{env}`-cdn                                                                                      |
+| **Data & Storage**          | **S3 buckets**                          | `{org}`-`{opt_client}`-`{proj}`-`{tier}`-`{env}`-`{region}`-`{seq}` e.g., `zenbyte-invoicer-artifacts-dev-euw1-1` |
+|                             | **RDS instance/cluster**                | `{org}`-`{proj}`-`{env}`-`{region}`-db                                                                            |
+|                             | **DynamoDB table**                      | `{org}`-`{proj}`-`{svc}`-`{env}`                                                                                  |
+|                             | **ElastiCache**                         | `{org}`-`{proj}`-`{env}`-`{region}`-cache                                                                         |
+| **Messaging & Integration** | **SQS queue**                           | `{org}`-`{proj}`-`{svc}`-`{env}`-q                                                                                |
+|                             | **SNS topic**                           | `{org}`-`{proj}`-`{svc}`-`{env}`-topic                                                                            |
+|                             | **EventBridge bus/rule**                | `{org}`-`{proj}`-`{env}`-bus, `{org}`-`{proj}`-`{svc}`-`{env}`-rule                                               |
+| **Config, Secrets, Keys**   | **SSM Parameter prefix**                | /`{org}`/`{opt_client}`/`{proj}`/`{env}`/`{svc}`/... e.g., `/zenbyte/invoicer/prod/api/SPRING_DATASOURCE_URL`     |
+|                             | **Secrets Manager name**                | `{org}`/`{opt_client}`/`{proj}`/`{env}`/`{svc}`/db                                                                |
+|                             | **KMS key alias**                       | `alias/{org}-{proj}-{env}`                                                                                        |
+| **Observability**           | **CloudWatch log group**                | `/aws/{runtime}/{org}/{proj}/{svc}/{env}` e.g., `/aws/ecs/zenbyte/invoicer/api/prod`                              |
+|                             | **X-Ray group**                         | `{org}`-`{proj}`-`{env}`-xray                                                                                     |
+| **CI/CD & Artifacts**       | **CodeBuild/CodePipeline/Artifacts S3** |                                                                                                                   |
+|                             | **Project**                             | `{org}`-`{proj}`-`{env}`-build                                                                                    |
+|                             | **Pipeline**                            | `{org}`-`{proj}`-`{env}`-pipe                                                                                     |
+|                             | **Artifacts bucket**                    | `{org}`-`{proj}`-artifacts-`{region}`                                                                             |
+|                             | **GitHub Actions env names**            | `{proj}`-`{env}`                                                                                                  |
+| **IAM (≤ 64 chars)**        | **Roles**                               | `role-{org}-{proj}-{svc}-{env}-{purpose}` e.g., `role-zenbyte-invoicer-api-prod-task`                             |
+|                             | **Policies**                            | `pol-{org}-{proj}-{svc}-{purpose}`                                                                                |
+|                             | **Instance profiles**                   | `ip-{org}-{proj}-{svc}-{env}`                                                                                     |
 
 
 ## 4) Tagging strategy (mandatory-your best friend)
@@ -810,18 +942,18 @@ If a service is whole-app, you can drop `{svc}` and use `{proj}`.
 Apply these AWS Tags to every resource (via IaC)
 Also set AWS Budgets per tag (Project, Client, Environment) for cost visibility.
 
-| Key	| Example |	Notes |
-|- |-|-|
-| Owner |	yourname |	Person/team accountable
-| Org	| zenbyte	| Your org/brand
-| Client |	acme or internal |	External client or internal
-| Project |	invoicer |	Product/app key
-| Service	 | api	| Microservice/component
-| Environment | dev	| stg
-| Region |	eu-west-1 |	Full AWS region
-| CostCenter |	CONSULTING	| Optional but great for billing
-| Compliance |	none |	gdpr
-| DataClass	| public	| internal
+| Key         | Example          | Notes                          |
+| ----------- | ---------------- | ------------------------------ |
+| Owner       | yourname         | Person/team accountable        |
+| Org         | zenbyte          | Your org/brand                 |
+| Client      | acme or internal | External client or internal    |
+| Project     | invoicer         | Product/app key                |
+| Service     | api              | Microservice/component         |
+| Environment | dev              | stg                            |
+| Region      | eu-west-1        | Full AWS region                |
+| CostCenter  | CONSULTING       | Optional but great for billing |
+| Compliance  | none             | gdpr                           |
+| DataClass   | public           | internal                       |
 
 
 ## 5) Worked examples
@@ -1200,8 +1332,8 @@ copilot/**/manifest.yml  # optional, if it contains secrets
 *.crt
 
 
-# Delete all AWS Ressources
-## 1. Delete the backend (ECS) via Copilot
+## Delete all AWS Ressources
+### 1. Delete the backend (ECS) via Copilot
 ``` bash
 cd /path/to/template-app
 copilot svc delete --name api
@@ -1229,7 +1361,7 @@ This step deletes:
 - VPCs created for the environment
 
 
-### Verify deletion (optional sanity check)
+#### Verify deletion (optional sanity check)
 ``` bash
 aws cloudformation list-stacks --query "StackSummaries[?StackName.contains(@, 'spring-react-demo')].StackStatus"
 ```
@@ -1318,7 +1450,7 @@ aws cloudfront list-distributions
 aws s3 ls
 ```
 
-### Common Misses (and hidden costs)
+### 10. Common Misses (and hidden costs)
 | Resource                       | Typical Monthly Cost         | Delete Command                       |
 | ------------------------------ | ---------------------------- | ------------------------------------ |
 | CloudFront distribution        | ~$0.02–$0.10/day if active   | Step 3                               |
