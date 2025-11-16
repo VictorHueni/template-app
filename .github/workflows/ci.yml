@@ -176,14 +176,16 @@ jobs:
 
       # Cache Playwright browsers
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json') }}
 
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
-        run: npx playwright install --with-deps
+        run: npx playwright install
 
       # --- E2E ---------------------------------------------------------------
       - name: Run Playwright E2E tests
