@@ -10,7 +10,9 @@ import java.util.Map;
 @CrossOrigin(origins = "*") // simplify for test
 @RestController
 public class HelloController {
-    @GetMapping("/health") public Map<String,String> health(){ return Map.of("status","ok"); }
+    @GetMapping("/health") public Map<String,String> health() {
+        return Map.of("status","ok");
+    }
 
     @GetMapping("/api/hello")
     public Map<String, String> hello(@RequestParam(defaultValue = "world") String name) {
