@@ -29,6 +29,9 @@
 	<properties>
 		<java.version>25</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+		<!-- default: do NOT skip unit tests -->
+		<skipUTs>false</skipUTs>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -179,6 +182,8 @@
 					</execution>
 				</executions>
 			</plugin>
+
+			<!-- JaCoCo code coverage -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -202,18 +207,43 @@
 				</executions>
 			</plugin>
 
+			<!-- Unit tests: Surefire -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.5.4</version>
+				<configuration>
+					<!-- Allow skipping unit tests when running integration-only job -->
+					<skipTests>${skipUTs}</skipTests>
+
+					<!-- Run only *Test / *Tests as "unit" tests -->
+					<includes>
+						<include>**/*Test.java</include>
+						<include>**/*Tests.java</include>
+					</includes>
+
+					<!-- Do NOT run IT classes here -->
+					<excludes>
+						<exclude>**/*IT.java</exclude>
+						<exclude>**/*ITCase.java</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+
+			<!-- Failsafe for integration tests -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<version>3.5.4</version>
 				<configuration>
 					<includes>
-						<!-- IT = integration tests -->
 						<include>**/*IT.java</include>
+						<include>**/*ITCase.java</include>
 					</includes>
 				</configuration>
 				<executions>
 					<execution>
+						<id>integration-tests</id>
 						<goals>
 							<goal>integration-test</goal>
 							<goal>verify</goal>
@@ -221,6 +251,7 @@
 					</execution>
 				</executions>
 			</plugin>
+
 		</plugins>
 
 	</build>
