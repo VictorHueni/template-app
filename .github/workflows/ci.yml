@@ -52,6 +52,7 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
           if-no-files-found: error
+
   backend_checks:
     runs-on: ubuntu-latest
     defaults:
@@ -74,7 +75,7 @@ jobs:
 
       # 2) Static analysis (Checkstyle, PMD, SpotBugs) without re-running tests
       - name: Repo hygiene (Checkstyle, PMD, SpotBugs+FindSecBugs)
-        run: ./mvnw -B verify -DskipTests
+        run: ./mvnw -B verify -DskipUTs=true -DskipITs=true
 
       - name: Upload backend test reports (Surefire)
         uses: actions/upload-artifact@v4
@@ -138,7 +139,7 @@ jobs:
 
       - name: Build backend (skip tests, they already ran)
         working-directory: backend
-        run: ./mvnw -B -DskipTests package
+        run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
 
       - name: Start backend
         working-directory: backend
