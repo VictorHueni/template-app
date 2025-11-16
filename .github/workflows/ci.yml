@@ -161,6 +161,7 @@ jobs:
 
       # --- BACKEND -----------------------------------------------------------
       - name: Setup Java
+        # this is fine from repo root
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -168,11 +169,12 @@ jobs:
           cache: maven
 
       - name: Build backend (skip tests, they already ran)
-        run: cd backend && ./mvnw -B -DskipTests package
+        working-directory: backend
+        run: ./mvnw -B -DskipTests package
 
       - name: Start backend
+        working-directory: backend
         run: |
-          cd backend
           nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
           echo $! > backend.pid
 
@@ -196,16 +198,18 @@ jobs:
           cache-dependency-path: "frontend/package-lock.json"
 
       - name: Install frontend deps
+        working-directory: frontend
         run: npm ci
 
       - name: Build frontend
+        working-directory: frontend
         run: npm run build
 
       - name: Start frontend preview server
+        working-directory: frontend
         run: |
           nohup npm run preview > preview.log 2>&1 &
           echo $! > frontend.pid
-        # If your Vite preview is not on port 4173 set BASE_URL accordingly
 
       - name: Wait for frontend readiness
         run: |
@@ -220,9 +224,11 @@ jobs:
 
       # --- E2E ---------------------------------------------------------------
       - name: Install Playwright browsers
+        working-directory: frontend
         run: npx playwright install --with-deps
 
       - name: Run Playwright E2E tests
+        working-directory: frontend
         run: npm run test:e2e:ci
         env:
           BASE_URL: http://localhost:4173
@@ -237,7 +243,8 @@ jobs:
 
       # --- CLEANUP -----------------------------------------------------------
       - name: Stop backend + frontend
+        # run from repo root, but kill by PID only
         if: always()
         run: |
-          kill $(cat backend.pid) || true
-          kill $(cat frontend.pid) || true
+          kill $(cat backend/backend.pid) 2>/dev/null || true
+          kill $(cat frontend/frontend.pid) 2>/dev/null || true
