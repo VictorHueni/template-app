@@ -12,11 +12,6 @@ export default defineConfig({
             reportsDirectory: "./coverage",
         },
         include: ["src/**/*.{test,spec}.{ts,tsx}"],
-        exclude: [
-            "e2e/**",
-            "node_modules/**",
-            "dist/**",
-            ".playwright/**",
-        ],
+        exclude: ["e2e/**", "node_modules/**", "dist/**", ".playwright/**"],
     },
 });

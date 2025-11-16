@@ -4,7 +4,9 @@ test("loads app and toggles theme", async ({ page }) => {
     await page.goto("/");
 
     // Title visible
-    await expect(page.getByRole("heading", { name: /react \+ typescript → spring/i })).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: /react \+ typescript → spring/i }),
+    ).toBeVisible();
 
     // API base text rendered
     await expect(page.getByText(/API base:/i)).toBeVisible();
