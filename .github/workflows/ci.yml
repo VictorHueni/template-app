@@ -155,9 +155,6 @@ jobs:
   e2e_test:
     runs-on: ubuntu-latest
     needs: [unit_test_frontend, integration_test_backend]
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
