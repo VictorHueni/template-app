@@ -256,6 +256,10 @@
 						<exclude>**/*IT.java</exclude>
 						<exclude>**/*ITCase.java</exclude>
 					</excludes>
+
+					<systemPropertyVariables>
+						<spring.profiles.active>test</spring.profiles.active>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 
