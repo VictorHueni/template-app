@@ -60,7 +60,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- FRONTEND: install once, reuse node cache ---------------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -72,7 +71,7 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # --- JS vuln scanning (osv-scanner) -------------------------------------
+      # JS vuln scanning (osv-scanner)
       - name: Download osv-scanner
         run: |
           curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
@@ -84,18 +83,21 @@ jobs:
         run: |
           osv-scanner --lockfile=package-lock.json
 
-      # --- SBOM (CycloneDX) WITHOUT devDep ------------------------------------
+      # SBOM (CycloneDX) – no devDependencies
       - name: Generate CycloneDX SBOM for frontend
         working-directory: frontend
         run: |
+          mkdir -p ../artifacts
           npx @cyclonedx/cyclonedx-npm@latest \
             --output-format json \
+            --omit dev \
             --output-file ../artifacts/frontend-sbom.json
 
-      # --- License report via one-off tool (optional) -------------------------
+      # License report (production deps only)
       - name: Generate frontend license report
         working-directory: frontend
         run: |
+          mkdir -p ../artifacts
           npx license-checker-rseidelsohn@latest \
             --json \
             --production \
@@ -146,11 +148,36 @@ jobs:
           path: backend/target/site/jacoco
           if-no-files-found: error
 
-      # --- security checks ---------------------------------------
-      - name: OWASP Dependency-Check (Maven)
+  backend_security:
+    runs-on: ubuntu-latest
+    needs: backend_checks
+    defaults:
+      run:
         working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # Cache Dependency-Check's local DB (CVE data)
+      - name: Cache OWASP Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: ~/.org.owasp/dependency-check
+          key: ${{ runner.os }}-owasp-dc-${{ hashFiles('backend/pom.xml') }}
+
+      - name: OWASP Dependency-Check (Maven)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           ./mvnw -B \
+            -DnvdApiKey=${NVD_API_KEY} \
             -Ddependency-check.skip=false \
             -DskipUTs=true \
             -DskipITs=true \
@@ -161,12 +188,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-dependency-vuln-report
-          path: backend/target/dependency-check-report
+          path: backend/target/dependency-check-report.*
           if-no-files-found: error
 
   integration_test_backend:
     runs-on: ubuntu-latest
-    needs: backend_checks
+    needs: backend_security
     defaults:
       run:
         working-directory: backend
