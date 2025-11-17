@@ -170,25 +170,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.org.owasp/dependency-check
-          key: ${{ runner.os }}-owasp-dc-${{ hashFiles('backend/pom.xml') }}
+          key: ${{ runner.os }}-owasp-dc-v12-1-9-${{ hashFiles('backend/pom.xml') }}
 
       - name: OWASP Dependency-Check (Maven)
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           ./mvnw -B \
-            -DnvdApiKey=${NVD_API_KEY} \
+            -Dnvd.api.key="${NVD_API_KEY}" \
             -Ddependency-check.skip=false \
             -DskipUTs=true \
             -DskipITs=true \
             -DskipTests=true \
-            org.owasp:dependency-check-maven:10.0.3:check
+            org.owasp:dependency-check-maven:check
 
       - name: Upload OWASP Dependency-Check report
         uses: actions/upload-artifact@v4
         with:
           name: backend-dependency-vuln-report
-          path: backend/target/dependency-check-report.*
+          path: backend/target/dependency-check-report
           if-no-files-found: error
 
   integration_test_backend:
