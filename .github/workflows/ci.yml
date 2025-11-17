@@ -53,6 +53,61 @@ jobs:
           path: frontend/coverage
           if-no-files-found: error
 
+  security_and_licenses:
+    runs-on: ubuntu-latest
+    needs: frontend_checks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- FRONTEND: install once, reuse node cache ---------------------------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      # --- JS vuln scanning (osv-scanner) -------------------------------------
+      - name: Download osv-scanner
+        run: |
+          curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
+            -o /usr/local/bin/osv-scanner
+          chmod +x /usr/local/bin/osv-scanner
+
+      - name: Scan frontend dependencies with osv-scanner
+        working-directory: frontend
+        run: |
+          osv-scanner --lockfile=package-lock.json --severity=HIGH,CRITICAL
+
+      # --- SBOM (CycloneDX) WITHOUT devDep ------------------------------------
+      - name: Generate CycloneDX SBOM for frontend
+        working-directory: frontend
+        run: |
+          npx @cyclonedx/cyclonedx-npm@latest \
+            --output-format json \
+            --output-file ../artifacts/frontend-sbom.json
+
+      # --- License report via one-off tool (optional) -------------------------
+      - name: Generate frontend license report
+        working-directory: frontend
+        run: |
+          npx license-checker-rseidelsohn@latest \
+            --json \
+            --production \
+            --out ../artifacts/frontend-licenses.json
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dependency-and-license-reports
+          path: artifacts
+          if-no-files-found: ignore
+
   backend_checks:
     runs-on: ubuntu-latest
     defaults:
@@ -89,6 +144,19 @@ jobs:
         with:
           name: backend-unit-test-coverage
           path: backend/target/site/jacoco
+          if-no-files-found: error
+
+      # --- security checks ---------------------------------------
+      - name: OWASP Dependency-Check (Maven)
+        run: ./mvnw -B org.owasp:dependency-check-maven:10.0.3:check \
+          -Ddependency-check.skip=false \
+          -DskipUTs=true -DskipITs=true -DskipTests=true
+
+      - name: Upload OWASP Dependency-Check report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dependency-vuln-report
+          path: backend/target/dependency-check-report
           if-no-files-found: error
 
   integration_test_backend:
