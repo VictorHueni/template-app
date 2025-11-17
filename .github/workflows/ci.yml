@@ -49,7 +49,7 @@ jobs:
       - name: Upload frontend coverage
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-coverage
+          name: frontend-unit-test-coverage
           path: frontend/coverage
           if-no-files-found: error
 
@@ -80,14 +80,14 @@ jobs:
       - name: Upload backend test reports (Surefire)
         uses: actions/upload-artifact@v4
         with:
-          name: backend-tests
+          name: backend-unit-test-results
           path: backend/target/surefire-reports
           if-no-files-found: error
 
       - name: Upload backend coverage (JaCoCo)
         uses: actions/upload-artifact@v4
         with:
-          name: backend-jacoco
+          name: backend-unit-test-coverage
           path: backend/target/site/jacoco
           if-no-files-found: error
 
@@ -118,7 +118,7 @@ jobs:
       - name: Upload backend integration test reports (Failsafe)
         uses: actions/upload-artifact@v4
         with:
-          name: backend-it-reports
+          name: backend-it-test-results
           path: backend/target/failsafe-reports
           if-no-files-found: error
 
@@ -213,7 +213,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: e2e-test-results
           path: frontend/playwright-report
           if-no-files-found: ignore
 
