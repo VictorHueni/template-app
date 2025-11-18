@@ -150,14 +150,17 @@ jobs:
 
   sast:
     runs-on: ubuntu-latest
-    needs: [frontend_checks, backend_checks] # wait until basic checks are green
+    needs: [frontend_checks, backend_checks]
+
+    permissions:
+      security-events: write # required to upload SARIF
+      contents: read # recommended
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # semgrep works better with full context
+          fetch-depth: 0
 
-      # Install Python (Semgrep is a Python CLI)
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -168,7 +171,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install "semgrep~=1.90.0"
 
-      # Run Semgrep locally, no SaaS / app token, JS + Java + whatever it detects
       - name: Run Semgrep SAST (JS + Java)
         run: |
           semgrep \
@@ -185,9 +187,20 @@ jobs:
           path: semgrep.sarif
           if-no-files-found: error
 
+      - name: Upload Semgrep SARIF to GitHub code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
   secrets_scan:
     runs-on: ubuntu-latest
     needs: [frontend_checks, backend_checks]
+
+    # Needed only if you also upload SARIF to the Security tab (optional step below)
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout
@@ -196,23 +209,35 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        id: gitleaks
-        uses: DariuszPorowski/github-action-gitleaks@v2
+        uses: gitleaks/gitleaks-action@v2
         with:
-          # scan current repo
-          source: ${{ github.workspace }}
-          # optional: use SARIF so you can upload to Code Scanning later if you want
-          report_format: sarif
-          # keep pipeline green but still get a report (flip to true to fail on leaks)
-          fail: false
+          # CLI args passed to `gitleaks` inside the action
+          args: detect \
+            --source=. \
+            --no-git \
+            --redact \
+            --report-format sarif \
+            --report-path gitleaks.sarif
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # For personal repos you usually DON'T need a license.
+          # Uncomment if you have an org license:
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-      - name: Upload Gitleaks report
+      - name: Upload Gitleaks report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-secrets-report
-          path: ${{ steps.gitleaks.outputs.report }}
+          path: gitleaks.sarif
           if-no-files-found: ignore
+
+      # Optional: show findings in GitHub Security > Code scanning alerts
+      - name: Upload Gitleaks SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks.sarif
 
   backend_security:
     runs-on: ubuntu-latest
