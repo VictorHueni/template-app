@@ -189,7 +189,7 @@ jobs:
 
       - name: Upload Semgrep SARIF to GitHub code scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
 
@@ -235,7 +235,7 @@ jobs:
       # Optional: show findings in GitHub Security > Code scanning alerts
       - name: Upload Gitleaks SARIF to GitHub Security
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks.sarif
 
