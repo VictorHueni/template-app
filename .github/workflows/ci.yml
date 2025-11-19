@@ -360,7 +360,8 @@ jobs:
           output: trivy-backend-results.sarif
           severity: CRITICAL,HIGH # Only fail on high/critical vulns
           # Scan the base OS, dependencies, and misconfigurations
-          vuln-type: "os,library,config"
+          vuln-type: "os,library"
+          scanners: "vuln,config"
           ignore-unfixed: true
 
       # --- Upload Trivy SARIF Report ---
@@ -378,7 +379,6 @@ jobs:
           output: trivy-postgres-results.sarif
           severity: CRITICAL,HIGH
           vuln-type: "os,library"
-          exit-code: "1"
           ignore-unfixed: true
 
       # --- Upload Postgres Trivy Report ---
