@@ -346,7 +346,7 @@ jobs:
       - name: Build Backend Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend # Path to Dockerfile and context root
+          context: ./backend
           file: ./backend/Dockerfile # Explicitly set Dockerfile location
           tags: ${{ env.IMAGE_TAG }}
           load: true # Load the image into the local runner's Docker daemon

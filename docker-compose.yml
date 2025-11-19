@@ -5,8 +5,8 @@ services:
   app:
     # Instructions to build the image from the Dockerfile
     build:
-      context: . # Start the build context from the root directory
-      dockerfile: backend/Dockerfile # Point to the Dockerfile in the backend folder
+      context: ./backend
+      dockerfile: Dockerfile
 
     container_name: demo-backend
 

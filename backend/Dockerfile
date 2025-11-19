@@ -4,23 +4,26 @@ ARG JAR_FILENAME=demo-0.0.1-SNAPSHOT.jar
 # === STAGE 1: BUILD ===
 FROM eclipse-temurin:25-jdk-jammy AS builder
 
-# Set the context root for Maven
+# Set the work directory to the final application root
 WORKDIR /app
 
-# Copy wrapper files from project root
+# 1. Copy POM files and wrappers for dependency caching
+# SOURCE PATHS ARE NOW RELATIVE TO THE BACKEND DIRECTORY (THE BUILD CONTEXT)
+COPY pom.xml .
 COPY mvnw .
 COPY .mvn .mvn
 
-# Copy backend pom and source code to their correct relative locations
-COPY backend/pom.xml backend/
-COPY backend/src backend/src/
+# Fetch dependencies (layer cache optimization)
+# The POM is now directly in the WORKDIR, so no need for -f
+RUN ./mvnw dependency:go-offline
 
-# Fetch all dependencies
-RUN ./mvnw dependency:go-offline -f backend/pom.xml
+# 2. Copy the source code
+# Copy contents of src/ to src/ in the WORKDIR
+COPY src src/
 
-# Build the application
-# Use -f to specify the pom location and skip tests
-RUN ./mvnw package -DskipTests -f backend/pom.xml
+# 3. Build the application
+# Run package from the WORKDIR, finds pom.xml and src/ correctly
+RUN ./mvnw package -DskipTests
 
 
 # === STAGE 2: RUNTIME (Production Image) ===
@@ -39,7 +42,7 @@ USER appuser
 # --- APPLICATION SETUP (AS NON-ROOT) ---
 WORKDIR /app
 
-# Environment variables for performance and timezone
+# Environment variables
 ENV TZ=UTC LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
     SPRING_PROFILES_ACTIVE=default
@@ -47,8 +50,8 @@ ENV TZ=UTC LANG=C.UTF-8 \
 EXPOSE 8080
 
 # Copy the built JAR from the builder stage
-# Uses the standard path resulting from the Maven build
-COPY --from=builder /app/backend/target/${JAR_FILENAME} /app/app.jar
+# The JAR is now located at /app/target/ in the builder stage.
+COPY --from=builder /app/target/${JAR_FILENAME} /app/app.jar
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
