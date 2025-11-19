@@ -360,7 +360,7 @@ jobs:
       - name: Wait for backend readiness
         run: |
           for i in {1..30}; do
-            if curl -s http://localhost:8080/health | grep -q "ok"; then
+            if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
               exit 0
             fi
             sleep 1
