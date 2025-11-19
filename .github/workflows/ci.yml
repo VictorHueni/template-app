@@ -279,14 +279,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-dependency-vuln-report
-          path: backend/target/dependency-check-report
+          path: target/dependency-check-report
           if-no-files-found: error
+
+      - name: Generate Backend SBOM
+        run: |
+          # This executes the cyclonedx plugin (bound to 'package' phase)
+          ./mvnw -B clean package -DskipTests -Djacoco.skip=true
 
       - name: Upload Backend SBOM
         uses: actions/upload-artifact@v4
         with:
           name: backend-sbom-report
-          path: backend/target/sbom/backend-sbom.json
+          path: target/sbom/backend-sbom.json
           if-no-files-found: error
 
   backend_integration_test:
@@ -369,6 +374,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-backend-results.sarif
+          category: backend-image
 
       # --- Scan the Existing Postgres Image (Trivy) ---
       - name: Scan Postgres Image with Trivy
@@ -386,6 +392,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-postgres-results.sarif
+          category: postgres-image
 
   e2e_test:
     runs-on: ubuntu-latest
