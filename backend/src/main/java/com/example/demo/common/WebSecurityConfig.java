@@ -23,10 +23,13 @@ public class WebSecurityConfig {
 
                 .authorizeHttpRequests((requests) -> requests
 
-                        // 1. DENY/AUTHENTICATE ALL OTHER Actuator Endpoints
+                        // 1. PUBLIC Actuator Endpoints (Explicitly allow 'health' and 'info')
+                        .requestMatchers(EndpointRequest.to("health")).permitAll()
+
+                        // 2. DENY/AUTHENTICATE ALL OTHER Actuator Endpoints
                         .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
 
-                        // 2. Application Endpoints
+                        // 3. Application Endpoints
                         .requestMatchers("/", "/api/greetings").permitAll() // Your public endpoints
                         .anyRequest().authenticated()
                 )
