@@ -229,7 +229,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-secrets-report
-          path: gitleaks.sarif
+          path: results.sarif
           if-no-files-found: ignore
 
       # Optional: show findings in GitHub Security > Code scanning alerts
@@ -237,7 +237,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: gitleaks.sarif
+          sarif_file: results.sarif
 
   backend_security:
     runs-on: ubuntu-latest
