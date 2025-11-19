@@ -282,6 +282,13 @@ jobs:
           path: backend/target/dependency-check-report
           if-no-files-found: error
 
+      - name: Upload Backend SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sbom-report
+          path: backend/target/sbom/backend-sbom.json
+          if-no-files-found: erro
+
   backend_integration_test:
     runs-on: ubuntu-latest
     needs: backend_security
