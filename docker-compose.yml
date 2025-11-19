@@ -4,6 +4,9 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: demo-postgres
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
     environment:
       POSTGRES_DB: demo
       POSTGRES_USER: demo
