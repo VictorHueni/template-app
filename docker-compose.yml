@@ -1,6 +1,33 @@
 version: "3.9"
 
 services:
+  # --- 1. SPRING BOOT APPLICATION SERVICE ---
+  app:
+    # Instructions to build the image from the Dockerfile
+    build:
+      context: . # Start the build context from the root directory
+      dockerfile: backend/Dockerfile # Point to the Dockerfile in the backend folder
+
+    container_name: demo-backend
+
+    # Environment variables (matching what's in your secure Dockerfile)
+    environment:
+      SPRING_PROFILES_ACTIVE: local # Use 'local' profile for development
+
+    # Expose the application port
+    ports:
+      - "8080:8080"
+
+    # Map logs/files if necessary (optional)
+    # volumes:
+    #   - ./backend/logs:/app/logs
+
+    # Ensure the database is ready before starting the application
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- 2. POSTGRES SERVICE (EXISTING) ---
   postgres:
     image: postgres:16-alpine
     container_name: demo-postgres

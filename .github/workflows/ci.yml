@@ -287,7 +287,7 @@ jobs:
         with:
           name: backend-sbom-report
           path: backend/target/sbom/backend-sbom.json
-          if-no-files-found: erro
+          if-no-files-found: error
 
   backend_integration_test:
     runs-on: ubuntu-latest
@@ -320,6 +320,73 @@ jobs:
           path: backend/target/failsafe-reports
           if-no-files-found: error
 
+  container_scan:
+    runs-on: ubuntu-latest
+    needs: [backend_checks]
+
+    permissions:
+      contents: read
+      security-events: write # For uploading Trivy SARIF to GitHub Security
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (to access local Maven cache)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # --- Build the Backend Docker Image ---
+      - name: Set Image Tag
+        id: meta
+        run: echo "IMAGE_TAG=demo-backend:${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend # Path to Dockerfile and context root
+          file: ./backend/Dockerfile # Explicitly set Dockerfile location
+          tags: ${{ env.IMAGE_TAG }}
+          load: true # Load the image into the local runner's Docker daemon
+
+      # --- Scan the Built Backend Image (Trivy) ---
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-backend-results.sarif
+          severity: CRITICAL,HIGH # Only fail on high/critical vulns
+          # Scan the base OS, dependencies, and misconfigurations
+          vuln-type: "os,library,config"
+          ignore-unfixed: true
+
+      # --- Upload Trivy SARIF Report ---
+      - name: Upload Trivy SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-backend-results.sarif
+
+      # --- Scan the Existing Postgres Image (Trivy) ---
+      - name: Scan Postgres Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: postgres:16-alpine # Image used in docker-compose.yml
+          format: sarif
+          output: trivy-postgres-results.sarif
+          severity: CRITICAL,HIGH
+          vuln-type: "os,library"
+          exit-code: "1"
+          ignore-unfixed: true
+
+      # --- Upload Postgres Trivy Report ---
+      - name: Upload Postgres Trivy SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-postgres-results.sarif
+
   e2e_test:
     runs-on: ubuntu-latest
     needs:
@@ -327,6 +394,7 @@ jobs:
       - backend_integration_test
       - sast
       - secrets_scan
+      - container_scan
 
     services:
       postgres:

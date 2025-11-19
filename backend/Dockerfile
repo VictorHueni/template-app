@@ -1,35 +1,58 @@
-# syntax=docker/dockerfile:1.7
+# Assuming the final built JAR will be named: demo-0.0.1-SNAPSHOT.jar
+ARG JAR_FILENAME=demo-0.0.1-SNAPSHOT.jar
 
-######## Build ########
-FROM maven:3.9-eclipse-temurin-25 AS build
-WORKDIR /workspace
-COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
-COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
+# === STAGE 1: BUILD ===
+FROM eclipse-temurin:25-jdk-jammy AS builder
 
-######## Runtime ########
-FROM eclipse-temurin:25-jre-alpine
+# Set the context root for Maven
+WORKDIR /app
 
+# Copy wrapper files from project root
+COPY mvnw .
+COPY .mvn .mvn
+
+# Copy backend pom and source code to their correct relative locations
+COPY backend/pom.xml backend/
+COPY backend/src backend/src/
+
+# Fetch all dependencies
+RUN ./mvnw dependency:go-offline -f backend/pom.xml
+
+# Build the application
+# Use -f to specify the pom location and skip tests
+RUN ./mvnw package -DskipTests -f backend/pom.xml
+
+
+# === STAGE 2: RUNTIME (Production Image) ===
+FROM eclipse-temurin:25-jre-jammy AS final
+
+# --- SECURITY & UTILITIES (AS ROOT) ---
+# 1. Install utilities (wget) needed for the healthcheck, using apt (Debian/Ubuntu)
+RUN apt-get update \
+    && apt-get install -y wget ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Create and switch to a dedicated non-root user
+RUN groupadd --system appuser && useradd --system --gid appuser appuser
+USER appuser
+
+# --- APPLICATION SETUP (AS NON-ROOT) ---
+WORKDIR /app
+
+# Environment variables for performance and timezone
 ENV TZ=UTC LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
     SPRING_PROFILES_ACTIVE=default
 
-WORKDIR /app
+EXPOSE 8080
 
-# Tools for healthcheck (install before dropping root)
-RUN apk add --no-cache wget ca-certificates
+# Copy the built JAR from the builder stage
+# Uses the standard path resulting from the Maven build
+COPY --from=builder /app/backend/target/${JAR_FILENAME} /app/app.jar
 
-# Non-root user
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
-
-# Copy fat jar (consider setting <finalName>app</finalName> in pom.xml)
-COPY --from=build /workspace/target/*.jar /app/app.jar
-
-# Healthcheck (requires spring-boot-starter-actuator)
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/actuator/health || exit 1
 
-EXPOSE 8080
+# Entrypoint: Run the application
 ENTRYPOINT ["java","-jar","/app/app.jar"]
