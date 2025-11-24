@@ -28,8 +28,10 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        // If you want, you can also adjust JPA/Hibernate here, e.g.:
-        // registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
+        registry.add("SPRING_SERVER_PORT", () -> "0");
+
     }
 
     @BeforeAll
