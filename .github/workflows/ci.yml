@@ -291,7 +291,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-sbom-report
-          path: target/sbom/backend-sbom.json
+          path: backend/target/sbom/backend-sbom.json
           if-no-files-found: error
 
   backend_integration_test:
@@ -331,7 +331,7 @@ jobs:
 
     permissions:
       contents: read
-      security-events: write # For uploading Trivy SARIF to GitHub Security
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -342,6 +342,10 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
+
+      # --- Buildx Setup: New steps 1 & 2 ---
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       # --- Build the Backend Docker Image ---
       - name: Set Image Tag
@@ -355,6 +359,10 @@ jobs:
           file: ./backend/Dockerfile # Explicitly set Dockerfile location
           tags: ${{ env.IMAGE_TAG }}
           load: true # Load the image into the local runner's Docker daemon
+          # Define where to look for cache (read)
+          cache-from: type=gha,scope=backend-build
+          # Define where to store the cache (write)
+          cache-to: type=gha,mode=max,scope=backend-build
 
       # --- Scan the Built Backend Image (Trivy) ---
       - name: Scan Backend Image with Trivy
