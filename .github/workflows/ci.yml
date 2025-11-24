@@ -437,12 +437,28 @@ jobs:
         working-directory: backend
         run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
 
+      - name: Wait for Postgres to be Ready
+        run: |
+          echo "Waiting for PostgreSQL service (postgres:5432)..."
+          for i in {1..60}; do
+            # Use netcat (nc) to check if port 5432 on hostname 'postgres' is open
+            if nc -z -w1 postgres 5432; then
+              echo "Postgres is up! Starting backend."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres failed to become ready after 60 seconds." >&2
+          exit 1
+
       - name: Start backend
         working-directory: backend
         run: |
           nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
           echo $! > backend.pid
         env:
+          # Check: Keep the hostname 'postgres'. The previous error likely stemmed from
+          # the service not being fully up before the Spring app tried to connect.
           SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/demo
           SPRING_DATASOURCE_USERNAME: demo
           SPRING_DATASOURCE_PASSWORD: demo
@@ -451,13 +467,16 @@ jobs:
 
       - name: Wait for backend readiness
         run: |
-          for i in {1..30}; do
+          echo "Waiting for Spring Boot health endpoint (http://localhost:8080/actuator/health)..."
+          for i in {1..40}; do
+            # Note: Changed to 40 seconds here, as database operations take time
             if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
+              echo "Backend is ready!"
               exit 0
             fi
             sleep 1
           done
-          echo "Backend did not become ready" >&2
+          echo "Backend did not become ready after 40 seconds." >&2
           exit 1
 
       - name: Print Backend Startup Logs for Debug
