@@ -460,6 +460,13 @@ jobs:
           echo "Backend did not become ready" >&2
           exit 1
 
+      - name: Print Backend Startup Logs for Debug
+        if: failure()
+        run: |
+          echo "--- DEBUGGING BACKEND STARTUP LOGS ---"
+          cat backend/backend.log
+          echo "----------------------------------------"
+
       # --- ZAP SCAN ---------------------------------------------------------
       # OWASP ZAP Baseline Scan (non-authenticated, quick scan)
       - name: ZAP Baseline Scan against API
@@ -493,6 +500,7 @@ jobs:
       - sast
       - secrets_scan
       - container_scan
+      - dast_scan
 
     services:
       postgres:
