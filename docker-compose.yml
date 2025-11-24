@@ -1,52 +1,73 @@
 version: "3.9"
 
+networks:
+  backend-network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
+    driver_opts:
+      # The location of the volume on the host system, defined in the .env file
+      o: bind
+      type: none
+      device: ${PG_DATA_PATH}
+
 services:
-  # --- 1. SPRING BOOT APPLICATION SERVICE ---
-  app:
-    # Instructions to build the image from the Dockerfile
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-
-    container_name: demo-backend
-
-    # Environment variables (matching what's in your secure Dockerfile)
-    environment:
-      SPRING_PROFILES_ACTIVE: local # Use 'local' profile for development
-
-    # Expose the application port
-    ports:
-      - "8080:8080"
-
-    # Map logs/files if necessary (optional)
-    # volumes:
-    #   - ./backend/logs:/app/logs
-
-    # Ensure the database is ready before starting the application
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # --- 2. POSTGRES SERVICE (EXISTING) ---
-  postgres:
+  # --- 1. POSTGRES SERVICE (EXISTING) ---
+  db:
     image: postgres:16-alpine
     container_name: demo-postgres
     security_opt:
       - no-new-privileges:true
     read_only: true
+    restart: always
+    networks:
+      - backend-network
     environment:
-      POSTGRES_DB: demo
-      POSTGRES_USER: demo
-      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_ADMIN_USER}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PW}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:${DB_PORT}"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
+      - /tmp:/tmp:rw
+
+    tmpfs:
+      - /var/run/postgresql:exec,size=32M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U demo -d demo"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ADMIN_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
 
-volumes:
-  postgres_data:
+  # --- 2. SPRING BOOT APPLICATION SERVICE ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: demo-backend
+    restart: on-failure
+    networks:
+      - backend-network
+
+    ports:
+      - "${BCK_SERVER_PORT}:${BCK_LOCAL_PORT}"
+
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_ADMIN_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_ADMIN_PW}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SERVER_PORT: ${BCK_LOCAL_PORT}
+
+    # Map logs/files if necessary (optional)
+    # volumes:
+    #   - ./backend/logs:/app/logs
+
+    depends_on:
+      db:
+        condition: service_healthy

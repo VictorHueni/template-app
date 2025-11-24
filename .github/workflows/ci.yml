@@ -12,7 +12,7 @@ concurrency:
 
 env:
   NODE_VERSION: "25"
-  JAVA_VERSION: "25"
+  JAVA_VERSION: "21"
 
 jobs:
   frontend_checks:
