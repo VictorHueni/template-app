@@ -493,17 +493,9 @@ jobs:
         with:
           target: "http://localhost:8080"
           docker_name: "ghcr.io/zaproxy/zaproxy:stable"
-          cmd_options: "-r zap-report.xml -J zap-report.json -s zap-report.sarif"
+          cmd_options: "-r zap-report.xml -J zap-report.json"
           fail_action: true
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      # --- UPLOAD ZAP SARIF REPORT ---
-      - name: Upload ZAP SARIF to GitHub Code Scanning
-        if: always() # Run even if the ZAP scan fails
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: zap-report.sarif
-          category: dast-zap-baseline # Category helps distinguish reports
 
       # --- ARTIFACT UPLOAD ---------------------------------------------------
       - name: Upload ZAP report artifact
