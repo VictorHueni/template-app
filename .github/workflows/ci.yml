@@ -388,7 +388,7 @@ jobs:
       - name: Scan Postgres Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: postgres:16-alpine # Image used in docker-compose.yml
+          image-ref: postgres:18.1-alpine # Image used in docker-compose.yml
           format: sarif
           output: trivy-postgres-results.sarif
           severity: CRITICAL,HIGH
@@ -408,7 +408,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18.1-alpine
         env:
           POSTGRES_DB: demo
           POSTGRES_USER: demo
@@ -442,7 +442,7 @@ jobs:
           echo "Waiting for PostgreSQL service (postgres:5432)..."
           for i in {1..60}; do
             # Use netcat (nc) to check if port 5432 on hostname 'postgres' is open
-            if nc -z -w1 postgres 5432; then
+            if nc -z -w1 localhost 5432; then
               echo "Postgres is up! Starting backend."
               exit 0
             fi
@@ -459,7 +459,7 @@ jobs:
         env:
           # Check: Keep the hostname 'postgres'. The previous error likely stemmed from
           # the service not being fully up before the Spring app tried to connect.
-          SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/demo
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/demo
           SPRING_DATASOURCE_USERNAME: demo
           SPRING_DATASOURCE_PASSWORD: demo
           SPRING_SERVER_PORT: 8080
@@ -523,7 +523,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18.1-alpine
         env:
           POSTGRES_DB: demo
           POSTGRES_USER: demo
@@ -557,7 +557,7 @@ jobs:
           nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
           echo $! > backend.pid
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/demo
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/demo
           SPRING_DATASOURCE_USERNAME: demo
           SPRING_DATASOURCE_PASSWORD: demo
           SPRING_SERVER_PORT: 8080
