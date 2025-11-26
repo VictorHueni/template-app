@@ -56,7 +56,16 @@
 - [ ] Add **deploy workflow** example (ECS deploy by digest/tag).
 - [ ] Add **promote workflow** example (promote to staging).
 - [ ] Add **Secret management** 
-- 
+
+- [ ] Implement Path Filters in ci.yml: This is the most important change for efficiency and cost control.
+- [ ] Add Architectural Testing: Include a Maven plugin (like ArchUnit) or a dedicated test in the backend project and ensure it runs during the backend_unit_tests job.
+- [ ] Local Config	- Implement Husky and lint-staged.- Add the Husky and lint-staged NPM packages and configure them to run npm run lint and npm run format on staged files. This prevents hygiene issues from being committed, shifting quality left and saving CI time.
+
+## 📈 Security
+- [ ] When SPring Security is compeletely set up, finalize the DAST cofniguration and run a full scan
+- [ ] use the JDK 25 distroless image when ever it is ready and bump the java version
+- [ ] implement .env in front end for all sensitive data
+
 
 ## 🧩 Troubleshooting & Teardown
 - [ ] Add a **Common Errors** section (SSO expired, InvalidIfMatch, OAC in use, SPA 403/404).

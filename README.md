@@ -23,23 +23,8 @@ It's meant as a **reference architecture** and **learning resource**.
 - [Table of Contents](#table-of-contents)
 - [Architecture](#architecture)
 - [Continuous Integration CI](#continuous-integration-ci)
-  - [1. Repo hygiene](#1-repo-hygiene)
-  - [2. Build \& unit tests (+ coverage)](#2-build--unit-tests--coverage)
-  - [3. Integration tests (backend)](#3-integration-tests-backend)
-  - [4. End-to-end (E2E) UI tests](#4-end-to-end-e2e-ui-tests)
-  - [5. API contract / smoke tests](#5-api-contract--smoke-tests)
-  - [6. Dependency \& license compliance](#6-dependency--license-compliance)
-  - [7. SAST](#7-sast)
-  - [8. Secrets scanning](#8-secrets-scanning)
-  - [9. SBOM generation](#9-sbom-generation)
-  - [10. Container build \& scan](#10-container-build--scan)
-  - [11. Lightweight DAST](#11-lightweight-dast)
-  - [12. Artifacts \& reporting](#12-artifacts--reporting)
-  - [13. Caching](#13-caching)
-  - [14. Triggers \& concurrency](#14-triggers--concurrency)
-  - [15. Optional: pre-commit automation](#15-optional-pre-commit-automation)
-- [Continuous Deployment CD](#continuous-deployment-cd)
   - [Build \& Package](#build--package)
+- [Continuous Deployment CD](#continuous-deployment-cd)
   - [Deployment](#deployment)
   - [Promotion, Monitoring \& Rollback](#promotion-monitoring--rollback)
 - [AWS Components configuration](#aws-components-configuration)
@@ -110,87 +95,8 @@ It's meant as a **reference architecture** and **learning resource**.
 
 # Continuous Integration CI
 
-1. **Developer pushes code**  
-   A developer pushes changes to the `main` branch or opens a Pull Request (PR).  
-   GitHub Actions automatically triggers the CI workflow.
 
-2. **Source checkout**  
-   The pipeline checks out the latest source code from the GitHub repository.
 
-3. **Backend build & tests (Spring Boot)**  
-   Maven runs:
-   - Unit tests  
-   - Architecture checks (Modulith / ArchUnit)  
-   If any test fails → the pipeline stops.
-
-4. **Frontend build & tests (React)**  
-   Node.js installs dependencies (`npm ci`), runs tests, and builds a static production bundle in the `build/` folder.
-
-5. **Security & secret scans**  
-   Tools like **Trivy**, **OWASP Dependency-Check**, and **Gitleaks** check:
-   - For known vulnerabilities in dependencies  
-   - For accidentally committed secrets  
-   If any high-severity issue is found → the pipeline fails.
-
-## 1. Repo hygiene
-- Conventional commit check: commitlint (optional, local pre-commit).
-- Formatting/lint: Frontend → Prettier, ESLint; Backend → SpotBugs, PMD, Checkstyle.
-- Type checks: tsc --noEmit for TypeScript projects.
-
-## 2. Build & unit tests (+ coverage)
-Frontend: Node 23 LTS; pnpm/npm ci → jest/vitest unit tests; coverage → c8/nyc.
-Backend: JDK 25 LTS; Maven; unit tests via Surefire; coverage via JaCoCo.
-
-## 3. Integration tests (backend)
-Use Failsafe + Testcontainers (Postgres/Redis/etc.) so tests run hermetically in CI.
-
-## 4. End-to-end (E2E) UI tests
-Playwright (OSS; headless browsers auto-provisioned), or Cypress (runner OSS; no paid dashboard).
-
-## 5. API contract / smoke tests
-- Newman (OSS CLI for Postman collections) or REST Assured tests in the backend module.
-
-## 6. Dependency & license compliance
-Java: OWASP Dependency-Check (Maven plugin).
-JS: osv-scanner (Google OSV), plus license-checker or CycloneDX SBOM for license review.
-
-## 7. SAST
-Semgrep OSS ruleset (JS/TS + Java) including security rules.
-Java-specific: SpotBugs + FindSecBugs plugin.
-
-## 8. Secrets scanning
-Gitleaks (fast OSS).
-
-## 9. SBOM generation
-CycloneDX: Maven plugin for Java; cyclonedx-npm (or cyclonedx-bom) for JS.
-Syft (alternative, multi-ecosystem and for container images).
-
-## 10. Container build & scan
-Build image with Docker Buildx.
-Scan with Trivy (vulns + misconfig) and Grype (optional second opinion).
-Produce image SBOM with Syft (CycloneDX or SPDX).
-
-## 11. Lightweight DAST
-OWASP ZAP Baseline Scan against the ephemeral app (run backend container + mock dependencies).
-
-## 12. Artifacts & reporting
-Upload coverage reports, HTML linters, JUnit XML, SBOMs, SARIF from Semgrep/Trivy/Gitleaks.
-Fail PR on high/critical issues; warn on medium.
-
-## 13. Caching
-actions/setup-node with cache: 'npm' | 'pnpm' | 'yarn'.
-actions/setup-java with cache: 'maven' | 'gradle'.
-Docker Buildx layer cache (type=gha).
-
-## 14. Triggers & concurrency
-Run on pull_request and push to main.
-Path filters (frontend/**, backend/**) to skip unrelated jobs.
-concurrency group per-branch to cancel superseded runs.
-
-## 15. Optional: pre-commit automation
-Husky + lint-staged for local dev parity (not required by CI but recommended).
-
-# Continuous Deployment CD
 
 ## Build & Package
 
@@ -221,6 +127,7 @@ Husky + lint-staged for local dev parity (not required by CI but recommended).
     The pipeline runs a temporary PostgreSQL instance and executes `flyway:migrate` to verify that database migrations apply cleanly.  
     If any migration fails → deployment is blocked until fixed.
 
+# Continuous Deployment CD
 
 ## Deployment
 
