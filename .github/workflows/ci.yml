@@ -11,17 +11,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NODE_VERSION: "25"
-  JAVA_VERSION: "21"
-
 jobs:
   # --- 1. Calls the Frontend Checks Workflow ---
   frontend_pipeline:
     uses: ./.github/workflows/frontend-ci.yml
     secrets: inherit
     with:
-      NODE_VERSION: ${{ env.NODE_VERSION }}
+      NODE_VERSION: ${{ vars.NODE_VERSION }}
 
   # --- 2. Calls the Backend Checks Workflow ---
   backend_pipeline:
@@ -29,7 +25,7 @@ jobs:
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     with:
-      JAVA_VERSION: ${{ env.JAVA_VERSION }}
+      JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 3. Calls the Application Security Workflow (SAST/Secrets/Container) ---
   # These scans can run in parallel with the main backend/frontend checks
@@ -70,7 +66,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ vars.JAVA_VERSION }}
           cache: maven
 
       # The rest of the DAST job's steps go here...
@@ -180,7 +176,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ vars.JAVA_VERSION }}
           cache: maven
 
       - name: Build backend (skip tests, they already ran)
@@ -214,7 +210,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ vars.NODE_VERSION }}
           cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
 
