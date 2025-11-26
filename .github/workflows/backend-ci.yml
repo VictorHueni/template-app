@@ -12,8 +12,8 @@ on:
         required: true
 
 jobs:
-  # Job 1: Unit Tests and Static Analysis
-  backend_checks:
+  # 1. Job A: Unit Tests (Independent)
+  backend_unit_tests:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,13 +29,8 @@ jobs:
           java-version: ${{ inputs.JAVA_VERSION }}
           cache: maven
 
-      # 1) Unit tests + JaCoCo
       - name: Run backend unit tests + JaCoCo
         run: ./mvnw -B clean test
-
-      # 2) Static analysis (Checkstyle, PMD, SpotBugs) without re-running tests
-      - name: Repo hygiene (Checkstyle, PMD, SpotBugs+FindSecBugs)
-        run: ./mvnw -B verify -DskipUTs=true -DskipITs=true
 
       - name: Upload backend test reports (Surefire)
         uses: actions/upload-artifact@v4
@@ -51,10 +46,29 @@ jobs:
           path: backend/target/site/jacoco
           if-no-files-found: error
 
-  # Job 2: Dependency Scanning and SBOM Generation
-  backend_security:
+  # 2. Job B: Static Analysis (Independent)
+  backend_static_analysis:
     runs-on: ubuntu-latest
-    needs: backend_checks # Run after unit tests pass
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.JAVA_VERSION }}
+          cache: maven
+
+      - name: Repo hygiene (Checkstyle, PMD, SpotBugs+FindSecBugs)
+        run: ./mvnw -B verify -DskipUTs=true -DskipITs=true
+
+  # 3. Job C: Dependency Scanning and SBOM (Independent)
+  backend_build_and_sca:
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
@@ -107,10 +121,10 @@ jobs:
           path: backend/target/sbom/backend-sbom.json
           if-no-files-found: error
 
-  # Job 3: Integration Tests
+  ## 4. Job D: Integration Tests (Chained)
   backend_integration_test:
     runs-on: ubuntu-latest
-    needs: backend_security # Run after security/build step completes
+    needs: [backend_unit_tests, backend_static_analysis, backend_build_and_sca]
     defaults:
       run:
         working-directory: backend
