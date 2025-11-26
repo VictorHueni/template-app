@@ -33,6 +33,9 @@ jobs:
     uses: ./.github/workflows/security-scan.yml
     needs: [frontend_pipeline, backend_pipeline] # Start once core checks are done
     secrets: inherit
+    permissions:
+      contents: read
+      security-events: write
 
   # --- 4. The DAST job remains isolated as it needs a running backend.
   # It can run in parallel with E2E or earlier, depending on your needs.
