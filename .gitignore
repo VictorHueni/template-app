@@ -65,10 +65,6 @@ out/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-# Maven wrapper (commit the wrapper files; do NOT ignore them)
-# (If you intentionally exclude the JAR, uncomment the next line)
-# .mvn/wrapper/maven-wrapper.jar
-
 # ===== Frontend (Node / Vite / React) =====
 node_modules/
 dist/
@@ -85,3 +81,7 @@ test-results/
 *.swo
 *.tmp
 *.orig
+
+#===== Database =====
+pgdata/
+bck/

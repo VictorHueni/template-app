@@ -1,4 +1,5 @@
-name: ci
+# .github/workflows/ci.yml
+name: Monorepo CI Pipeline (Main)
 
 on:
   pull_request:
@@ -15,397 +16,37 @@ env:
   JAVA_VERSION: "21"
 
 jobs:
-  frontend_checks:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+  # --- 1. Calls the Frontend Checks Workflow ---
+  frontend_pipeline:
+    uses: ./.github/workflows/frontend-ci.yml
+    secrets: inherit
+    with:
+      NODE_VERSION: ${{ env.NODE_VERSION }}
 
-    steps:
-      - uses: actions/checkout@v4
+  # --- 2. Calls the Backend Checks Workflow ---
+  backend_pipeline:
+    uses: ./.github/workflows/backend-ci.yml
+    secrets:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+    with:
+      JAVA_VERSION: ${{ env.JAVA_VERSION }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+  # --- 3. Calls the Application Security Workflow (SAST/Secrets/Container) ---
+  # These scans can run in parallel with the main backend/frontend checks
+  security_pipeline:
+    uses: ./.github/workflows/security-scan.yml
+    needs: [frontend_pipeline, backend_pipeline] # Start once core checks are done
+    secrets: inherit
 
-      - name: Install deps
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Prettier check
-        run: npm run format:check
-
-      - name: Unit tests with coverage (Vitest)
-        run: npm run test:coverage
-
-      - name: Upload frontend coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-unit-test-coverage
-          path: frontend/coverage
-          if-no-files-found: error
-
-  frontend_security_and_licenses:
-    runs-on: ubuntu-latest
-    needs: frontend_checks
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend deps
-        working-directory: frontend
-        run: npm ci
-
-      # JS vuln scanning (osv-scanner)
-      - name: Download osv-scanner
-        run: |
-          curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
-            -o /usr/local/bin/osv-scanner
-          chmod +x /usr/local/bin/osv-scanner
-
-      - name: Scan frontend dependencies with osv-scanner
-        working-directory: frontend
-        run: |
-          osv-scanner --lockfile=package-lock.json
-
-      # SBOM (CycloneDX) – no devDependencies
-      - name: Generate CycloneDX SBOM for frontend
-        working-directory: frontend
-        run: |
-          mkdir -p ../artifacts
-          npx @cyclonedx/cyclonedx-npm@latest \
-            --output-format json \
-            --omit dev \
-            --output-file ../artifacts/frontend-sbom.json
-
-      # License report (production deps only)
-      - name: Generate frontend license report
-        working-directory: frontend
-        run: |
-          mkdir -p ../artifacts
-          npx license-checker-rseidelsohn@latest \
-            --json \
-            --production \
-            --out ../artifacts/frontend-licenses.json
-
-      - name: Upload security artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dependency-and-license-reports
-          path: artifacts
-          if-no-files-found: ignore
-
-  backend_checks:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      # 1) Unit tests + JaCoCo
-      - name: Run backend unit tests + JaCoCo
-        run: ./mvnw -B clean test
-
-      # 2) Static analysis (Checkstyle, PMD, SpotBugs) without re-running tests
-      - name: Repo hygiene (Checkstyle, PMD, SpotBugs+FindSecBugs)
-        run: ./mvnw -B verify -DskipUTs=true -DskipITs=true
-
-      - name: Upload backend test reports (Surefire)
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-unit-test-results
-          path: backend/target/surefire-reports
-          if-no-files-found: error
-
-      - name: Upload backend coverage (JaCoCo)
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-unit-test-coverage
-          path: backend/target/site/jacoco
-          if-no-files-found: error
-
-  sast:
-    runs-on: ubuntu-latest
-    needs: [frontend_checks, backend_checks]
-
-    permissions:
-      security-events: write # required to upload SARIF
-      contents: read # recommended
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Semgrep
-        run: |
-          python -m pip install --upgrade pip
-          pip install "semgrep~=1.90.0"
-
-      - name: Run Semgrep SAST (JS + Java)
-        run: |
-          semgrep \
-            --config "p/default" \
-            --config "p/owasp-top-ten" \
-            --error \
-            --sarif -o semgrep.sarif \
-            .
-
-      - name: Upload Semgrep SAST report
-        uses: actions/upload-artifact@v4
-        with:
-          name: semgrep-sast-report
-          path: semgrep.sarif
-          if-no-files-found: error
-
-      - name: Upload Semgrep SARIF to GitHub code scanning
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: semgrep.sarif
-
-  secrets_scan:
-    runs-on: ubuntu-latest
-    needs: [frontend_checks, backend_checks]
-
-    # Needed only if you also upload SARIF to the Security tab (optional step below)
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          # CLI args passed to `gitleaks` inside the action
-          args: detect \
-            --source=. \
-            --no-git \
-            --redact \
-            --report-format sarif \
-            --report-path gitleaks.sarif
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # For personal repos you usually DON'T need a license.
-          # Uncomment if you have an org license:
-          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-
-      - name: Upload Gitleaks report artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gitleaks-secrets-report
-          path: results.sarif
-          if-no-files-found: ignore
-
-      # Optional: show findings in GitHub Security > Code scanning alerts
-      - name: Upload Gitleaks SARIF to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: results.sarif
-
-  backend_security:
-    runs-on: ubuntu-latest
-    needs: backend_checks
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      # Cache Dependency-Check's local DB (CVE data)
-      - name: Cache OWASP Dependency-Check data
-        uses: actions/cache@v4
-        with:
-          path: ~/.org.owasp/dependency-check
-          key: ${{ runner.os }}-owasp-dc-v12-1-9-${{ hashFiles('backend/pom.xml') }}
-
-      - name: OWASP Dependency-Check (Maven)
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          ./mvnw -B \
-            -Dnvd.api.key="${NVD_API_KEY}" \
-            -Ddependency-check.skip=false \
-            -DskipUTs=true \
-            -DskipITs=true \
-            -DskipTests=true \
-            org.owasp:dependency-check-maven:check
-
-      - name: Upload OWASP Dependency-Check report
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-dependency-vuln-report
-          path: backend/target/dependency-check-report/**
-          if-no-files-found: error
-
-      - name: Generate Backend SBOM
-        run: |
-          # This executes the cyclonedx plugin (bound to 'package' phase)
-          ./mvnw -B clean package -DskipTests -Djacoco.skip=true
-
-      - name: Upload Backend SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-sbom-report
-          path: backend/target/sbom/backend-sbom.json
-          if-no-files-found: error
-
-  backend_integration_test:
-    runs-on: ubuntu-latest
-    needs: backend_security
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      # Docker is already available on ubuntu-latest; no extra setup needed
-      - name: Run backend integration tests (Failsafe + Testcontainers)
-        env:
-          # optional but common in CI to simplify container cleanup
-          TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./mvnw -B verify -DskipUTs=true
-
-      - name: Upload backend integration test reports (Failsafe)
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-it-test-results
-          path: backend/target/failsafe-reports
-          if-no-files-found: error
-
-  container_scan:
-    runs-on: ubuntu-latest
-    needs: [backend_checks]
-
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Java (to access local Maven cache)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      # --- Buildx Setup: New steps 1 & 2 ---
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # --- Build the Backend Docker Image ---
-      - name: Set Image Tag
-        id: meta
-        run: echo "IMAGE_TAG=demo-backend:${{ github.sha }}" >> $GITHUB_ENV
-
-      - name: Build Backend Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile # Explicitly set Dockerfile location
-          tags: ${{ env.IMAGE_TAG }}
-          load: true # Load the image into the local runner's Docker daemon
-          # Define where to look for cache (read)
-          cache-from: type=gha,scope=backend-build
-          # Define where to store the cache (write)
-          cache-to: type=gha,mode=max,scope=backend-build
-
-      # --- Scan the Built Backend Image (Trivy) ---
-      - name: Scan Backend Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.IMAGE_TAG }}
-          format: sarif
-          output: trivy-backend-results.sarif
-          severity: CRITICAL,HIGH # Only fail on high/critical vulns
-          # Scan the base OS, dependencies, and misconfigurations
-          vuln-type: "os,library"
-          scanners: "vuln,config"
-          ignore-unfixed: true
-
-      # --- Upload Trivy SARIF Report ---
-      - name: Upload Trivy SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-backend-results.sarif
-          category: backend-image
-
-      # --- Scan the Existing Postgres Image (Trivy) ---
-      - name: Scan Postgres Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: postgres:18.1-alpine # Image used in docker-compose.yml
-          format: sarif
-          output: trivy-postgres-results.sarif
-          severity: CRITICAL,HIGH
-          vuln-type: "os,library"
-          ignore-unfixed: true
-
-      # --- Upload Postgres Trivy Report ---
-      - name: Upload Postgres Trivy SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-postgres-results.sarif
-          category: postgres-image
-
+  # --- 4. The DAST job remains isolated as it needs a running backend.
+  # It can run in parallel with E2E or earlier, depending on your needs.
+  # Placing it here lets it run once the backend check is complete.
   dast_scan:
+    # Requires the backend to have completed its security checks/build
+    needs: [backend_pipeline]
     runs-on: ubuntu-latest
-    needs: [backend_security]
 
+    # The original DAST job (must be kept intact)
     services:
       postgres:
         image: postgres:18.1-alpine
@@ -424,8 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- BACKEND SETUP ----------------------------------------------------
-      # Need to build and run the backend to scan it
+      # --- BACKEND SETUP, BUILD, START, WAIT ---
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -433,6 +73,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
+      # The rest of the DAST job's steps go here...
       - name: Build backend (skip tests)
         working-directory: backend
         run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
@@ -441,7 +82,6 @@ jobs:
         run: |
           echo "Waiting for PostgreSQL service (postgres:5432)..."
           for i in {1..60}; do
-            # Use netcat (nc) to check if port 5432 on hostname 'postgres' is open
             if nc -z -w1 localhost 5432; then
               echo "Postgres is up! Starting backend."
               exit 0
@@ -457,8 +97,6 @@ jobs:
           nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
           echo $! > backend.pid
         env:
-          # Check: Keep the hostname 'postgres'. The previous error likely stemmed from
-          # the service not being fully up before the Spring app tried to connect.
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/demo
           SPRING_DATASOURCE_USERNAME: demo
           SPRING_DATASOURCE_PASSWORD: demo
@@ -469,7 +107,6 @@ jobs:
         run: |
           echo "Waiting for Spring Boot health endpoint (http://localhost:8080/actuator/health)..."
           for i in {1..40}; do
-            # Note: Changed to 40 seconds here, as database operations take time
             if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
               echo "Backend is ready!"
               exit 0
@@ -486,8 +123,7 @@ jobs:
           cat backend/backend.log
           echo "----------------------------------------"
 
-      # --- ZAP SCAN ---------------------------------------------------------
-      # OWASP ZAP Baseline Scan (non-authenticated, quick scan)
+      # --- ZAP SCAN ---
       - name: ZAP Baseline Scan against API
         uses: zaproxy/action-baseline@v0.15.0
         with:
@@ -497,7 +133,7 @@ jobs:
           fail_action: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- ARTIFACT UPLOAD ---------------------------------------------------
+      # --- ARTIFACT UPLOAD ---
       - name: Upload ZAP report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -506,21 +142,21 @@ jobs:
           path: "*.json"
           if-no-files-found: ignore
 
-      # --- CLEANUP -----------------------------------------------------------
+      # --- CLEANUP ---
       - name: Stop backend
         if: always()
         run: kill $(cat backend/backend.pid) 2>/dev/null || true
 
+  # --- 5. Final E2E Test (Runs last after all checks and builds are complete) ---
   e2e_test:
     runs-on: ubuntu-latest
     needs:
-      - frontend_security_and_licenses
-      - backend_integration_test
-      - sast
-      - secrets_scan
-      - container_scan
-      - dast_scan
+      - frontend_pipeline
+      - backend_pipeline
+      - security_pipeline
+      - dast_scan # Ensure DAST also runs before E2E
 
+    # The E2E job's services and steps go here, identical to your original definition
     services:
       postgres:
         image: postgres:18.1-alpine
@@ -539,7 +175,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- BACKEND -----------------------------------------------------------
+      # --- BACKEND SETUP/START ---
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -574,7 +210,7 @@ jobs:
           echo "Backend did not become ready" >&2
           exit 1
 
-      # --- FRONTEND -----------------------------------------------------------
+      # --- FRONTEND SETUP/BUILD/TEST ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -603,7 +239,7 @@ jobs:
         working-directory: frontend
         run: npx playwright install
 
-      # --- E2E ---------------------------------------------------------------
+      # --- E2E ---
       - name: Run Playwright E2E tests
         working-directory: frontend
         run: npm run test:e2e:ci
@@ -618,7 +254,7 @@ jobs:
           path: frontend/playwright-report
           if-no-files-found: ignore
 
-      # --- CLEANUP -----------------------------------------------------------
+      # --- CLEANUP ---
       - name: Stop backend
         if: always()
         run: kill $(cat backend/backend.pid) 2>/dev/null || true

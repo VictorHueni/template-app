@@ -1,0 +1,106 @@
+# .github/workflows/frontend-ci.yml
+name: Frontend CI
+
+on:
+  workflow_call:
+    inputs:
+      NODE_VERSION:
+        required: true
+        type: string
+
+jobs:
+  # Job 1: Linting, Type Checking, Unit Tests
+  frontend_checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: Unit tests with coverage (Vitest)
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-unit-test-coverage
+          path: frontend/coverage
+          if-no-files-found: error
+
+  # Job 2: Security and Licensing Reports (Runs in parallel with checks)
+  frontend_security_and_licenses:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      # JS vuln scanning (osv-scanner)
+      - name: Download osv-scanner
+        run: |
+          curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
+            -o /usr/local/bin/osv-scanner
+          chmod +x /usr/local/bin/osv-scanner
+
+      - name: Scan frontend dependencies with osv-scanner
+        working-directory: frontend
+        run: |
+          osv-scanner --lockfile=package-lock.json
+
+      # SBOM (CycloneDX) – no devDependencies
+      - name: Generate CycloneDX SBOM for frontend
+        working-directory: frontend
+        run: |
+          mkdir -p ../artifacts
+          npx @cyclonedx/cyclonedx-npm@latest \
+            --output-format json \
+            --omit dev \
+            --output-file ../artifacts/frontend-sbom.json
+
+      # License report (production deps only)
+      - name: Generate frontend license report
+        working-directory: frontend
+        run: |
+          mkdir -p ../artifacts
+          npx license-checker-rseidelsohn@latest \
+            --json \
+            --production \
+            --out ../artifacts/frontend-licenses.json
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dependency-and-license-reports
+          path: artifacts
+          if-no-files-found: ignore
