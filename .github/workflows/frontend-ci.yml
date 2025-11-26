@@ -9,8 +9,8 @@ on:
         type: string
 
 jobs:
-  # Job 1: Linting, Type Checking, Unit Tests
-  frontend_checks:
+  # 1. Job A: Linting (Independent)
+  frontend_lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -18,7 +18,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -32,11 +31,47 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Prettier check
+        run: npm run format:check
+
+  # 2. Job B: Type Checking & Static Analysis (Independent)
+  frontend_static_checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
       - name: Type check
         run: npm run typecheck
 
-      - name: Prettier check
-        run: npm run format:check
+  # 3. Job C: Unit Tests and Coverage (Independent)
+  frontend_unit_tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
 
       - name: Unit tests with coverage (Vitest)
         run: npm run test:coverage
@@ -48,7 +83,7 @@ jobs:
           path: frontend/coverage
           if-no-files-found: error
 
-  # Job 2: Security and Licensing Reports (Runs in parallel with checks)
+  # # 4. Job D: Security and Licensing Reports (Your existing Job 2, already independent)
   frontend_security_and_licenses:
     runs-on: ubuntu-latest
 

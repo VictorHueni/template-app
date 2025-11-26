@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml
-name: Monorepo CI Pipeline (Main)
+name: Monorepo CI Pipeline
 
 on:
   pull_request:

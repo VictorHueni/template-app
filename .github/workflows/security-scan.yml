@@ -1,5 +1,5 @@
 # .github/workflows/security-scan.yml
-name: Application Security Scans
+name: Security Scans
 
 on:
   workflow_call:
