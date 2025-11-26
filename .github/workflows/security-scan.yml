@@ -4,8 +4,8 @@ name: Application Security Scans
 on:
   workflow_call:
     secrets:
-      inherit: true
-
+      GITHUB_TOKEN:
+        required: true
 jobs:
   # Job 1: Static Analysis (Semgrep)
   sast:
