@@ -1,3 +1,3 @@
-# RuleID   Threshold   Action
-10049      IGNORE        # Non-Storable Content
-10112      IGNORE      # Session Management Response Identified
+# RuleID    Threshold   Action
+10049       IGNORE      Non-Storable Content
+10112       IGNORE      Session Management Response Identified
