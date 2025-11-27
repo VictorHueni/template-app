@@ -25,6 +25,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      zap: ${{ steps.filter.outputs.zap }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -41,6 +42,7 @@ jobs:
               - '.github/workflows/frontend-ci.yml'
             zap:
               - '.zap/**'
+              - '.github/**'
 
   # --- 1. Calls the Frontend Checks Workflow ---
   frontend_pipeline:
