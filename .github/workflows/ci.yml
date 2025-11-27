@@ -4,16 +4,45 @@ name: Monorepo CI Pipeline
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # --- 0. NEW JOB: Changes Filter ---
+  # This job determines which folders were modified
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/backend-ci.yml'
+              - '.github/workflows/security-scan.yml'
+              - 'docker-compose.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/frontend-ci.yml'
+
   # --- 1. Calls the Frontend Checks Workflow ---
   frontend_pipeline:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     uses: ./.github/workflows/frontend-ci.yml
     secrets: inherit
     with:
@@ -21,6 +50,9 @@ jobs:
 
   # --- 2. Calls the Backend Checks Workflow ---
   backend_pipeline:
+    needs: changes
+    # Goal 1: Only run if backend files changed
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     uses: ./.github/workflows/backend-ci.yml
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -30,8 +62,9 @@ jobs:
   # --- 3. Calls the Application Security Workflow (SAST/Secrets/Container) ---
   # These scans can run in parallel with the main backend/frontend checks
   security_pipeline:
+    needs: [changes, frontend_pipeline, backend_pipeline]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     uses: ./.github/workflows/security-scan.yml
-    needs: [frontend_pipeline, backend_pipeline] # Start once core checks are done
     secrets: inherit
     permissions:
       contents: read
@@ -41,8 +74,8 @@ jobs:
   # It can run in parallel with E2E or earlier, depending on your needs.
   # Placing it here lets it run once the backend check is complete.
   dast_scan:
-    # Requires the backend to have completed its security checks/build
-    needs: [backend_pipeline, security_pipeline]
+    needs: [changes, backend_pipeline, security_pipeline]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
 
     # The original DAST job (must be kept intact)
@@ -159,6 +192,16 @@ jobs:
       - backend_pipeline
       - security_pipeline
       - dast_scan
+    # IMPORTANT: Use always() to prevent this job from being skipped if backend_pipeline was skipped.
+    # We check if EITHER backend OR frontend changed.
+    # Also check that dependencies didn't fail (result != 'failure').
+    if: |
+      always() && 
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') &&
+      needs.frontend_pipeline.result != 'failure' &&
+      needs.backend_pipeline.result != 'failure' &&
+      needs.security_pipeline.result != 'failure' &&
+      needs.dast_scan.result != 'failure'
 
     # The E2E job's services and steps go here, identical to your original definition
     services:
