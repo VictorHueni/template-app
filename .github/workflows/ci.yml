@@ -39,6 +39,8 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/workflows/frontend-ci.yml'
+            zap:
+              - '.zap/**'
 
   # --- 1. Calls the Frontend Checks Workflow ---
   frontend_pipeline:
@@ -76,9 +78,12 @@ jobs:
   # Placing it here lets it run once the backend check is complete.
   dast_scan:
     needs: [changes, backend_pipeline, security_pipeline]
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    if: |
+      always() &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.zap == 'true') &&
+      needs.backend_pipeline.result != 'failure' &&
+      needs.security_pipeline.result != 'failure'
     runs-on: ubuntu-latest
-
     # The original DAST job (must be kept intact)
     services:
       postgres:
