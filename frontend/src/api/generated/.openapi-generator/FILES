@@ -1,0 +1,16 @@
+apis/GreetingsApi.ts
+apis/index.ts
+docs/CreateGreetingRequest.md
+docs/GreetingPage.md
+docs/GreetingResponse.md
+docs/GreetingsApi.md
+docs/PageMeta.md
+docs/ProblemDetail.md
+index.ts
+models/CreateGreetingRequest.ts
+models/GreetingPage.ts
+models/GreetingResponse.ts
+models/PageMeta.ts
+models/ProblemDetail.ts
+models/index.ts
+runtime.ts

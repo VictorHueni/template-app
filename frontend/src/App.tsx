@@ -1,10 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
-const api = import.meta.env.VITE_API_URL ?? "";
+import {
+    Configuration,
+    GreetingsApi,
+    type GreetingResponse,
+    type CreateGreetingRequest,
+    ResponseError
+} from "./api/generated";
 
-type HelloResponse = {
-    message: string;
-};
+// 2. Configure the API Client
+// We use /api/v1 as the base path based on your openapi.yaml servers block
+const apiConfig = new Configuration({
+    basePath: (import.meta.env.VITE_API_URL ?? "") + "/api/v1",
+});
+
+const greetingsApi = new GreetingsApi(apiConfig);
 
 type Theme = "light" | "dark";
 
@@ -21,21 +31,38 @@ export default function App() {
         setError(null);
 
         try {
-            const url = effectiveName
-                ? `${api}/api/hello?name=${encodeURIComponent(effectiveName)}`
-                : `${api}/api/hello`;
+            // 3. Construct the request body matching 'CreateGreetingRequest' schema
+            const requestBody: CreateGreetingRequest = {
+                message: `Hello, ${effectiveName}!`, // Simulating the backend logic for the demo
+                recipient: effectiveName
+            };
 
-            const res = await fetch(url);
+            // 4. Call the generated API method
+            const response: GreetingResponse = await greetingsApi.createGreeting({
+                createGreetingRequest: requestBody
+            });
 
-            if (!res.ok) {
-                throw new Error(`Request failed with status ${res.status}`);
-            }
-
-            const data = (await res.json()) as HelloResponse;
-            setMessage(data.message);
-        } catch (e) {
+            // 5. Update UI with the response data
+            setMessage(response.message);
+        } catch (e: unknown) {
             setMessage(null);
-            setError(e instanceof Error ? e.message : String(e));
+
+            if (e instanceof ResponseError) {
+                // Explicitly cast to satisfy TS18046 if narrowing fails
+                const apiError = e as ResponseError;
+                try {
+                    // Try to parse the ProblemDetail JSON from the response
+                    const errorData = await apiError.response.json();
+                    setError(errorData.detail || errorData.title || `Error ${apiError.response.status}`);
+                } catch {
+                    // Fallback if the body isn't JSON
+                    setError(`Request failed with status ${apiError.response.status}`);
+                }
+            } else if (e instanceof Error) {
+                setError(e.message);
+            } else {
+                setError(String(e));
+            }
         } finally {
             setLoading(false);
         }
@@ -47,7 +74,7 @@ export default function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleSubmit = (event: React.FormEvent) => {
+    const handleSubmit = (event: FormEvent) => {
         event.preventDefault();
         void loadGreeting(name);
     };
@@ -86,7 +113,7 @@ export default function App() {
             </header>
 
             <section style={{ marginBottom: 16 }}>
-                <p>API base: {api || "(not set)"}</p>
+                <p>API base: {apiConfig.basePath}</p>
                 {loading && <p aria-label="loading">Loading greeting…</p>}
                 {!loading && message && (
                     <p>

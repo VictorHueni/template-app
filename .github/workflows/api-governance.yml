@@ -1,0 +1,34 @@
+name: API Governance
+
+on:
+    workflow_call:
+
+jobs:
+    api_governance:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            # 1. Lint the spec
+            - name: Setup Node
+              uses: actions/setup-node@v4
+            - name: Install API Tools
+              run: cd api && npm ci
+            - name: Lint OpenAPI Spec
+              run: cd api && npm run lint
+
+            # 2. Breaking Change Detection (vs main branch)
+            - name: Check for Breaking Changes
+              if: github.event_name == 'pull_request'
+              run: |
+                  # Fetch main branch version of openapi.yaml
+                  git fetch origin main:main
+                  # Run diff tool (e.g., openapi-diff or redocly break)
+                  npx openapi-diff origin/main:api/specification/openapi.yaml api/specification/openapi.yaml
+
+            # 3. Drift Detection (Ensure generated code was committed/is up to date)
+            - name: Check Backend Drift
+              run: |
+                  cd backend
+                  ./mvnw clean compile # Triggers generation
+                  git diff --exit-code src/main/java/com/example/demo/api # Fail if generation created changes

@@ -1,0 +1,17 @@
+{
+    "name": "api-contract",
+    "version": "1.0.0",
+    "scripts": {
+        "lint": "spectral lint specification/openapi.yaml --ruleset rules/style.yaml",
+        "validate": "openapi-generator-cli validate -i specification/openapi.yaml",
+        "mock": "prism mock specification/openapi.yaml",
+        "docs:build": "redoc-cli bundle specification/openapi.yaml -o ../docs/api-reference.html",
+        "diff": "openapi-diff"
+    },
+    "devDependencies": {
+        "@stoplight/spectral-cli": "^6.11.0",
+        "@stoplight/prism-cli": "^5.7.0",
+        "redoc-cli": "^0.13.21",
+        "@openapitools/openapi-generator-cli": "^2.13.0"
+    }
+}

@@ -1,0 +1,21 @@
+extends: ["zb/spectral-rulesjv"] # You can extend standard sets like 'spectral:oas'
+
+rules:
+  # Naming Convention: path segments must be kebab-case
+  paths-kebab-case:
+    description: "Path segments must be kebab-case."
+    given: "$.paths[*]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/|[a-z0-9-.]+|{[a-zA-Z0-9_]+})+$"
+
+  # Error Model Enforcement
+  error-response-model:
+    description: "Error responses (4xx, 5xx) must use the ProblemDetails schema."
+    given: "$.paths..responses[?(@property >= 400 && @property < 600)].content.*.schema"
+    then:
+      field: "$ref"
+      function: pattern
+      functionOptions:
+        match: "#/components/schemas/ProblemDetail"

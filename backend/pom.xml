@@ -131,6 +131,24 @@
 			<version>3.4.2</version>
 			<scope>compile</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>org.openapitools</groupId>
+			<artifactId>jackson-databind-nullable</artifactId>
+			<version>0.2.8</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-annotations</artifactId>
+			<version>2.2.41</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -337,6 +355,32 @@
 					<!-- Do not run during normal verify by default (trigger explicitly in CI) -->
 					<skip>true</skip>
 				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.openapitools</groupId>
+				<artifactId>openapi-generator-maven-plugin</artifactId>
+				<version>7.17.0</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/../api/specification/openapi.yaml</inputSpec>
+							<addCompileSourceRoot>true</addCompileSourceRoot>
+							<generatorName>spring</generatorName>
+							<apiPackage>com.example.demo.api</apiPackage>
+							<modelPackage>com.example.demo.api.model</modelPackage>
+							<configOptions>
+								<interfaceOnly>true</interfaceOnly>
+								<useSpringBoot3>true</useSpringBoot3>
+								<useTags>true</useTags>
+								<skipDefaultInterface>true</skipDefaultInterface>
+							</configOptions>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 
 		</plugins>

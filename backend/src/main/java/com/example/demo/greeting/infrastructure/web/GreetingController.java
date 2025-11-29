@@ -1,8 +1,13 @@
 package com.example.demo.greeting.infrastructure.web;
 
+import com.example.demo.api.GreetingsApi;
+import com.example.demo.api.model.CreateGreetingRequest;
+import com.example.demo.api.model.GreetingPage;
+import com.example.demo.api.model.GreetingResponse;
 import com.example.demo.greeting.application.CreateGreetingCommand;
 import com.example.demo.greeting.application.GreetingService;
 import com.example.demo.greeting.domain.Greeting;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -14,8 +19,7 @@ import org.springframework.web.bind.annotation.*;
  * Tested with Spring MVC slice tests or API integration tests (REST Assured).
  */
 @RestController
-@RequestMapping("/api/greetings")
-public class GreetingController {
+public class GreetingController implements GreetingsApi {
 
     private final GreetingService service;
 
@@ -32,5 +36,15 @@ public class GreetingController {
                 created.message(),
                 created.createdAt()
         );
+    }
+
+    @Override
+    public ResponseEntity<GreetingResponse> createGreeting(CreateGreetingRequest createGreetingResquest) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<GreetingPage> listGreetings(Integer page, Integer size) {
+        return null;
     }
 }

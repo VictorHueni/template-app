@@ -1,0 +1,156 @@
+openapi: 3.1.0
+info:
+  title: Template App API
+  version: 1.0.0   
+  description: API for the Template Application
+servers:
+  - url: /api/v1
+    description: Production API (Version 1)
+
+paths:
+  /greetings:
+    get:
+      tags:
+        - Greetings
+      summary: List greetings
+      operationId: listGreetings
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: A paged list of greetings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags:
+        - Greetings
+      summary: Create a greeting
+      operationId: createGreeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGreetingRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: The page number to retrieve (0-based index)
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+    SizeParam:
+      name: size
+      in: query
+      description: The number of items per page
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+
+  responses:
+    BadRequest:
+      description: The server could not process the request due to invalid syntax.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+  schemas:
+    # 4. Error Model (RFC 7807)
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+      required: [type, title, status]
+
+    CreateGreetingRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The greeting message content
+          example: "Hello, World!"
+        recipient:
+          type: string
+          description: Who the greeting is for
+          example: "Universe"
+      required: [message]
+
+    GreetingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the greeting
+        message:
+          type: string
+        recipient:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, message]
+
+    GreetingPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GreetingResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      required: [data, meta]
+
+    PageMeta:
+      type: object
+      properties:
+        pageNumber:
+          type: integer
+          description: Current page number
+        pageSize:
+          type: integer
+          description: Items per page
+        totalElements:
+          type: integer
+          description: Total items across all pages
+        totalPages:
+          type: integer
+          description: Total number of pages available
+      required: [pageNumber, pageSize, totalElements, totalPages]
