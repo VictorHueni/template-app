@@ -4,11 +4,11 @@ info:
   version: 1.0.0   
   description: API for the Template Application
 servers:
-  - url: /api/v1
+  - url: /api
     description: Production API (Version 1)
 
 paths:
-  /greetings:
+  /v1/greetings:
     get:
       tags:
         - Greetings

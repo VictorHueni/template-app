@@ -28,14 +28,14 @@ public class GreetingRepositoryAdapter implements GreetingRepository {
     public Greeting save(Greeting greeting) {
         GreetingJpaEntity entity = new GreetingJpaEntity(
                 greeting.id().value(),
-                greeting.name(),
+                greeting.recipient(),
                 greeting.message(),
                 greeting.createdAt()
         );
         GreetingJpaEntity saved = jpaRepo.save(entity);
         return new Greeting(
                 new GreetingId(saved.getId()),
-                saved.getName(),
+                saved.getRecipient(),
                 saved.getMessage(),
                 saved.getCreatedAt()
         );
@@ -46,7 +46,7 @@ public class GreetingRepositoryAdapter implements GreetingRepository {
         return jpaRepo.findById(id.value())
                 .map(e -> new Greeting(
                         new GreetingId(e.getId()),
-                        e.getName(),
+                        e.getRecipient(),
                         e.getMessage(),
                         e.getCreatedAt()
                 ));

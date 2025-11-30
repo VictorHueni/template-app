@@ -29,8 +29,8 @@ public class GreetingService {
         Instant now = Instant.now(clock);
         Greeting greeting = new Greeting(
                 GreetingId.newId(),
-                cmd.name(),
-                "Hello " + cmd.name(),
+                cmd.recipient(),
+                cmd.message(),
                 now
         );
         return repository.save(greeting);

@@ -100,6 +100,12 @@
 
 		<!-- Testcontainers + JUnit 5 integration -->
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>junit-jupiter</artifactId>
 			<scope>test</scope>
@@ -124,12 +130,6 @@
 			<artifactId>rest-assured</artifactId>
 			<version>5.5.6</version>
 			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>com.github.docker-java</groupId>
-			<artifactId>docker-java-api</artifactId>
-			<version>3.4.2</version>
-			<scope>compile</scope>
 		</dependency>
 
 		<dependency>
@@ -204,6 +204,10 @@
 				<configuration>
 					<failOnViolation>true</failOnViolation>
 					<printFailingErrors>true</printFailingErrors>
+					<excludeRoots>
+						<excludeRoot>target/generated-sources/openapi</excludeRoot>
+						<excludeRoot>target/generated-sources</excludeRoot>
+					</excludeRoots>
 				</configuration>
 				<executions>
 					<execution>
@@ -276,6 +280,9 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.5.4</version>
 				<configuration>
+					<!-- Increase timeout to 60s for proper Spring Boot + Testcontainers shutdown -->
+					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
+
 					<!-- Allow skipping unit tests when running integration-only job -->
 					<skipTests>${skipUTs}</skipTests>
 
@@ -294,6 +301,9 @@
 					<systemPropertyVariables>
 						<spring.profiles.active>test</spring.profiles.active>
 					</systemPropertyVariables>
+
+					<!-- JVM args for better test performance -->
+					<argLine>-Xmx512m -Djava.security.egd=file:/dev/./urandom</argLine>
 				</configuration>
 			</plugin>
 
@@ -303,12 +313,21 @@
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<version>3.5.4</version>
 				<configuration>
-					<includes>
-						<include>**/*IT.java</include>
-						<include>**/*ITCase.java</include>
-					</includes>
-				</configuration>
-				<executions>
+					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
+				<includes>
+					<include>**/*IT.java</include>
+					<include>**/*ITCase.java</include>
+				</includes>
+
+				<!--
+					JVM arguments for integration test execution:
+					- -Xmx512m: Sets maximum heap memory to 512MB (integration tests with Testcontainers need more memory)
+					- -Djava.security.egd=file:/dev/./urandom: Uses non-blocking /dev/urandom for random number generation
+					  (avoids blocking on entropy, significantly reduces container startup time)
+				-->
+				<argLine>-Xmx512m -Djava.security.egd=file:/dev/./urandom</argLine>
+			</configuration>
+			<executions>
 					<execution>
 						<id>integration-tests</id>
 						<goals>
@@ -370,8 +389,8 @@
 							<inputSpec>${project.basedir}/../api/specification/openapi.yaml</inputSpec>
 							<addCompileSourceRoot>true</addCompileSourceRoot>
 							<generatorName>spring</generatorName>
-							<apiPackage>com.example.demo.api</apiPackage>
-							<modelPackage>com.example.demo.api.model</modelPackage>
+							<apiPackage>com.example.demo.api.v1.controller</apiPackage>
+							<modelPackage>com.example.demo.api.v1.model</modelPackage>
 							<configOptions>
 								<interfaceOnly>true</interfaceOnly>
 								<useSpringBoot3>true</useSpringBoot3>

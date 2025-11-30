@@ -1,9 +1,9 @@
 package com.example.demo.greeting.application;
 
-public record CreateGreetingCommand(String name) {
+public record CreateGreetingCommand(String message, String recipient) {
     public CreateGreetingCommand {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("name must not be blank");
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("message must not be blank");
         }
     }
 }

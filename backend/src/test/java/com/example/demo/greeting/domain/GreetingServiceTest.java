@@ -22,11 +22,11 @@ class GreetingServiceTest {
 
         GreetingService service = new GreetingService(repo, fixed);
 
-        var cmd = new CreateGreetingCommand("Alice");
+        var cmd = new CreateGreetingCommand("Hello, World!", "Alice");
         Greeting result = service.createGreeting(cmd);
 
-        assertThat(result.name()).isEqualTo("Alice");
-        assertThat(result.message()).isEqualTo("Hello Alice");
+        assertThat(result.recipient()).isEqualTo("Alice");
+        assertThat(result.message()).isEqualTo("Hello, World!");
         assertThat(result.createdAt()).isEqualTo(Instant.parse("2025-01-01T12:00:00Z"));
 
         verify(repo).save(any(Greeting.class));

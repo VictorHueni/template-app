@@ -20,8 +20,8 @@ public class GreetingJpaEntity {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "name", nullable = false)
-    private String name;
+    @Column(name = "recipient", nullable = false)
+    private String recipient;
 
     @Column(name = "message", nullable = false)
     private String message;
@@ -33,15 +33,15 @@ public class GreetingJpaEntity {
         // JPA
     }
 
-    public GreetingJpaEntity(UUID id, String name, String message, Instant createdAt) {
+    public GreetingJpaEntity(UUID id, String recipient, String message, Instant createdAt) {
         this.id = id;
-        this.name = name;
+        this.recipient = recipient;
         this.message = message;
         this.createdAt = createdAt;
     }
 
     public UUID getId() { return id; }
-    public String getName() { return name; }
+    public String getRecipient() { return recipient; }
     public String getMessage() { return message; }
     public Instant getCreatedAt() { return createdAt; }
 }

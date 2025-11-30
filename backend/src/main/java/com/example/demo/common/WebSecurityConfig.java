@@ -3,6 +3,7 @@ package com.example.demo.common;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -21,8 +22,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * Production security configuration.
+ * <p>
+ * This configuration is NOT active during tests (profile "test" is excluded).
+ * For test security configuration, see TestSecurityConfig in testsupport package.
+ */
 @Configuration
 @EnableWebSecurity
+@Profile("!test")
 public class WebSecurityConfig {
 
     @Bean
@@ -39,7 +47,7 @@ public class WebSecurityConfig {
                         .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
 
                         // 3. Application Endpoints
-                        .requestMatchers("/", "/api/v1/greetings").permitAll() // Your public endpoints
+                        .requestMatchers("/", "/api/v1/greetings/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e

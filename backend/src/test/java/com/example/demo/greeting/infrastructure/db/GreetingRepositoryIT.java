@@ -12,6 +12,10 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Integration test for GreetingRepository with real PostgreSQL database.
+ * Uses the singleton Testcontainers PostgreSQL instance from {@link AbstractIntegrationTest}.
+ */
 @SpringBootTest
 class GreetingRepositoryIT extends AbstractIntegrationTest {
 
@@ -32,6 +36,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
         var loaded = greetingRepository.findById(saved.id());
 
         assertThat(loaded).isPresent();
+        assertThat(loaded.get().recipient()).isEqualTo("Bob");
         assertThat(loaded.get().message()).isEqualTo("Hello Bob");
     }
 }
