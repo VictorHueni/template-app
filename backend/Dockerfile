@@ -7,18 +7,28 @@ FROM eclipse-temurin:21-jdk-jammy AS builder
 # Set the work directory to the final application root
 WORKDIR /app
 
-# 1. Copy POM files and wrappers (context-relative to backend/)
-COPY pom.xml .
-COPY mvnw .
-COPY .mvn .mvn
+# 1. Copy the API definition (This is what was missing!)
+# This puts it at /app/api, so it sits "next" to backend
+COPY api api
 
-# Fetch dependencies (layer cache optimization)
-RUN ./mvnw dependency:go-offline
+# 2. Copy the Maven Wrapper and POM (from the backend folder context)
+# We place them into /app/backend/
+COPY backend/pom.xml backend/pom.xml
+COPY backend/mvnw backend/mvnw
+COPY backend/.mvn backend/.mvn
 
-# 2. Copy the source code
-COPY src src/
+# 3. Set WORKDIR to backend so Maven runs from the correct place
+WORKDIR /app/backend
 
-# 3. Build the application (creates target/demo-0.0.1-SNAPSHOT.jar)
+# 4. Resolve dependencies
+# (We made sure mvnw is executable just in case permissions got lost)
+RUN chmod +x mvnw && ./mvnw dependency:go-offline
+
+# 5. Copy the source code
+COPY backend/src src
+
+# 6. Build the application
+# When this runs, pom.xml looks for "../api/...", which resolves to "/app/api/..." (Valid!)
 RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true
 
 
@@ -42,8 +52,8 @@ ENV TZ=UTC LANG=C.UTF-8 \
 EXPOSE 8080
 
 # Copy the built JAR from the builder stage
-# The JAR is now located at /app/target/ in the builder stage.
-COPY --from=builder /app/target/*.jar /app/app.jar
+# Note: The path is now /app/backend/target because of the structure change in Stage 1
+COPY --from=builder /app/backend/target/*.jar /app/app.jar
 
 # Entrypoint: Run the application
 ENTRYPOINT ["java","-jar","/app/app.jar"]

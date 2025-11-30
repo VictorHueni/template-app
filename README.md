@@ -86,6 +86,7 @@ It's meant as a **reference architecture** and **learning resource**.
     - [8. Optional: Delete CloudWatch log groups](#8-optional-delete-cloudwatch-log-groups)
     - [9. Validate your AWS account is clean](#9-validate-your-aws-account-is-clean)
     - [10. Common Misses (and hidden costs)](#10-common-misses-and-hidden-costs)
+- [Cheatsheet](#cheatsheet)
 <!-- TOC -->
 
 # Architecture
@@ -1034,3 +1035,9 @@ aws s3 ls
 | ECR repository                 | ~$0.10/month + image storage | Step 6                               |
 | CloudWatch logs                | ~$0.03/GB/mo                 | Step 8                               |
 | ALB (if Copilot fails cleanup) | ~$0.025/hour                 | Delete via console or CloudFormation |
+
+
+
+# Cheatsheet
+docker compose up -d --build
+docker compose down -v --rmi local --remove-orphans

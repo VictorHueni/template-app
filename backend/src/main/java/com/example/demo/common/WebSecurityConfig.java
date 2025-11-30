@@ -1,5 +1,6 @@
 package com.example.demo.common;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +21,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -32,6 +34,15 @@ import java.util.List;
 @EnableWebSecurity
 @Profile("!test")
 public class WebSecurityConfig {
+
+    @Value("${cors.allowed.origins:http://localhost:5173}")
+    private String corsAllowedOrigins;
+
+    @Value("${admin.username:user}")
+    private String adminUsername;
+
+    @Value("${admin.password:password}")
+    private String adminPassword;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -65,8 +76,8 @@ public class WebSecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow the frontend origin
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        // Allow frontend origins from configuration (comma-separated)
+        configuration.setAllowedOrigins(Arrays.asList(corsAllowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
@@ -78,12 +89,11 @@ public class WebSecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails user =
-                User.withDefaultPasswordEncoder()
-                        .username("user")
-                        .password(passwordEncoder.encode("password"))
-                        .roles("USER")
-                        .build();
+        UserDetails user = User.builder()
+                .username(adminUsername)
+                .password(passwordEncoder.encode(adminPassword))
+                .roles("USER", "ADMIN")
+                .build();
 
         return new InMemoryUserDetailsManager(user);
     }
