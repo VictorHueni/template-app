@@ -26,6 +26,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
       zap: ${{ steps.filter.outputs.zap }}
+      api: ${{ steps.filter.outputs.api }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -43,6 +44,19 @@ jobs:
             zap:
               - '.zap/**'
               - '.github/**'
+            api:
+              - 'api/**'
+              - '.github/workflows/api-governance.yml'
+
+  # --- 1. API Governance ---
+  api_governance_pipeline:
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.backend == 'true' }}
+    uses: ./.github/workflows/api-governance.yml
+    secrets: inherit
+    with:
+      NODE_VERSION: ${{ vars.NODE_VERSION }}
+      JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 1. Calls the Frontend Checks Workflow ---
   frontend_pipeline:
@@ -55,9 +69,12 @@ jobs:
 
   # --- 2. Calls the Backend Checks Workflow ---
   backend_pipeline:
-    needs: changes
-    # Goal 1: Only run if backend files changed
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    needs: [changes, api_governance_pipeline]
+    # Run if Backend changed AND (API Gov succeeded or was skipped)
+    if: |
+      always() && 
+      needs.changes.outputs.backend == 'true' && 
+      needs.api_governance_pipeline.result != 'failure'
     uses: ./.github/workflows/backend-ci.yml
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

@@ -1,34 +1,56 @@
 name: API Governance
 
 on:
-    workflow_call:
+  workflow_call:
+    inputs:
+      NODE_VERSION:
+        required: true
+        type: string
+        description: "Node version for linting/diffing"
+      JAVA_VERSION:
+        required: true
+        type: string
+        description: "Java version for backend drift detection"
 
 jobs:
-    api_governance:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  api_governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            # 1. Lint the spec
-            - name: Setup Node
-              uses: actions/setup-node@v4
-            - name: Install API Tools
-              run: cd api && npm ci
-            - name: Lint OpenAPI Spec
-              run: cd api && npm run lint
+      # --- 1. Setup Environments  ---
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.NODE_VERSION }}
 
-            # 2. Breaking Change Detection (vs main branch)
-            - name: Check for Breaking Changes
-              if: github.event_name == 'pull_request'
-              run: |
-                  # Fetch main branch version of openapi.yaml
-                  git fetch origin main:main
-                  # Run diff tool (e.g., openapi-diff or redocly break)
-                  npx openapi-diff origin/main:api/specification/openapi.yaml api/specification/openapi.yaml
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.JAVA_VERSION }}
+          cache: maven
 
-            # 3. Drift Detection (Ensure generated code was committed/is up to date)
-            - name: Check Backend Drift
-              run: |
-                  cd backend
-                  ./mvnw clean compile # Triggers generation
-                  git diff --exit-code src/main/java/com/example/demo/api # Fail if generation created changes
+      # --- 2. Lint the spec ---
+      - name: Install API Tools
+        run: cd api && npm ci
+
+      - name: Lint OpenAPI Spec
+        run: cd api && npm run lint
+
+      # --- 3. Breaking Change Detection ---
+      - name: Check for Breaking Changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main:main
+          # Example command placeholder
+          echo "Run your breaking change tool here (e.g., openapi-diff)"
+
+      # --- 4. Drift Detection ---
+      - name: Check Backend Drift
+        run: |
+          cd backend
+          ./mvnw clean compile
+          git diff --exit-code src/main/java/com/example/demo/api

@@ -19,3 +19,23 @@ rules:
       function: pattern
       functionOptions:
         match: "#/components/schemas/ProblemDetail"
+
+  # Enforce Request naming: Must end in 'Request' or 'Command'
+  schema-names-request:
+    description: "Request schemas must end with 'Request' or 'Command'"
+    given: "$.components.schemas[?(@property.match(/^(Create|Update|Patch).+/))]"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][a-zA-Z0-9]*(Request|Command)$"
+
+  # Enforce Response naming: Must end in 'Response', 'Page', or 'Dto'
+  schema-names-response:
+    description: "Read models must end with 'Response', 'Page', or 'Dto'"
+    given: "$.components.schemas[?(!@property.match(/^(Create|Update|Patch).+/))]"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][a-zA-Z0-9]*(Response|Page|List|Dto|Error)$"
