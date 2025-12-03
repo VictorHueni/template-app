@@ -58,7 +58,7 @@ public class WebSecurityConfig {
                         .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
 
                         // 3. Application Endpoints
-                        .requestMatchers("/", "/api/v1/greetings/**").permitAll()
+                        .requestMatchers("/", "/v1/greetings", "/v1/greetings/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e
