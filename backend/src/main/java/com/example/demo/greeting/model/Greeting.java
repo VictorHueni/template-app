@@ -1,20 +1,13 @@
-package com.example.demo.greeting.infrastructure.db;
+package com.example.demo.greeting.model;
 
 import jakarta.persistence.*;
 
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * JPA entity representing the greeting record stored in the database.
- * <p>
- * Maps relational data to Java objects. Contains no business logic.
- * <p>
- * Validated through integration tests with Testcontainers + JPA/Hibernate.
- */
 @Entity
 @Table(name = "greeting")
-public class GreetingJpaEntity {
+public class Greeting {
 
     @Id
     @Column(name = "id", nullable = false, updatable = false)
@@ -29,11 +22,11 @@ public class GreetingJpaEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected GreetingJpaEntity() {
+    protected Greeting() {
         // JPA
     }
 
-    public GreetingJpaEntity(UUID id, String recipient, String message, Instant createdAt) {
+    public Greeting(UUID id, String recipient, String message, Instant createdAt) {
         this.id = id;
         this.recipient = recipient;
         this.message = message;
