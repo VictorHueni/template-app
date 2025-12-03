@@ -69,6 +69,7 @@ public class GreetingController implements GreetingsApi {
     private GreetingResponse toGreetingResponse(Greeting entity) {
         GreetingResponse response = new GreetingResponse(
                 entity.getId(),
+                entity.getReference(),
                 entity.getMessage()
         );
         response.setRecipient(entity.getRecipient());

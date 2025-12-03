@@ -1,4 +1,4 @@
-package com.example.demo.common;
+package com.example.demo.common.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;

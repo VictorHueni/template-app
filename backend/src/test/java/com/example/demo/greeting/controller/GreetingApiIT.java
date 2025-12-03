@@ -1,7 +1,8 @@
-package com.example.demo.greeting.infrastructure.web;
+package com.example.demo.greeting.controller;
 
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.repository.GreetingRepository;
+import com.example.demo.greeting.service.GreetingService;
 import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,7 +10,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
-import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -24,7 +24,7 @@ import static org.hamcrest.Matchers.*;
 class GreetingApiIT extends AbstractRestAssuredIntegrationTest {
 
     @Autowired
-    GreetingRepository greetingRepository;
+    GreetingService greetingService;
 
     @Test
     void createsGreetingAndReturnsContract() {
@@ -46,8 +46,8 @@ class GreetingApiIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void listsGreetingsWithPagination() {
         // 1. Arrange: Create some data to list
-        greetingRepository.save(new Greeting(UUID.randomUUID(), "A", "Message A", Instant.now()));
-        greetingRepository.save(new Greeting(UUID.randomUUID(), "B", "Message B", Instant.now()));
+        greetingService.createGreeting("Message A", "A");
+        greetingService.createGreeting("Message B", "B");
 
         // 2. Act & Assert
         given()
@@ -62,6 +62,7 @@ class GreetingApiIT extends AbstractRestAssuredIntegrationTest {
                 .body("data", hasSize(greaterThanOrEqualTo(2)))
                 .body("data[0].id", notNullValue())
                 .body("data[0].message", notNullValue())
+                .body("data[0].reference", notNullValue())
                 // Validate Page Metadata
                 .body("meta.pageNumber", equalTo(0))
                 .body("meta.pageSize", equalTo(10))

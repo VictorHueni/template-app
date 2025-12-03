@@ -115,9 +115,15 @@ components:
       type: object
       properties:
         id:
+          type: integer
+          format: int64
+          description: Technical Unique identifier (TSID). Use for code/logic.
+          example: 506979954615549952
+        reference:
           type: string
-          format: uuid
-          description: Unique identifier for the greeting
+          description: Functional Business Identifier. Use for display/support.
+          pattern: '^[A-Z]{3}-\d{4}-\d{6}$'
+          example: "GRE-2025-000042"
         message:
           type: string
         recipient:
@@ -125,7 +131,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, message]
+      required: [id, reference, message]
 
     GreetingPage:
       type: object

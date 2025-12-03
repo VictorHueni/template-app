@@ -1,7 +1,6 @@
-package com.example.demo.greeting.infrastructure.db;
+package com.example.demo.greeting.repository;
 
 import com.example.demo.greeting.model.Greeting;
-import com.example.demo.greeting.repository.GreetingRepository;
 import com.example.demo.testsupport.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,10 +8,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Uses the singleton Testcontainers PostgreSQL instance from {@link AbstractIntegrationTest}.
  */
 @SpringBootTest
+@Transactional
 class GreetingRepositoryIT extends AbstractIntegrationTest {
 
     @Autowired
@@ -29,17 +29,20 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
     @Test
     void savesAndLoadsGreetingFromPostgres() {
         Greeting toSave = new Greeting(
-                UUID.randomUUID(),
                 "Bob",
                 "Hello Bob",
                 Instant.parse("2025-01-01T10:00:00Z")
         );
+
+        toSave.setReference("GRE-2025-000001");
 
         Greeting saved = greetingRepository.save(toSave);
 
         var loaded = greetingRepository.findById(saved.getId());
 
         assertThat(loaded).isPresent();
+        assertThat(loaded.get().getId()).isNotNull();
+        assertThat(loaded.get().getReference()).isEqualTo("GRE-2025-000001");
         assertThat(loaded.get().getRecipient()).isEqualTo("Bob");
         assertThat(loaded.get().getMessage()).isEqualTo("Hello Bob");
     }
@@ -50,9 +53,13 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
         greetingRepository.deleteAll();
 
         Instant now = Instant.now();
-        Greeting oldGreeting = new Greeting(UUID.randomUUID(), "Old", "First", now.minus(1, ChronoUnit.HOURS));
-        Greeting midGreeting = new Greeting(UUID.randomUUID(), "Mid", "Second", now);
-        Greeting newGreeting = new Greeting(UUID.randomUUID(), "New", "Third", now.plus(1, ChronoUnit.HOURS));
+        Greeting oldGreeting = new Greeting("Old", "First", now.minus(1, ChronoUnit.HOURS));
+        Greeting midGreeting = new Greeting("Mid", "Second", now);
+        Greeting newGreeting = new Greeting("New", "Third", now.plus(1, ChronoUnit.HOURS));
+
+        oldGreeting.setReference("GRE-2025-000001");
+        midGreeting.setReference("GRE-2025-000002");
+        newGreeting.setReference("GRE-2025-000003");
 
         greetingRepository.save(oldGreeting);
         greetingRepository.save(midGreeting);
@@ -71,5 +78,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
         // Verify Sorting (Newest First)
         assertThat(result.getContent().get(0).getMessage()).isEqualTo("Third");
         assertThat(result.getContent().get(1).getMessage()).isEqualTo("Second");
+        assertThat(result.getContent().get(0).getReference()).isEqualTo("GRE-2025-000003");
+        assertThat(result.getContent().get(1).getReference()).isEqualTo("GRE-2025-000002");
     }
 }

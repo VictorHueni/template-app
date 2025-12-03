@@ -1,5 +1,6 @@
 package com.example.demo.testsupport;
 
+import com.example.demo.common.config.WebSecurityConfig;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +27,7 @@ import java.util.List;
  *     <li>CORS allows all localhost origins</li>
  * </ul>
  * <p>
- * For production security configuration, see {@link com.example.demo.common.WebSecurityConfig}.
+ * For production security configuration, see {@link WebSecurityConfig}.
  */
 @Configuration
 @EnableWebSecurity
