@@ -2,6 +2,7 @@ package com.example.demo.greeting.model;
 
 import com.example.demo.common.domain.AbstractBaseEntity;
 import jakarta.persistence.*;
+import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
@@ -15,16 +16,20 @@ import java.time.Instant;
 @Table(name = "greeting")
 public class Greeting extends AbstractBaseEntity {
 
+    @Getter
     @Setter
     @Column(name = "reference", nullable = false, unique = true, length = 32)
     private String reference;
 
+    @Getter
     @Column(name = "recipient", nullable = false)
     private String recipient;
 
+    @Getter
     @Column(name = "message", nullable = false)
     private String message;
 
+    @Getter
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -36,8 +41,4 @@ public class Greeting extends AbstractBaseEntity {
         this.createdAt = createdAt;
     }
 
-    public String getReference() { return reference; }
-    public String getRecipient() { return recipient; }
-    public String getMessage() { return message; }
-    public Instant getCreatedAt() { return createdAt; }
 }

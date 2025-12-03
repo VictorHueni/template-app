@@ -2,6 +2,7 @@ package com.example.demo.common.domain;
 
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
+import lombok.Getter;
 import org.hibernate.proxy.HibernateProxy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -25,25 +26,24 @@ public abstract class AbstractBaseEntity implements Serializable {
     @Id
     @Tsid
     @Column(name = "id", nullable = false, updatable = false)
+    @Getter
     private Long id;
 
     @Version
     @Column(name = "version")
+    @Getter
     private Integer version;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
+    @Getter
     private Instant createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at")
+    @Getter
     private Instant updatedAt;
 
-    // Getters
-    public Long getId() { return id; }
-    public Integer getVersion() { return version; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
 
     /**
      * Effective Java equality pattern for Hibernate entities.
