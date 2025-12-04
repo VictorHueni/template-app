@@ -34,6 +34,7 @@ paths:
       security:
         - BearerAuth: []
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -45,6 +46,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GreetingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/greetings/{id}:
+    parameters:
+      - $ref: '#/components/parameters/GreetingIdParam'
+
+    get:
+      tags:
+        - Greetings
+      summary: Get a greeting by ID
+      operationId: getGreeting
+      responses:
+        '200':
+          description: The greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Greetings
+      summary: Update a greeting (full replacement)
+      operationId: updateGreeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGreetingRequest'
+      responses:
+        '200':
+          description: The updated greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    patch:
+      tags:
+        - Greetings
+      summary: Partially update a greeting
+      operationId: patchGreeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchGreetingRequest'
+      responses:
+        '200':
+          description: The updated greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags:
+        - Greetings
+      summary: Delete a greeting
+      operationId: deleteGreeting
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Greeting deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
@@ -54,6 +145,16 @@ components:
       bearerFormat: JWT
 
   parameters:
+    GreetingIdParam:
+      name: id
+      in: path
+      required: true
+      description: The unique identifier (TSID) of the greeting
+      schema:
+        type: integer
+        format: int64
+      example: 506979954615549952
+
     PageParam:
       name: page
       in: query
@@ -75,6 +176,20 @@ components:
   responses:
     BadRequest:
       description: The server could not process the request due to invalid syntax.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    Conflict:
+      description: The request conflicts with the current state of the resource.
       content:
         application/json:
           schema:
@@ -110,6 +225,33 @@ components:
           description: Who the greeting is for
           example: "Universe"
       required: [message]
+
+    UpdateGreetingRequest:
+      type: object
+      description: Full replacement update - all fields are required
+      properties:
+        message:
+          type: string
+          description: The greeting message content
+          example: "Hello, World!"
+        recipient:
+          type: string
+          description: Who the greeting is for
+          example: "Universe"
+      required: [message, recipient]
+
+    PatchGreetingRequest:
+      type: object
+      description: Partial update - only provided fields are updated
+      properties:
+        message:
+          type: string
+          description: The greeting message content
+          example: "Hello, World!"
+        recipient:
+          type: string
+          description: Who the greeting is for
+          example: "Universe"
 
     GreetingResponse:
       type: object
