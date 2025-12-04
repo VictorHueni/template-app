@@ -69,7 +69,7 @@ jobs:
 
   # --- 2. Calls the Backend Checks Workflow ---
   backend_pipeline:
-    needs: [changes, api_governance_pipeline]
+    needs: [changes]
     # Run if Backend changed AND (API Gov succeeded or was skipped)
     if: |
       always() && 

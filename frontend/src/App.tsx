@@ -5,7 +5,7 @@ import {
     GreetingsApi,
     type GreetingResponse,
     type CreateGreetingRequest,
-    ResponseError
+    ResponseError,
 } from "./api/generated";
 
 // 2. Configure the API Client
@@ -34,12 +34,12 @@ export default function App() {
             // 3. Construct the request body matching 'CreateGreetingRequest' schema
             const requestBody: CreateGreetingRequest = {
                 message: `Hello, ${effectiveName}!`, // Simulating the backend logic for the demo
-                recipient: effectiveName
+                recipient: effectiveName,
             };
 
             // 4. Call the generated API method
             const response: GreetingResponse = await greetingsApi.createGreeting({
-                createGreetingRequest: requestBody
+                createGreetingRequest: requestBody,
             });
 
             // 5. Update UI with the response data
@@ -53,7 +53,9 @@ export default function App() {
                 try {
                     // Try to parse the ProblemDetail JSON from the response
                     const errorData = await apiError.response.json();
-                    setError(errorData.detail || errorData.title || `Error ${apiError.response.status}`);
+                    setError(
+                        errorData.detail || errorData.title || `Error ${apiError.response.status}`,
+                    );
                 } catch {
                     // Fallback if the body isn't JSON
                     setError(`Request failed with status ${apiError.response.status}`);
