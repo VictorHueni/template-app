@@ -1,4 +1,4 @@
-extends: ["zb/spectral-rulesjv"] # You can extend standard sets like 'spectral:oas'
+extends: ["spectral:oas"] # You can extend standard sets like 'spectral:oas'
 
 rules:
   # Naming Convention: path segments must be kebab-case
@@ -21,21 +21,23 @@ rules:
         match: "#/components/schemas/ProblemDetail"
 
   # Enforce Request naming: Must end in 'Request' or 'Command'
+  # Targets schema names that start with Create/Update/Patch
   schema-names-request:
-    description: "Request schemas must end with 'Request' or 'Command'"
-    given: "$.components.schemas[?(@property.match(/^(Create|Update|Patch).+/))]"
+    description: "Request schemas (Create/Update/Patch) must end with 'Request' or 'Command'"
+    severity: warn
+    given: "$.components.schemas[?(@property.match(/^(Create|Update|Patch)/))]~"
     then:
-      field: "@key"
       function: pattern
       functionOptions:
         match: "^[A-Z][a-zA-Z0-9]*(Request|Command)$"
 
-  # Enforce Response naming: Must end in 'Response', 'Page', or 'Dto'
+  # Enforce Response naming: Must end in 'Response', 'Page', 'Dto', 'Meta', or be a utility schema
+  # Excludes schemas starting with Create/Update/Patch and known utility schemas
   schema-names-response:
-    description: "Read models must end with 'Response', 'Page', or 'Dto'"
-    given: "$.components.schemas[?(!@property.match(/^(Create|Update|Patch).+/))]"
+    description: "Response/Read models must follow naming convention"
+    severity: warn
+    given: "$.components.schemas[?(!@property.match(/^(Create|Update|Patch)/) && !@property.match(/^ProblemDetail$/))]~"
     then:
-      field: "@key"
       function: pattern
       functionOptions:
-        match: "^[A-Z][a-zA-Z0-9]*(Response|Page|List|Dto|Error)$"
+        match: "^[A-Z][a-zA-Z0-9]*(Response|Page|List|Dto|Meta|Error)$"

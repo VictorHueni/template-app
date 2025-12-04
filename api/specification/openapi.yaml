@@ -1,11 +1,20 @@
 openapi: 3.1.0
 info:
   title: Template App API
-  version: 1.0.0   
+  version: 1.0.0
   description: API for the Template Application
+  contact:
+    name: API Support
+    email: api-support@example.com
+    url: https://github.com/VictorHueni/template-app
+
 servers:
   - url: /api
     description: Production API (Version 1)
+
+tags:
+  - name: Greetings
+    description: Operations for managing greeting resources
 
 paths:
   /v1/greetings:
@@ -13,6 +22,7 @@ paths:
       tags:
         - Greetings
       summary: List greetings
+      description: Retrieves a paginated list of all greetings. Supports pagination via page and size query parameters.
       operationId: listGreetings
       parameters:
         - $ref: '#/components/parameters/PageParam'
@@ -30,6 +40,7 @@ paths:
       tags:
         - Greetings
       summary: Create a greeting
+      description: Creates a new greeting resource. Requires authentication. Returns the created greeting with generated ID and reference.
       operationId: createGreeting
       security:
         - BearerAuth: []
@@ -59,6 +70,7 @@ paths:
       tags:
         - Greetings
       summary: Get a greeting by ID
+      description: Retrieves a single greeting by its unique TSID identifier.
       operationId: getGreeting
       responses:
         '200':
@@ -74,6 +86,7 @@ paths:
       tags:
         - Greetings
       summary: Update a greeting (full replacement)
+      description: Performs a full replacement update of an existing greeting. All fields must be provided. Requires authentication.
       operationId: updateGreeting
       security:
         - BearerAuth: []
@@ -101,6 +114,7 @@ paths:
       tags:
         - Greetings
       summary: Partially update a greeting
+      description: Performs a partial update of an existing greeting. Only provided fields are updated. Requires authentication.
       operationId: patchGreeting
       security:
         - BearerAuth: []
@@ -128,6 +142,7 @@ paths:
       tags:
         - Greetings
       summary: Delete a greeting
+      description: Permanently removes a greeting resource. This action cannot be undone. Requires authentication.
       operationId: deleteGreeting
       security:
         - BearerAuth: []
