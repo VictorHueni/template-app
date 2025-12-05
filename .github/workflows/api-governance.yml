@@ -58,17 +58,27 @@ jobs:
         run: |
           cd backend
 
-          # Step 1: Generate fresh API code from the OpenAPI spec
+          # Generate fresh API code from the OpenAPI spec
           ./mvnw clean compile -q
 
-          # Step 2: Copy generated sources to a temp location
-          cp -r target/generated-sources/openapi/src/main/java/com/example/demo/api /tmp/freshly-generated-api
+          # Store a hash of the generated code (excluding @Generated timestamps which vary between runs)
+          # The @Generated annotation includes a timestamp that changes on each generation
+          find target/generated-sources/openapi/src/main/java -name "*.java" -exec cat {} \; \
+            | grep -v '@Generated(value = "org.openapitools.codegen' \
+            | sha256sum > /tmp/generated-hash-1.txt
 
-          # Step 3: Clean and regenerate to ensure reproducibility
+          # Clean and regenerate
           ./mvnw clean compile -q
 
-          # Step 4: Compare the two generations - they should be identical
-          # This ensures the OpenAPI spec produces deterministic output
-          diff -r /tmp/freshly-generated-api target/generated-sources/openapi/src/main/java/com/example/demo/api
+          # Hash the regenerated code
+          find target/generated-sources/openapi/src/main/java -name "*.java" -exec cat {} \; \
+            | grep -v '@Generated(value = "org.openapitools.codegen' \
+            | sha256sum > /tmp/generated-hash-2.txt
 
-          echo "✅ Backend API code is in sync with OpenAPI specification"
+          # Compare hashes - they should be identical for deterministic generation
+          if diff /tmp/generated-hash-1.txt /tmp/generated-hash-2.txt > /dev/null; then
+            echo "✅ Backend API code generation is deterministic and in sync with OpenAPI specification"
+          else
+            echo "❌ API code generation is not deterministic! Check for non-deterministic elements in the OpenAPI spec."
+            exit 1
+          fi
