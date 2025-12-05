@@ -1,10 +1,7 @@
 package com.example.demo.greeting.controller;
 
 import com.example.demo.api.v1.controller.GreetingsApi;
-import com.example.demo.api.v1.model.CreateGreetingRequest;
-import com.example.demo.api.v1.model.GreetingPage;
-import com.example.demo.api.v1.model.GreetingResponse;
-import com.example.demo.api.v1.model.PageMeta;
+import com.example.demo.api.v1.model.*;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;
 import org.springframework.data.domain.Page;
@@ -75,5 +72,37 @@ public class GreetingController implements GreetingsApi {
         response.setRecipient(entity.getRecipient());
         response.setCreatedAt(OffsetDateTime.ofInstant(entity.getCreatedAt(), ZoneOffset.UTC));
         return response;
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteGreeting(Long id) {
+        if (service.deleteGreeting(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @Override
+    public ResponseEntity<GreetingResponse> getGreeting(Long id) {
+        return service.getGreeting(id)
+                .map(this::toGreetingResponse)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Override
+    public ResponseEntity<GreetingResponse> patchGreeting(Long id, PatchGreetingRequest patchGreetingRequest) {
+        return service.patchGreeting(id, patchGreetingRequest.getMessage(), patchGreetingRequest.getRecipient())
+                .map(this::toGreetingResponse)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Override
+    public ResponseEntity<GreetingResponse> updateGreeting(Long id, UpdateGreetingRequest updateGreetingRequest) {
+        return service.updateGreeting(id, updateGreetingRequest.getMessage(), updateGreetingRequest.getRecipient())
+                .map(this::toGreetingResponse)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

@@ -81,4 +81,71 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
         assertThat(result.getContent().get(0).getReference()).isEqualTo("GRE-2025-000003");
         assertThat(result.getContent().get(1).getReference()).isEqualTo("GRE-2025-000002");
     }
+
+    // ============================================================
+    // TDD Tests for CRUD operations (get, update, delete)
+    // ============================================================
+
+    @Test
+    void findsGreetingById() {
+        // Arrange
+        Greeting toSave = new Greeting("Alice", "Hello Alice", Instant.parse("2025-01-01T10:00:00Z"));
+        toSave.setReference("GRE-2025-000010");
+        Greeting saved = greetingRepository.save(toSave);
+
+        // Act
+        var found = greetingRepository.findById(saved.getId());
+
+        // Assert
+        assertThat(found).isPresent();
+        assertThat(found.get().getId()).isEqualTo(saved.getId());
+        assertThat(found.get().getReference()).isEqualTo("GRE-2025-000010");
+        assertThat(found.get().getRecipient()).isEqualTo("Alice");
+        assertThat(found.get().getMessage()).isEqualTo("Hello Alice");
+    }
+
+    @Test
+    void returnsEmptyWhenGreetingNotFoundById() {
+        // Act
+        var found = greetingRepository.findById(999999999L);
+
+        // Assert
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void deletesGreetingById() {
+        // Arrange
+        Greeting toSave = new Greeting("ToDelete", "Delete me", Instant.parse("2025-01-01T10:00:00Z"));
+        toSave.setReference("GRE-2025-000020");
+        Greeting saved = greetingRepository.save(toSave);
+        Long id = saved.getId();
+
+        // Verify it exists
+        assertThat(greetingRepository.existsById(id)).isTrue();
+
+        // Act
+        greetingRepository.deleteById(id);
+
+        // Assert
+        assertThat(greetingRepository.existsById(id)).isFalse();
+        assertThat(greetingRepository.findById(id)).isEmpty();
+    }
+
+    @Test
+    void existsByIdReturnsTrueWhenExists() {
+        // Arrange
+        Greeting toSave = new Greeting("Exists", "I exist", Instant.parse("2025-01-01T10:00:00Z"));
+        toSave.setReference("GRE-2025-000030");
+        Greeting saved = greetingRepository.save(toSave);
+
+        // Act & Assert
+        assertThat(greetingRepository.existsById(saved.getId())).isTrue();
+    }
+
+    @Test
+    void existsByIdReturnsFalseWhenNotExists() {
+        // Act & Assert
+        assertThat(greetingRepository.existsById(999999999L)).isFalse();
+    }
 }

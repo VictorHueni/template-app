@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 public class GreetingService {
@@ -43,5 +44,39 @@ public class GreetingService {
     public Page<Greeting> getGreetings(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return repository.findAll(pageable);
+    }
+
+    public Optional<Greeting> getGreeting(Long id) {
+        return repository.findById(id);
+    }
+
+    public Optional<Greeting> updateGreeting(Long id, String message, String recipient) {
+        return repository.findById(id)
+                .map(existing -> {
+                    existing.setMessage(message);
+                    existing.setRecipient(recipient);
+                    return repository.save(existing);
+                });
+    }
+
+    public Optional<Greeting> patchGreeting(Long id, String message, String recipient) {
+        return repository.findById(id)
+                .map(existing -> {
+                    if (message != null) {
+                        existing.setMessage(message);
+                    }
+                    if (recipient != null) {
+                        existing.setRecipient(recipient);
+                    }
+                    return repository.save(existing);
+                });
+    }
+
+    public boolean deleteGreeting(Long id) {
+        if (repository.existsById(id)) {
+            repository.deleteById(id);
+            return true;
+        }
+        return false;
     }
 }

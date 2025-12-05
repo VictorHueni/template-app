@@ -22,10 +22,12 @@ public class Greeting extends AbstractBaseEntity {
     private String reference;
 
     @Getter
+    @Setter
     @Column(name = "recipient", nullable = false)
     private String recipient;
 
     @Getter
+    @Setter
     @Column(name = "message", nullable = false)
     private String message;
 
