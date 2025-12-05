@@ -315,7 +315,7 @@
 					</systemPropertyVariables>
 
 					<!-- JVM args for better test performance -->
-					<argLine>-Xmx512m -Djava.security.egd=file:/dev/./urandom</argLine>
+					<argLine>@{argLine} -Xmx512m -Djava.security.egd=file:/dev/./urandom</argLine>
 				</configuration>
 			</plugin>
 
