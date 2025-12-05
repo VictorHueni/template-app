@@ -336,14 +336,14 @@ openapi-diff /tmp/main-spec.yaml api/specification/openapi.yaml
 
 ### Backend Health
 ```powershell
-# Check application health
-curl http://localhost:8080/api/actuator/health
+# Check application health (actuator runs on separate port 8081)
+curl http://localhost:8081/management/health
 
 # Detailed health (when authorized)
-curl http://localhost:8080/api/actuator/health -u admin:localpassword
+curl http://localhost:8081/management/health -u admin:localpassword
 
 # Check info endpoint
-curl http://localhost:8080/api/actuator/info
+curl http://localhost:8081/management/info
 
 # Test greeting endpoint (GET with pagination)
 curl "http://localhost:8080/api/v1/greetings?page=0&size=10"
@@ -634,7 +634,7 @@ VITE_API_URL=/api
 | API client gen   | `cd frontend && npm run api:generate`                       |
 | View coverage    | `cd backend && ./mvnw test jacoco:report`                   |
 | Clean all        | `docker compose down -v --rmi local --remove-orphans`       |
-| Health check     | `curl http://localhost:8080/api/actuator/health`            |
+| Health check     | `curl http://localhost:8081/management/health`              |
 
 ---
 

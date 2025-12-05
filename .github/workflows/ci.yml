@@ -162,9 +162,9 @@ jobs:
 
       - name: Wait for backend readiness
         run: |
-          echo "Waiting for Spring Boot health endpoint (http://localhost:8080/actuator/health)..."
+          echo "Waiting for Spring Boot health endpoint (http://localhost:8081/management/health)..."
           for i in {1..40}; do
-            if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
+            if curl -s http://localhost:8081/management/health | grep -q "UP"; then
               echo "Backend is ready!"
               exit 0
             fi
@@ -274,7 +274,7 @@ jobs:
       - name: Wait for backend readiness
         run: |
           for i in {1..30}; do
-            if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
+            if curl -s http://localhost:8081/management/health | grep -q "UP"; then
               exit 0
             fi
             sleep 1

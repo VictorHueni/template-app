@@ -49,7 +49,8 @@ ENV TZ=UTC LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
     SPRING_PROFILES_ACTIVE=default
 
-EXPOSE 8080
+# Expose both application port (8080) and management/actuator port (8081)
+EXPOSE 8080 8081
 
 # Copy the built JAR from the builder stage
 # Note: The path is now /app/backend/target because of the structure change in Stage 1

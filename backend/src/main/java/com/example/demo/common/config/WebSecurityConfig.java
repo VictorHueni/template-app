@@ -65,6 +65,10 @@ public class WebSecurityConfig {
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )
+                // Enable HTTP Basic Auth for actuator endpoints (machine-to-machine access)
+                .httpBasic(basic -> basic
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                )
                 .formLogin(AbstractHttpConfigurer::disable /*(form) -> form
                         .loginPage("/login")
                         .permitAll()*/

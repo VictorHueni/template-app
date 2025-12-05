@@ -37,7 +37,7 @@
 ## 🧱 Backend Containerization
 - [ ] Keep minimal, secure **Dockerfile** (non-root, healthcheck, BuildKit caching).
 - [ ] Add a **Makefile** or scripts for `build`, `run`, and `deploy`.
-- [ ] Include test examples: `curl /actuator/health` and `curl /api/hello`.
+- [ ] Include test examples: `curl http://localhost:8081/management/health` and `curl /api/hello`.
 
 ## 🗄️ Optional RDS Integration
 - [ ] Clearly mark RDS as optional in the README.

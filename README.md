@@ -164,7 +164,7 @@ It's meant as a **reference architecture** and **learning resource**.
 18. **Health checks**  
     The pipeline monitors the new ECS tasks until:
     - ALB marks them as healthy  
-    - `/actuator/health` endpoint responds with `200 OK`  
+    - `/management/health` endpoint responds with `200 OK` (on management port 8081)  
 
 19. **Smoke tests**  
     Once the new containers are live, the pipeline runs quick checks:
@@ -270,7 +270,7 @@ sequenceDiagram
         ECS->>CW: Stream app logs
 
         %% ---- Health + smoke tests --------------------------------------
-        GH->>ALB: Health check /actuator/health
+        GH->>ALB: Health check /management/health (port 8081)
         alt Healthy
             GH->>ALB: Smoke tests (auth, key APIs)
             alt All pass
@@ -368,8 +368,8 @@ sequenceDiagram
   - Family: `ghost-template-api`
   - CPU/Mem: `0.5 vCPU / 1–2 GB`
   - Container:
-    - Port: 8080
-    - Health: `/actuator/health`
+    - Port: 8080 (app), 8081 (management)
+    - Health: `/management/health` (port 8081)
     - Env vars: `SPRING_DATASOURCE_URL`, `USERNAME`, `PASSWORD`
   - Execution Role: `ecsTaskExecutionRole`
   - Task Role: `ghost-template-api-taskrole`
@@ -422,7 +422,7 @@ sequenceDiagram
 
 
 ## Phase 10 - Test & Promote
-- Test `/actuator/health` via ALB
+- Test `/management/health` (port 8081) via internal network
 - Run smoke tests
 - Point domain to ALB or CloudFront
 - Tag release (`v1.0.0`) and redeploy
@@ -674,7 +674,8 @@ http:
   public: false
   path: '/'
   healthcheck:
-    path: '/actuator/health'
+    path: '/management/health'
+    port: 8081
 ``` 
 
 Redeploy
