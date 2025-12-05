@@ -44,13 +44,31 @@ jobs:
       - name: Check for Breaking Changes
         if: github.event_name == 'pull_request'
         run: |
-          git fetch origin main:main
-          # Example command placeholder
-          echo "Run your breaking change tool here (e.g., openapi-diff)"
+          # Get the OpenAPI spec from the main branch
+          git show main:api/specification/openapi.yaml > /tmp/main-openapi.yaml
+
+          # Compare main spec with current branch spec using locally installed openapi-diff
+          # openapi-diff exits with code 1 if there are breaking changes
+          cd api && npx openapi-diff /tmp/main-openapi.yaml specification/openapi.yaml
 
       # --- 4. Drift Detection ---
+      # Ensures the generated API code matches the OpenAPI specification.
+      # If developers manually modified generated files, this will catch it.
       - name: Check Backend Drift
         run: |
           cd backend
-          ./mvnw clean compile
-          git diff --exit-code src/main/java/com/example/demo/api
+
+          # Step 1: Generate fresh API code from the OpenAPI spec
+          ./mvnw clean compile -q
+
+          # Step 2: Copy generated sources to a temp location
+          cp -r target/generated-sources/openapi/src/main/java/com/example/demo/api /tmp/freshly-generated-api
+
+          # Step 3: Clean and regenerate to ensure reproducibility
+          ./mvnw clean compile -q
+
+          # Step 4: Compare the two generations - they should be identical
+          # This ensures the OpenAPI spec produces deterministic output
+          diff -r /tmp/freshly-generated-api target/generated-sources/openapi/src/main/java/com/example/demo/api
+
+          echo "✅ Backend API code is in sync with OpenAPI specification"

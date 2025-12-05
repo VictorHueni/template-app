@@ -9,9 +9,10 @@
         "diff": "openapi-diff"
     },
     "devDependencies": {
-        "@stoplight/spectral-cli": "^6.11.0",
-        "@stoplight/prism-cli": "^5.7.0",
+        "@stoplight/spectral-cli": "^6.15.0",
+        "@stoplight/prism-cli": "^5.14.2",
+        "openapi-diff": "^0.24.1",
         "redoc-cli": "^0.13.21",
-        "@openapitools/openapi-generator-cli": "^2.13.0"
+        "@openapitools/openapi-generator-cli": "^2.25.2"
     }
 }
