@@ -3,6 +3,9 @@ info:
   title: Template App API
   version: 1.0.0
   description: API for the Template Application
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   contact:
     name: API Support
     email: api-support@example.com
@@ -24,6 +27,7 @@ paths:
       summary: List greetings
       description: Retrieves a paginated list of all greetings. Supports pagination via page and size query parameters.
       operationId: listGreetings
+      security: []  # Public endpoint - no authentication required
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/SizeParam'
@@ -59,6 +63,10 @@ paths:
                 $ref: '#/components/schemas/GreetingResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
 
@@ -72,6 +80,7 @@ paths:
       summary: Get a greeting by ID
       description: Retrieves a single greeting by its unique TSID identifier.
       operationId: getGreeting
+      security: []  # Public endpoint - no authentication required
       responses:
         '200':
           description: The greeting
@@ -105,6 +114,10 @@ paths:
                 $ref: '#/components/schemas/GreetingResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -133,6 +146,10 @@ paths:
                 $ref: '#/components/schemas/GreetingResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -149,6 +166,10 @@ paths:
       responses:
         '204':
           description: Greeting deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -192,41 +213,148 @@ components:
     BadRequest:
       description: The server could not process the request due to invalid syntax.
       content:
-        application/json:
+        application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/validation-error"
+            title: "Validation Error"
+            status: 400
+            detail: "Request validation failed"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+            errors:
+              message: "must not be blank"
 
     NotFound:
       description: The requested resource was not found.
       content:
-        application/json:
+        application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/resource-not-found"
+            title: "Resource Not Found"
+            status: 404
+            detail: "Greeting with id '123' not found"
+            instance: "/api/v1/greetings/123"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+            resourceType: "Greeting"
+            resourceId: "123"
 
     Conflict:
       description: The request conflicts with the current state of the resource.
       content:
-        application/json:
+        application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/conflict"
+            title: "Conflict"
+            status: 409
+            detail: "Resource already exists"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+            reason: "A greeting with this reference already exists"
+
+    Unauthorized:
+      description: Authentication is required to access this resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "Authentication is required to access this resource"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+
+    Forbidden:
+      description: You do not have permission to access this resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "You do not have permission to access this resource"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
 
   schemas:
-    # 4. Error Model (RFC 7807)
+    # RFC 7807 Problem Details
     ProblemDetail:
       type: object
+      description: |
+        RFC 7807 Problem Details for HTTP APIs.
+        See: https://datatracker.ietf.org/doc/html/rfc7807
       properties:
         type:
           type: string
           format: uri
+          description: A URI reference that identifies the problem type
+          example: "https://api.example.com/problems/resource-not-found"
         title:
           type: string
+          description: A short, human-readable summary of the problem type
+          example: "Resource Not Found"
         status:
           type: integer
+          description: The HTTP status code
+          example: 404
         detail:
           type: string
+          description: A human-readable explanation specific to this occurrence
+          example: "Greeting with id '123' not found"
         instance:
           type: string
-      required: [type, title, status]
+          format: uri-reference
+          description: A URI reference that identifies the specific occurrence
+          example: "/api/v1/greetings/123"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred (ISO-8601)
+          example: "2025-01-15T10:30:00Z"
+        traceId:
+          type: string
+          description: Unique identifier for debugging and log correlation
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Field-level validation errors (for 400 responses)
+          example:
+            message: "must not be blank"
+            recipient: "size must be between 1 and 100"
+        resourceType:
+          type: string
+          description: Type of resource not found (for 404 responses)
+          example: "Greeting"
+        resourceId:
+          type: string
+          description: ID of the resource not found (for 404 responses)
+          example: "123"
+        reason:
+          type: string
+          description: Reason for the conflict (for 409 responses)
+          example: "Resource already exists"
+      required:
+        - type
+        - title
+        - status
+        - timestamp
+        - traceId
 
     CreateGreetingRequest:
       type: object
