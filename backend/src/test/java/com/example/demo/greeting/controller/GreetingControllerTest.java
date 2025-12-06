@@ -1,6 +1,7 @@
 package com.example.demo.greeting.controller;
 
 import com.example.demo.api.v1.model.*;
+import com.example.demo.common.exception.ResourceNotFoundException;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 /**
@@ -161,19 +163,18 @@ class GreetingControllerTest {
         }
 
         @Test
-        @DisplayName("returns 404 when greeting does not exist")
-        void returnsNotFoundWhenGreetingDoesNotExist() {
+        @DisplayName("throws ResourceNotFoundException when greeting does not exist")
+        void throwsResourceNotFoundExceptionWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
             UpdateGreetingRequest request = new UpdateGreetingRequest("Updated Message", "Bob");
             when(service.updateGreeting(id, "Updated Message", "Bob")).thenReturn(Optional.empty());
 
-            // Act
-            ResponseEntity<GreetingResponse> response = controller.updateGreeting(id, request);
-
-            // Assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-            assertThat(response.getBody()).isNull();
+            // Act & Assert
+            assertThatThrownBy(() -> controller.updateGreeting(id, request))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Greeting")
+                    .hasMessageContaining("999");
 
             verify(service).updateGreeting(id, "Updated Message", "Bob");
         }
@@ -256,20 +257,19 @@ class GreetingControllerTest {
         }
 
         @Test
-        @DisplayName("returns 404 when greeting does not exist")
-        void returnsNotFoundWhenGreetingDoesNotExist() {
+        @DisplayName("throws ResourceNotFoundException when greeting does not exist")
+        void throwsResourceNotFoundExceptionWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
             PatchGreetingRequest request = new PatchGreetingRequest();
             request.setMessage("Patched Message");
             when(service.patchGreeting(id, "Patched Message", null)).thenReturn(Optional.empty());
 
-            // Act
-            ResponseEntity<GreetingResponse> response = controller.patchGreeting(id, request);
-
-            // Assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-            assertThat(response.getBody()).isNull();
+            // Act & Assert
+            assertThatThrownBy(() -> controller.patchGreeting(id, request))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Greeting")
+                    .hasMessageContaining("999");
 
             verify(service).patchGreeting(id, "Patched Message", null);
         }

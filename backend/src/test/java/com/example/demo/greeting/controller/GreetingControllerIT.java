@@ -212,6 +212,11 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .when()
                 .delete("/api/v1/greetings/{id}", 999999999L)
                 .then()
-                .statusCode(404);
+                .statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("https://api.example.com/problems/resource-not-found"))
+                .body("title", equalTo("Resource Not Found"))
+                .body("status", equalTo(404))
+                .body("traceId", notNullValue());
     }
 }
