@@ -120,17 +120,17 @@ class GreetingControllerTest {
         }
 
         @Test
-        @DisplayName("returns 404 when greeting does not exist")
-        void returnsNotFoundWhenGreetingDoesNotExist() {
+        @DisplayName("throws ResourceNotFoundException when greeting does not exist")
+        void throwsResourceNotFoundExceptionWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
             when(service.deleteGreeting(id)).thenReturn(false);
 
-            // Act
-            ResponseEntity<Void> response = controller.deleteGreeting(id);
-
-            // Assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            // Act & Assert
+            assertThatThrownBy(() -> controller.deleteGreeting(id))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Greeting")
+                    .hasMessageContaining("999");
 
             verify(service).deleteGreeting(id);
         }
