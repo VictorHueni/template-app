@@ -20,19 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Setup Java to access local Maven cache for building JAR inside container job
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # Download the JAR built by backend_pipeline instead of rebuilding
+      - name: Download Backend JAR artifact
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: ${{ inputs.JAVA_VERSION }}
-          cache: maven
-
-      # Build the backend JAR before building the image
-      - name: Build Backend JAR
-        working-directory: backend
-        # Ensure JAR is built for Dockerfile to use. Skip tests as they ran in backend-ci.yml
-        run: ./mvnw -B clean package -DskipTests -Djacoco.skip=true
+          name: backend-jar
+          path: backend/target
 
       # --- Buildx Setup ---
       - name: Set up Docker Buildx

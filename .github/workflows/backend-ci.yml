@@ -121,6 +121,13 @@ jobs:
           path: backend/target/sbom/backend-sbom.json
           if-no-files-found: error
 
+      - name: Upload Backend JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+          if-no-files-found: error
+
   ## 4. Job D: Integration Tests (Chained)
   backend_integration_test:
     runs-on: ubuntu-latest

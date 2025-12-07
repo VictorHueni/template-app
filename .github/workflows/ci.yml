@@ -79,8 +79,13 @@ jobs:
 
   # --- 4. Calls the Backend Checks Workflow ---
   backend_pipeline:
-    needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    needs: [changes, api_governance_pipeline, code_security_pipeline]
+    # Run if Backend changed AND API governance and code security succeeded or were skipped
+    if: |
+      always() && 
+      needs.changes.outputs.backend == 'true' &&
+      needs.api_governance_pipeline.result != 'failure' &&
+      needs.code_security_pipeline.result != 'failure'
     uses: ./.github/workflows/backend-ci.yml
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -225,6 +230,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - changes
+      - api_governance_pipeline
       - code_security_pipeline
       - frontend_pipeline
       - backend_pipeline
@@ -234,6 +240,7 @@ jobs:
     if: |
       always() && 
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') &&
+      (needs.api_governance_pipeline.result == 'success' || needs.api_governance_pipeline.result == 'skipped') &&
       (needs.code_security_pipeline.result == 'success' || needs.code_security_pipeline.result == 'skipped') &&
       (needs.frontend_pipeline.result == 'success' || needs.frontend_pipeline.result == 'skipped') &&
       (needs.backend_pipeline.result == 'success' || needs.backend_pipeline.result == 'skipped') &&
