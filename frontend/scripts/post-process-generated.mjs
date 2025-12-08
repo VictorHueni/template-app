@@ -5,7 +5,7 @@
  */
 
 import { readdir, readFile, writeFile } from "fs/promises";
-import { join } from "path";
+import { join, resolve, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
@@ -15,11 +15,24 @@ const __dirname = dirname(__filename);
 const GENERATED_DIR = join(__dirname, "..", "src", "api", "generated");
 const TS_NOCHECK = "// @ts-nocheck\n";
 
+function isInsideGeneratedDir(targetPath) {
+    const relativePath = relative(GENERATED_DIR, targetPath);
+    return (
+        relativePath === "" ||
+        (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+    );
+}
+
 async function processDirectory(dir) {
     const entries = await readdir(dir, { withFileTypes: true });
 
     for (const entry of entries) {
-        const fullPath = join(dir, entry.name);
+        const fullPath = resolve(dir, entry.name);
+
+        if (!isInsideGeneratedDir(fullPath)) {
+            console.warn(`Skipping entry outside generated dir: ${fullPath}`);
+            continue;
+        }
 
         if (entry.isDirectory()) {
             await processDirectory(fullPath);
