@@ -132,6 +132,11 @@ Pipfile.lock
 # The token has signature "demo-signature" which is cryptographically invalid
 frontend/src/api/config.ts
 
+# Nginx config: H2C smuggling mitigated by clearing Upgrade/Connection headers
+# False positive on proxy_http_version 1.1 - see Bishop Fox remediation:
+# https://bishopfox.com/blog/h2c-smuggling-request
+frontend/nginx.conf
+
 # ===== Configuration Files (adjust based on security needs) =====
 # Skip config if they contain no code logic, only data
 # *.json
