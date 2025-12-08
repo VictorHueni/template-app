@@ -9,16 +9,14 @@ title = "Gitleaks Configuration for template-app"
 description = "Allowlist for development/test credentials that are not real secrets"
 
 # File paths to check for allowlisted patterns
-paths = [
-    '''frontend/src/api/config\.ts''',
-]
+paths = ['''frontend/src/api/config\.ts''']
 
 # Regex patterns that indicate a false positive
 # These patterns identify obviously fake/demo credentials
 regexes = [
     # JWT tokens ending with "demo-signature" are fake
     '''demo-signature$''',
-    
+
     # Tokens with subjects containing "demo-user" are fake
     '''demo-user''',
 ]
