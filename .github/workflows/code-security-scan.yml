@@ -69,6 +69,7 @@ jobs:
             --source=. \
             --no-git \
             --redact \
+            --config .gitleaks.toml \
             --report-format sarif \
             --report-path gitleaks.sarif
         env:

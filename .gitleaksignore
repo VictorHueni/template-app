@@ -1,0 +1,8 @@
+# .gitleaksignore
+# Gitleaks ignore patterns for false positives
+# See: https://github.com/gitleaks/gitleaks#gitleaksignore
+
+# Frontend demo JWT token - NOT a real secret
+# This token has "demo-signature" suffix and impossible expiration (year 2030)
+# Will be replaced with proper secret management (Vault/etc) in production
+frontend/src/api/config.ts:*demo-signature*

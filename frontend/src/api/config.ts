@@ -41,8 +41,9 @@ function getDemoToken(): string {
     }
 
     // Fallback to hardcoded demo token
-    // nosemgrep: generic.secrets.security.detected-generic-secret
-    // gitleaks:allow - This is a mock JWT with "demo-signature", not a real secret
+    // This is a mock JWT with "demo-signature" suffix and impossible expiration (year 2030)
+    // NOT a real secret - see .gitleaks.toml and .gitleaksignore for allowlist rules
+    // nosemgrep: generic.secrets.security.detected-jwt-token, generic.secrets.security.detected-generic-secret
     return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJuYW1lIjoiRGVtbyBVc2VyIiwiaWF0IjoxNzMzNjY1NjAwLCJleHAiOjE4OTk5OTk5OTl9.demo-signature";
 }
 

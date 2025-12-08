@@ -1,0 +1,38 @@
+# .gitleaks.toml
+# Gitleaks configuration for secret scanning
+# Documentation: https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks Configuration for template-app"
+
+# Allowlist configuration to prevent false positives
+[allowlist]
+description = "Allowlist for development/test credentials that are not real secrets"
+
+# File paths to check for allowlisted patterns
+paths = [
+    '''frontend/src/api/config\.ts''',
+]
+
+# Regex patterns that indicate a false positive
+# These patterns identify obviously fake/demo credentials
+regexes = [
+    # JWT tokens ending with "demo-signature" are fake
+    '''demo-signature$''',
+    
+    # Tokens with subjects containing "demo-user" are fake
+    '''demo-user''',
+]
+
+# Stopwords that indicate test/demo data
+stopwords = [
+    'demo-signature',
+    'demo-user',
+    'Demo User',
+    'DEMO_TOKEN',
+    'DEMO_AUTH_TOKEN',
+]
+
+# Additional notes:
+# - Real secrets should NEVER be committed to version control
+# - Production tokens come from environment variables or secret management systems
+# - This config will be updated when proper secret management (Vault/etc) is implemented
