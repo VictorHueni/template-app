@@ -154,3 +154,29 @@ export const mockErrors = {
         detail: "An unexpected error occurred",
     }),
 };
+
+/**
+ * Helper to create a mock successful API response.
+ * Properly typed for hey-api SDK functions.
+ */
+export function mockApiSuccess<T>(data: T) {
+    return {
+        data,
+        error: undefined as undefined,
+        request: new Request("http://localhost/test"),
+        response: new Response(),
+    };
+}
+
+/**
+ * Helper to create a mock error API response.
+ * Properly typed for hey-api SDK functions.
+ */
+export function mockApiError(error: ProblemDetail) {
+    return {
+        data: undefined as undefined,
+        error,
+        request: new Request("http://localhost/test"),
+        response: new Response(null, { status: error.status }),
+    };
+}

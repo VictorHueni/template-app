@@ -21,7 +21,13 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useGreetings } from "./useGreetings";
-import { mockGreetings, createMockGreetingPage, mockErrors } from "../../../test/mocks/data";
+import {
+    mockGreetings,
+    createMockGreetingPage,
+    mockErrors,
+    mockApiSuccess,
+    mockApiError,
+} from "../../../test/mocks/data";
 
 // Mock the API config module
 vi.mock("../../../api/config", () => ({
@@ -37,11 +43,8 @@ const mockListGreetings = listGreetings as Mock;
 describe("useGreetings", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // Default: return mock data successfully (hey-api returns { data, error })
-        mockListGreetings.mockResolvedValue({
-            data: createMockGreetingPage(mockGreetings),
-            error: undefined,
-        });
+        // Default: return mock data successfully (hey-api returns { data, error, request, response })
+        mockListGreetings.mockResolvedValue(mockApiSuccess(createMockGreetingPage(mockGreetings)));
     });
 
     /**
@@ -97,14 +100,12 @@ describe("useGreetings", () => {
     describe("pagination", () => {
         it("should fetch specific page when setPage is called", async () => {
             mockListGreetings
-                .mockResolvedValueOnce({
-                    data: createMockGreetingPage(mockGreetings, { pageNumber: 0 }),
-                    error: undefined,
-                })
-                .mockResolvedValueOnce({
-                    data: createMockGreetingPage([], { pageNumber: 1 }),
-                    error: undefined,
-                });
+                .mockResolvedValueOnce(
+                    mockApiSuccess(createMockGreetingPage(mockGreetings, { pageNumber: 0 })),
+                )
+                .mockResolvedValueOnce(
+                    mockApiSuccess(createMockGreetingPage([], { pageNumber: 1 })),
+                );
 
             const { result } = renderHook(() => useGreetings());
 
@@ -131,10 +132,7 @@ describe("useGreetings", () => {
                 pageSize: 1,
                 totalPages: 3,
             });
-            mockListGreetings.mockResolvedValue({
-                data: singleItemPage,
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(mockApiSuccess(singleItemPage));
 
             const { result } = renderHook(() => useGreetings({ size: 1 }));
 
@@ -214,10 +212,7 @@ describe("useGreetings", () => {
 
         it("should handle server errors (500)", async () => {
             // hey-api returns errors as { data: undefined, error: ProblemDetail }
-            mockListGreetings.mockResolvedValue({
-                data: undefined,
-                error: mockErrors.serverError,
-            });
+            mockListGreetings.mockResolvedValue(mockApiError(mockErrors.serverError));
 
             const { result } = renderHook(() => useGreetings());
 
@@ -231,10 +226,7 @@ describe("useGreetings", () => {
 
         it("should clear error on successful refetch", async () => {
             // First call fails
-            mockListGreetings.mockResolvedValueOnce({
-                data: undefined,
-                error: mockErrors.serverError,
-            });
+            mockListGreetings.mockResolvedValueOnce(mockApiError(mockErrors.serverError));
 
             const { result } = renderHook(() => useGreetings());
 
@@ -243,10 +235,9 @@ describe("useGreetings", () => {
             });
 
             // Setup successful response for refresh
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage(mockGreetings),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)),
+            );
 
             // Refresh should succeed
             await act(async () => {

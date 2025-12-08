@@ -7,7 +7,13 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useGreeting } from "./useGreeting";
-import { mockGreetings, createMockGreeting, mockErrors } from "../../../test/mocks/data";
+import {
+    mockGreetings,
+    createMockGreeting,
+    mockErrors,
+    mockApiSuccess,
+    mockApiError,
+} from "../../../test/mocks/data";
 
 // Mock the API config module
 vi.mock("../../../api/config", () => ({
@@ -21,11 +27,8 @@ const mockGetGreeting = getGreeting as Mock;
 describe("useGreeting", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // hey-api returns { data, error }
-        mockGetGreeting.mockResolvedValue({
-            data: mockGreetings[0],
-            error: undefined,
-        });
+        // hey-api returns { data, error, request, response }
+        mockGetGreeting.mockResolvedValue(mockApiSuccess(mockGreetings[0]));
     });
 
     describe("fetching a single greeting", () => {
@@ -50,10 +53,7 @@ describe("useGreeting", () => {
 
         it("should call API with correct id", async () => {
             const testId = 123456789;
-            mockGetGreeting.mockResolvedValue({
-                data: createMockGreeting({ id: testId }),
-                error: undefined,
-            });
+            mockGetGreeting.mockResolvedValue(mockApiSuccess(createMockGreeting({ id: testId })));
 
             renderHook(() => useGreeting(testId));
 
@@ -88,14 +88,8 @@ describe("useGreeting", () => {
         it("should refetch when id changes", async () => {
             // Setup mock to return different data based on call order
             mockGetGreeting
-                .mockResolvedValueOnce({
-                    data: mockGreetings[0],
-                    error: undefined,
-                })
-                .mockResolvedValueOnce({
-                    data: mockGreetings[1],
-                    error: undefined,
-                });
+                .mockResolvedValueOnce(mockApiSuccess(mockGreetings[0]))
+                .mockResolvedValueOnce(mockApiSuccess(mockGreetings[1]));
 
             const { result, rerender } = renderHook(({ id }) => useGreeting(id), {
                 initialProps: { id: mockGreetings[0].id },
@@ -141,10 +135,7 @@ describe("useGreeting", () => {
 
     describe("error handling", () => {
         it("should handle not found errors (404)", async () => {
-            mockGetGreeting.mockResolvedValue({
-                data: undefined,
-                error: mockErrors.notFound,
-            });
+            mockGetGreeting.mockResolvedValue(mockApiError(mockErrors.notFound));
 
             const { result } = renderHook(() => useGreeting(999999));
 

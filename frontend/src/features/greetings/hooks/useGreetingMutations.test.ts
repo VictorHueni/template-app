@@ -13,7 +13,13 @@ import {
     usePatchGreeting,
     useDeleteGreeting,
 } from "./useGreetingMutations";
-import { mockGreetings, createMockGreeting, mockErrors } from "../../../test/mocks/data";
+import {
+    mockGreetings,
+    createMockGreeting,
+    mockErrors,
+    mockApiSuccess,
+    mockApiError,
+} from "../../../test/mocks/data";
 
 // Mock the API config module
 vi.mock("../../../api/config", () => ({
@@ -48,10 +54,7 @@ describe("useCreateGreeting", () => {
             message: "New greeting",
             recipient: "Alice",
         });
-        mockCreateGreeting.mockResolvedValue({
-            data: newGreeting,
-            error: undefined,
-        });
+        mockCreateGreeting.mockResolvedValue(mockApiSuccess(newGreeting));
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -77,7 +80,7 @@ describe("useCreateGreeting", () => {
         mockCreateGreeting.mockImplementation(
             () =>
                 new Promise((resolve) =>
-                    setTimeout(() => resolve({ data: mockGreetings[0], error: undefined }), 100),
+                    setTimeout(() => resolve(mockApiSuccess(mockGreetings[0])), 100),
                 ),
         );
 
@@ -98,10 +101,7 @@ describe("useCreateGreeting", () => {
     });
 
     it("should handle validation errors", async () => {
-        mockCreateGreeting.mockResolvedValue({
-            data: undefined,
-            error: mockErrors.validationError,
-        });
+        mockCreateGreeting.mockResolvedValue(mockApiError(mockErrors.validationError));
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -116,10 +116,7 @@ describe("useCreateGreeting", () => {
     });
 
     it("should handle unauthorized errors", async () => {
-        mockCreateGreeting.mockResolvedValue({
-            data: undefined,
-            error: mockErrors.unauthorized,
-        });
+        mockCreateGreeting.mockResolvedValue(mockApiError(mockErrors.unauthorized));
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -131,10 +128,7 @@ describe("useCreateGreeting", () => {
     });
 
     it("should reset state when reset is called", async () => {
-        mockCreateGreeting.mockResolvedValue({
-            data: mockGreetings[0],
-            error: undefined,
-        });
+        mockCreateGreeting.mockResolvedValue(mockApiSuccess(mockGreetings[0]));
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -160,10 +154,7 @@ describe("useUpdateGreeting", () => {
 
     it("should update a greeting successfully", async () => {
         const updatedGreeting = { ...mockGreetings[0], message: "Updated message" };
-        mockUpdateGreeting.mockResolvedValue({
-            data: updatedGreeting,
-            error: undefined,
-        });
+        mockUpdateGreeting.mockResolvedValue(mockApiSuccess(updatedGreeting));
 
         const { result } = renderHook(() => useUpdateGreeting());
 
@@ -185,10 +176,7 @@ describe("useUpdateGreeting", () => {
     });
 
     it("should handle not found errors", async () => {
-        mockUpdateGreeting.mockResolvedValue({
-            data: undefined,
-            error: mockErrors.notFound,
-        });
+        mockUpdateGreeting.mockResolvedValue(mockApiError(mockErrors.notFound));
 
         const { result } = renderHook(() => useUpdateGreeting());
 
@@ -210,10 +198,7 @@ describe("usePatchGreeting", () => {
 
     it("should patch a greeting successfully", async () => {
         const patchedGreeting = { ...mockGreetings[0], message: "Patched message" };
-        mockPatchGreeting.mockResolvedValue({
-            data: patchedGreeting,
-            error: undefined,
-        });
+        mockPatchGreeting.mockResolvedValue(mockApiSuccess(patchedGreeting));
 
         const { result } = renderHook(() => usePatchGreeting());
 
@@ -229,10 +214,7 @@ describe("usePatchGreeting", () => {
     });
 
     it("should allow partial updates", async () => {
-        mockPatchGreeting.mockResolvedValue({
-            data: mockGreetings[0],
-            error: undefined,
-        });
+        mockPatchGreeting.mockResolvedValue(mockApiSuccess(mockGreetings[0]));
 
         const { result } = renderHook(() => usePatchGreeting());
 
@@ -254,10 +236,7 @@ describe("useDeleteGreeting", () => {
     });
 
     it("should delete a greeting successfully", async () => {
-        mockDeleteGreeting.mockResolvedValue({
-            data: undefined,
-            error: undefined,
-        });
+        mockDeleteGreeting.mockResolvedValue(mockApiSuccess(undefined));
 
         const { result } = renderHook(() => useDeleteGreeting());
 
@@ -272,10 +251,7 @@ describe("useDeleteGreeting", () => {
     });
 
     it("should handle not found errors", async () => {
-        mockDeleteGreeting.mockResolvedValue({
-            data: undefined,
-            error: mockErrors.notFound,
-        });
+        mockDeleteGreeting.mockResolvedValue(mockApiError(mockErrors.notFound));
 
         const { result } = renderHook(() => useDeleteGreeting());
 
@@ -288,10 +264,7 @@ describe("useDeleteGreeting", () => {
     });
 
     it("should reset success state when reset is called", async () => {
-        mockDeleteGreeting.mockResolvedValue({
-            data: undefined,
-            error: undefined,
-        });
+        mockDeleteGreeting.mockResolvedValue(mockApiSuccess(undefined));
 
         const { result } = renderHook(() => useDeleteGreeting());
 

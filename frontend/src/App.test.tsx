@@ -9,7 +9,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import { createMockGreetingPage, mockGreetings } from "./test/mocks/data";
+import {
+    createMockGreetingPage,
+    mockGreetings,
+    mockApiSuccess,
+    mockApiError,
+    mockErrors,
+} from "./test/mocks/data";
 import type { GreetingResponse } from "./api/generated";
 
 // Mock the API config module
@@ -36,17 +42,18 @@ const mockCreateGreeting = vi.mocked(createGreeting);
 describe("App", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // Default: return empty page (hey-api returns { data, error })
-        mockListGreetings.mockResolvedValue({
-            data: createMockGreetingPage([]),
-            error: undefined,
-        });
+        // Default: return empty page (hey-api returns { data, error, request, response })
+        mockListGreetings.mockResolvedValue(
+            mockApiSuccess(createMockGreetingPage([])) as Awaited<ReturnType<typeof listGreetings>>,
+        );
     });
 
     describe("loading state", () => {
         it("shows loading indicator initially", () => {
-            // Make the API hang
-            mockListGreetings.mockImplementation(() => new Promise(() => {}));
+            // Make the API hang - use type assertion for never-resolving promise
+            mockListGreetings.mockImplementation(
+                () => new Promise(() => {}) as Promise<Awaited<ReturnType<typeof listGreetings>>>,
+            );
 
             render(<App />);
 
@@ -54,10 +61,11 @@ describe("App", () => {
         });
 
         it("hides loading after data loads", async () => {
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage(mockGreetings),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
             render(<App />);
 
@@ -69,10 +77,11 @@ describe("App", () => {
 
     describe("displaying greetings", () => {
         it("shows list of greetings", async () => {
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage(mockGreetings),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
             render(<App />);
 
@@ -83,10 +92,11 @@ describe("App", () => {
         });
 
         it("shows empty state when no greetings", async () => {
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage([]),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
             render(<App />);
 
@@ -96,7 +106,9 @@ describe("App", () => {
         });
 
         it("shows error state on API failure", async () => {
-            mockListGreetings.mockRejectedValue(new Error("Network error"));
+            mockListGreetings.mockResolvedValue(
+                mockApiError(mockErrors.serverError) as Awaited<ReturnType<typeof listGreetings>>,
+            );
 
             render(<App />);
 
@@ -108,10 +120,11 @@ describe("App", () => {
 
     describe("theme toggle", () => {
         it("toggles between light and dark theme", async () => {
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage([]),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
             const { container } = render(<App />);
 
             const main = container.querySelector("main");
@@ -132,10 +145,11 @@ describe("App", () => {
 
     describe("creating greetings", () => {
         it("shows create form when clicking New Greeting button", async () => {
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage([]),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
             render(<App />);
             const user = userEvent.setup();
@@ -159,14 +173,14 @@ describe("App", () => {
                 recipient: "Test",
             };
 
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage([]),
-                error: undefined,
-            });
-            mockCreateGreeting.mockResolvedValue({
-                data: newGreeting,
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
+            mockCreateGreeting.mockResolvedValue(
+                mockApiSuccess(newGreeting) as Awaited<ReturnType<typeof createGreeting>>,
+            );
 
             render(<App />);
             const user = userEvent.setup();
@@ -184,10 +198,11 @@ describe("App", () => {
             await user.type(screen.getByLabelText(/recipient/i), "Test");
 
             // Update mock for refresh
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage([newGreeting]),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([newGreeting])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
             // Submit
             await user.click(screen.getByRole("button", { name: /create greeting/i }));
@@ -211,10 +226,11 @@ describe("App", () => {
 
     describe("refresh functionality", () => {
         it("refreshes list when clicking refresh button", async () => {
-            mockListGreetings.mockResolvedValue({
-                data: createMockGreetingPage(mockGreetings),
-                error: undefined,
-            });
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
             render(<App />);
             const user = userEvent.setup();

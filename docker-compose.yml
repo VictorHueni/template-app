@@ -72,3 +72,26 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # --- 3. FRONTEND SERVICE (NGINX + VITE BUILD) ---
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
+    container_name: demo-frontend
+    restart: on-failure
+    networks:
+      - backend-network
+
+    ports:
+      - "${FE_PORT:-80}:80"
+
+    depends_on:
+      - backend
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3

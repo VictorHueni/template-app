@@ -13,12 +13,7 @@
  */
 
 import { useState, useCallback } from "react";
-import {
-    createGreeting,
-    updateGreeting,
-    patchGreeting,
-    deleteGreeting,
-} from "../../../api/config";
+import { createGreeting, updateGreeting, patchGreeting, deleteGreeting } from "../../../api/config";
 import { parseApiError, type ApiError } from "../../../api/errors";
 import type {
     GreetingResponse,
