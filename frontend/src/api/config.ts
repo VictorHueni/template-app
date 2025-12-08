@@ -38,7 +38,7 @@ const DEMO_AUTH_TOKEN =
  * Environment variable: VITE_API_URL
  * - Development: Usually empty (uses Vite proxy to avoid CORS)
  * - Production: Full URL like "https://api.example.com"
- * 
+ *
  * Note: The generated API client already includes "/v1" in the paths,
  * so we only add "/api" here to match the server URL from the OpenAPI spec.
  */

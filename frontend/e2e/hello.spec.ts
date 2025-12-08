@@ -324,9 +324,9 @@ test.describe("Create Greeting", () => {
         await page.getByRole("button", { name: /create greeting/i }).click();
 
         // Form should close after successful creation
-        await expect(
-            page.getByRole("heading", { name: /create new greeting/i }),
-        ).not.toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole("heading", { name: /create new greeting/i })).not.toBeVisible({
+            timeout: 5000,
+        });
     });
 });
 
@@ -408,7 +408,10 @@ test.describe("Delete Greeting", () => {
         page.on("dialog", (dialog) => dialog.accept());
 
         // Click delete
-        await page.getByRole("button", { name: /delete/i }).first().click();
+        await page
+            .getByRole("button", { name: /delete/i })
+            .first()
+            .click();
 
         // After deletion, the list should refresh (mocked to still show all items)
         await expect(page.getByText("Hello, World!")).toBeVisible();
@@ -424,7 +427,10 @@ test.describe("Delete Greeting", () => {
         page.on("dialog", (dialog) => dialog.dismiss());
 
         // Click delete
-        await page.getByRole("button", { name: /delete/i }).first().click();
+        await page
+            .getByRole("button", { name: /delete/i })
+            .first()
+            .click();
 
         // Greeting should still be visible
         await expect(page.getByText("Hello, World!")).toBeVisible();

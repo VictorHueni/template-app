@@ -17,10 +17,7 @@ const TS_NOCHECK = "// @ts-nocheck\n";
 
 function isInsideGeneratedDir(targetPath) {
     const relativePath = relative(GENERATED_DIR, targetPath);
-    return (
-        relativePath === "" ||
-        (!relativePath.startsWith("..") && !isAbsolute(relativePath))
-    );
+    return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 async function processDirectory(dir) {
