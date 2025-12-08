@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.config.Customizer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -73,7 +74,24 @@ public class WebSecurityConfig {
                         .loginPage("/login")
                         .permitAll()*/
                 )
-                .logout(LogoutConfigurer::permitAll);
+                .logout(LogoutConfigurer::permitAll)
+                // Security headers configuration (fixes ZAP DAST scan warnings)
+                .headers(headers -> {
+                        // Content-Security-Policy for API-only backend (fixes ZAP 10038)
+                        headers.contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'none'; frame-ancestors 'none'")
+                        );
+                        // Permissions-Policy (fixes ZAP 10063)
+                        headers.permissionsPolicy(permissions -> permissions
+                                .policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+                        );
+                        // Cache-Control to prevent caching sensitive responses (fixes ZAP 10049)
+                        headers.cacheControl(Customizer.withDefaults());
+                        // X-Frame-Options: DENY
+                        headers.frameOptions(frame -> frame.deny());
+                        // X-Content-Type-Options: nosniff
+                        headers.contentTypeOptions(Customizer.withDefaults());
+                });
 
         return http.build();
     }

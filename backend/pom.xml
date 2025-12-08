@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<hypersistence-utils.version>3.13.2</hypersistence-utils.version>
 		<!-- default: do NOT skip unit tests -->
