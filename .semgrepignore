@@ -127,6 +127,11 @@ pnpm-lock.yaml
 Gemfile.lock
 Pipfile.lock
 
+# ===== Demo/Development Files with Mock Secrets =====
+# API config contains intentionally invalid demo JWT for local development
+# The token has signature "demo-signature" which is cryptographically invalid
+frontend/src/api/config.ts
+
 # ===== Configuration Files (adjust based on security needs) =====
 # Skip config if they contain no code logic, only data
 # *.json
