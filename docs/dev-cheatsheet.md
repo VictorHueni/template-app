@@ -238,17 +238,23 @@ npm update
 
 ### Trivy (Container Scanning)
 ```powershell
-# Scan backend Docker image
-trivy image demo-backend:latest
+# Run Trivy via Docker (recommended - no installation required)
+# Note: Requires Docker socket access for image scanning
 
-# Scan with severity filter
-trivy image --severity HIGH,CRITICAL demo-backend:latest
+# Scan backend Docker image
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image template-app-backend:latest
+
+# Scan with severity filter (HIGH and CRITICAL only)
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image template-app-backend:latest --severity HIGH,CRITICAL
+
+# Scan frontend Docker image
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image template-app-frontend:latest --severity HIGH,CRITICAL
 
 # Generate SARIF report
-trivy image --format sarif -o trivy-results.sarif demo-backend:latest
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${PWD}:/output" aquasec/trivy image template-app-backend:latest --format sarif -o /output/trivy-results.sarif
 
-# Scan filesystem
-trivy fs --security-checks vuln,config,secret ./backend
+# Scan filesystem (source code vulnerabilities)
+docker run --rm -v "${PWD}:/src" aquasec/trivy fs /src/backend --scanners vuln,secret,misconfig
 ```
 
 ### Semgrep (SAST)
@@ -524,7 +530,7 @@ gitleaks detect --source=. --no-git
 
 # Container (Trivy) - requires Docker image built
 docker compose build backend
-trivy image demo-backend:latest --severity HIGH,CRITICAL
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image template-app-backend:latest --severity HIGH,CRITICAL
 ```
 
 ---
