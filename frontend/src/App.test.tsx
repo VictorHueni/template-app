@@ -18,37 +18,29 @@ vi.mock("./api/config", async () => {
     return {
         ...actual,
         API_BASE_PATH: "/api/v1",
-        greetingsApiPublic: {
-            listGreetings: vi.fn(),
-        },
-        greetingsApiAuth: {
-            createGreeting: vi.fn(),
-            updateGreeting: vi.fn(),
-            deleteGreeting: vi.fn(),
-        },
-        // greetingsApi is what the mutation hooks actually use
-        greetingsApi: {
-            createGreeting: vi.fn(),
-            updateGreeting: vi.fn(),
-            deleteGreeting: vi.fn(),
-        },
+        listGreetings: vi.fn(),
+        getGreeting: vi.fn(),
+        createGreeting: vi.fn(),
+        updateGreeting: vi.fn(),
+        patchGreeting: vi.fn(),
+        deleteGreeting: vi.fn(),
     };
 });
 
 // Get the mocked modules
-import { greetingsApiPublic, greetingsApi } from "./api/config";
+import { listGreetings, createGreeting } from "./api/config";
 
-const mockListGreetings = vi.mocked(greetingsApiPublic.listGreetings);
-const mockCreateGreeting = vi.mocked(greetingsApi.createGreeting);
-// These are available for future tests but not currently used
-// const mockUpdateGreeting = vi.mocked(greetingsApi.updateGreeting);
-// const mockDeleteGreeting = vi.mocked(greetingsApi.deleteGreeting);
+const mockListGreetings = vi.mocked(listGreetings);
+const mockCreateGreeting = vi.mocked(createGreeting);
 
 describe("App", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // Default: return empty page
-        mockListGreetings.mockResolvedValue(createMockGreetingPage([]));
+        // Default: return empty page (hey-api returns { data, error })
+        mockListGreetings.mockResolvedValue({
+            data: createMockGreetingPage([]),
+            error: undefined,
+        });
     });
 
     describe("loading state", () => {
@@ -62,7 +54,10 @@ describe("App", () => {
         });
 
         it("hides loading after data loads", async () => {
-            mockListGreetings.mockResolvedValue(createMockGreetingPage(mockGreetings));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage(mockGreetings),
+                error: undefined,
+            });
 
             render(<App />);
 
@@ -74,7 +69,10 @@ describe("App", () => {
 
     describe("displaying greetings", () => {
         it("shows list of greetings", async () => {
-            mockListGreetings.mockResolvedValue(createMockGreetingPage(mockGreetings));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage(mockGreetings),
+                error: undefined,
+            });
 
             render(<App />);
 
@@ -85,7 +83,10 @@ describe("App", () => {
         });
 
         it("shows empty state when no greetings", async () => {
-            mockListGreetings.mockResolvedValue(createMockGreetingPage([]));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage([]),
+                error: undefined,
+            });
 
             render(<App />);
 
@@ -107,7 +108,10 @@ describe("App", () => {
 
     describe("theme toggle", () => {
         it("toggles between light and dark theme", async () => {
-            mockListGreetings.mockResolvedValue(createMockGreetingPage([]));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage([]),
+                error: undefined,
+            });
             const { container } = render(<App />);
 
             const main = container.querySelector("main");
@@ -128,7 +132,10 @@ describe("App", () => {
 
     describe("creating greetings", () => {
         it("shows create form when clicking New Greeting button", async () => {
-            mockListGreetings.mockResolvedValue(createMockGreetingPage([]));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage([]),
+                error: undefined,
+            });
 
             render(<App />);
             const user = userEvent.setup();
@@ -152,8 +159,14 @@ describe("App", () => {
                 recipient: "Test",
             };
 
-            mockListGreetings.mockResolvedValue(createMockGreetingPage([]));
-            mockCreateGreeting.mockResolvedValue(newGreeting);
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage([]),
+                error: undefined,
+            });
+            mockCreateGreeting.mockResolvedValue({
+                data: newGreeting,
+                error: undefined,
+            });
 
             render(<App />);
             const user = userEvent.setup();
@@ -171,15 +184,18 @@ describe("App", () => {
             await user.type(screen.getByLabelText(/recipient/i), "Test");
 
             // Update mock for refresh
-            mockListGreetings.mockResolvedValue(createMockGreetingPage([newGreeting]));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage([newGreeting]),
+                error: undefined,
+            });
 
             // Submit
             await user.click(screen.getByRole("button", { name: /create greeting/i }));
 
-            // Verify API was called
+            // Verify API was called with hey-api format
             await waitFor(() => {
                 expect(mockCreateGreeting).toHaveBeenCalledWith({
-                    createGreetingRequest: {
+                    body: {
                         message: "New greeting!",
                         recipient: "Test",
                     },
@@ -195,7 +211,10 @@ describe("App", () => {
 
     describe("refresh functionality", () => {
         it("refreshes list when clicking refresh button", async () => {
-            mockListGreetings.mockResolvedValue(createMockGreetingPage(mockGreetings));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage(mockGreetings),
+                error: undefined,
+            });
 
             render(<App />);
             const user = userEvent.setup();

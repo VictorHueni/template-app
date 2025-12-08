@@ -12,7 +12,6 @@
  * 4. Validation errors: Special handling for field-level validation
  */
 
-import { ResponseError } from "./generated";
 import type { ProblemDetail } from "./generated";
 
 /**
@@ -54,7 +53,7 @@ export function isProblemDetail(value: unknown): value is ProblemDetail {
  * Parse an error into a structured ApiError object.
  *
  * This function handles:
- * 1. ResponseError from the generated API client (HTTP errors)
+ * 1. hey-api response objects with error property
  * 2. Standard Error objects (network errors, etc.)
  * 3. Unknown error types (fallback)
  *
@@ -63,10 +62,9 @@ export function isProblemDetail(value: unknown): value is ProblemDetail {
  *
  * @example
  * ```typescript
- * try {
- *   await greetingsApi.createGreeting({ ... });
- * } catch (e) {
- *   const apiError = await parseApiError(e);
+ * const result = await createGreeting({ body: { ... } });
+ * if (result.error) {
+ *   const apiError = await parseApiError(result.error);
  *   if (apiError.fieldErrors) {
  *     // Show validation errors on form fields
  *   } else {
@@ -76,44 +74,16 @@ export function isProblemDetail(value: unknown): value is ProblemDetail {
  * ```
  */
 export async function parseApiError(error: unknown): Promise<ApiError> {
-    // Handle ResponseError from generated API client
-    if (error instanceof ResponseError) {
-        const status = error.response.status;
-
-        try {
-            // Try to parse the response body as ProblemDetail JSON
-            const body = await error.response.json();
-
-            if (isProblemDetail(body)) {
-                return {
-                    status,
-                    title: body.title,
-                    detail: body.detail ?? body.title,
-                    // Handle field validation errors (stored in 'errors' extension)
-                    fieldErrors: (body as unknown as Record<string, unknown>).errors as
-                        | Record<string, string>
-                        | undefined,
-                    problemDetail: body,
-                    originalError: error,
-                };
-            }
-
-            // Response is JSON but not ProblemDetail format
-            return {
-                status,
-                title: `Error ${status}`,
-                detail: JSON.stringify(body),
-                originalError: error,
-            };
-        } catch {
-            // Response body is not JSON (plain text or empty)
-            return {
-                status,
-                title: `Error ${status}`,
-                detail: error.message || `Request failed with status ${status}`,
-                originalError: error,
-            };
-        }
+    // Handle hey-api error responses (ProblemDetail objects)
+    if (isProblemDetail(error)) {
+        return {
+            status: error.status,
+            title: error.title,
+            detail: error.detail ?? error.title,
+            fieldErrors: error.errors,
+            problemDetail: error,
+            originalError: error,
+        };
     }
 
     // Handle standard JavaScript Error
@@ -122,6 +92,25 @@ export async function parseApiError(error: unknown): Promise<ApiError> {
             status: 0, // 0 indicates a client-side error (no HTTP response)
             title: "Network Error",
             detail: error.message,
+            originalError: error,
+        };
+    }
+
+    // Handle plain objects that might have status/message
+    if (typeof error === "object" && error !== null) {
+        const obj = error as Record<string, unknown>;
+        const status = typeof obj.status === "number" ? obj.status : 0;
+        const message =
+            typeof obj.message === "string"
+                ? obj.message
+                : typeof obj.detail === "string"
+                  ? obj.detail
+                  : String(error);
+
+        return {
+            status,
+            title: `Error ${status || "Unknown"}`,
+            detail: message,
             originalError: error,
         };
     }

@@ -13,7 +13,12 @@
  */
 
 import { useState, useCallback } from "react";
-import { greetingsApi } from "../../../api/config";
+import {
+    createGreeting,
+    updateGreeting,
+    patchGreeting,
+    deleteGreeting,
+} from "../../../api/config";
 import { parseApiError, type ApiError } from "../../../api/errors";
 import type {
     GreetingResponse,
@@ -79,11 +84,23 @@ export function useCreateGreeting(): UseCreateGreetingResult {
             setError(null);
 
             try {
-                const response = await greetingsApi.createGreeting({
-                    createGreetingRequest: input,
+                const { data: responseData, error: responseError } = await createGreeting({
+                    body: input,
                 });
-                setData(response);
-                return response;
+
+                if (responseError) {
+                    const apiError = await parseApiError(responseError);
+                    setError(apiError);
+                    setData(null);
+                    return null;
+                }
+
+                if (responseData) {
+                    setData(responseData);
+                    return responseData;
+                }
+
+                return null;
             } catch (e) {
                 const apiError = await parseApiError(e);
                 setError(apiError);
@@ -145,12 +162,24 @@ export function useUpdateGreeting(): UseUpdateGreetingResult {
             setError(null);
 
             try {
-                const response = await greetingsApi.updateGreeting({
-                    id,
-                    updateGreetingRequest: input,
+                const { data: responseData, error: responseError } = await updateGreeting({
+                    path: { id },
+                    body: input,
                 });
-                setData(response);
-                return response;
+
+                if (responseError) {
+                    const apiError = await parseApiError(responseError);
+                    setError(apiError);
+                    setData(null);
+                    return null;
+                }
+
+                if (responseData) {
+                    setData(responseData);
+                    return responseData;
+                }
+
+                return null;
             } catch (e) {
                 const apiError = await parseApiError(e);
                 setError(apiError);
@@ -209,12 +238,24 @@ export function usePatchGreeting(): UsePatchGreetingResult {
             setError(null);
 
             try {
-                const response = await greetingsApi.patchGreeting({
-                    id,
-                    patchGreetingRequest: input,
+                const { data: responseData, error: responseError } = await patchGreeting({
+                    path: { id },
+                    body: input,
                 });
-                setData(response);
-                return response;
+
+                if (responseError) {
+                    const apiError = await parseApiError(responseError);
+                    setError(apiError);
+                    setData(null);
+                    return null;
+                }
+
+                if (responseData) {
+                    setData(responseData);
+                    return responseData;
+                }
+
+                return null;
             } catch (e) {
                 const apiError = await parseApiError(e);
                 setError(apiError);
@@ -290,7 +331,16 @@ export function useDeleteGreeting(): UseDeleteGreetingResult {
         setIsSuccess(false);
 
         try {
-            await greetingsApi.deleteGreeting({ id });
+            const { error: responseError } = await deleteGreeting({
+                path: { id },
+            });
+
+            if (responseError) {
+                const apiError = await parseApiError(responseError);
+                setError(apiError);
+                return false;
+            }
+
             setIsSuccess(true);
             return true;
         } catch (e) {

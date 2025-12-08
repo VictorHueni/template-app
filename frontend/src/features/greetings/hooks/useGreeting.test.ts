@@ -7,24 +7,25 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useGreeting } from "./useGreeting";
-import { mockGreetings, createMockGreeting } from "../../../test/mocks/data";
-import { ResponseError } from "../../../api/generated";
+import { mockGreetings, createMockGreeting, mockErrors } from "../../../test/mocks/data";
 
 // Mock the API config module
 vi.mock("../../../api/config", () => ({
-    greetingsApiPublic: {
-        getGreeting: vi.fn(),
-    },
+    getGreeting: vi.fn(),
 }));
 
-import { greetingsApiPublic } from "../../../api/config";
+import { getGreeting } from "../../../api/config";
 
-const mockGetGreeting = greetingsApiPublic.getGreeting as Mock;
+const mockGetGreeting = getGreeting as Mock;
 
 describe("useGreeting", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockGetGreeting.mockResolvedValue(mockGreetings[0]);
+        // hey-api returns { data, error }
+        mockGetGreeting.mockResolvedValue({
+            data: mockGreetings[0],
+            error: undefined,
+        });
     });
 
     describe("fetching a single greeting", () => {
@@ -49,12 +50,15 @@ describe("useGreeting", () => {
 
         it("should call API with correct id", async () => {
             const testId = 123456789;
-            mockGetGreeting.mockResolvedValue(createMockGreeting({ id: testId }));
+            mockGetGreeting.mockResolvedValue({
+                data: createMockGreeting({ id: testId }),
+                error: undefined,
+            });
 
             renderHook(() => useGreeting(testId));
 
             await waitFor(() => {
-                expect(mockGetGreeting).toHaveBeenCalledWith({ id: testId });
+                expect(mockGetGreeting).toHaveBeenCalledWith({ path: { id: testId } });
             });
         });
 
@@ -84,8 +88,14 @@ describe("useGreeting", () => {
         it("should refetch when id changes", async () => {
             // Setup mock to return different data based on call order
             mockGetGreeting
-                .mockResolvedValueOnce(mockGreetings[0])
-                .mockResolvedValueOnce(mockGreetings[1]);
+                .mockResolvedValueOnce({
+                    data: mockGreetings[0],
+                    error: undefined,
+                })
+                .mockResolvedValueOnce({
+                    data: mockGreetings[1],
+                    error: undefined,
+                });
 
             const { result, rerender } = renderHook(({ id }) => useGreeting(id), {
                 initialProps: { id: mockGreetings[0].id },
@@ -107,7 +117,7 @@ describe("useGreeting", () => {
             });
 
             expect(mockGetGreeting).toHaveBeenCalledTimes(2);
-            expect(mockGetGreeting).toHaveBeenLastCalledWith({ id: mockGreetings[1].id });
+            expect(mockGetGreeting).toHaveBeenLastCalledWith({ path: { id: mockGreetings[1].id } });
         });
     });
 
@@ -131,16 +141,10 @@ describe("useGreeting", () => {
 
     describe("error handling", () => {
         it("should handle not found errors (404)", async () => {
-            const mockResponse = new Response(
-                JSON.stringify({
-                    type: "https://api.example.com/problems/not-found",
-                    title: "Not Found",
-                    status: 404,
-                    detail: "Greeting not found",
-                }),
-                { status: 404 },
-            );
-            mockGetGreeting.mockRejectedValue(new ResponseError(mockResponse, "Not Found"));
+            mockGetGreeting.mockResolvedValue({
+                data: undefined,
+                error: mockErrors.notFound,
+            });
 
             const { result } = renderHook(() => useGreeting(999999));
 

@@ -10,7 +10,7 @@
  *
  * TESTING STRATEGY:
  * -----------------
- * We mock the API config module to return a mocked GreetingsApi.
+ * We mock the API config module to return a mocked listGreetings function.
  * This approach:
  * - Is faster than network-level mocking (MSW)
  * - Works reliably with jsdom
@@ -21,27 +21,27 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useGreetings } from "./useGreetings";
-import { mockGreetings, createMockGreetingPage } from "../../../test/mocks/data";
-import { ResponseError } from "../../../api/generated";
+import { mockGreetings, createMockGreetingPage, mockErrors } from "../../../test/mocks/data";
 
 // Mock the API config module
 vi.mock("../../../api/config", () => ({
-    greetingsApiPublic: {
-        listGreetings: vi.fn(),
-    },
+    listGreetings: vi.fn(),
 }));
 
 // Import the mocked module to control it in tests
-import { greetingsApiPublic } from "../../../api/config";
+import { listGreetings } from "../../../api/config";
 
 // Type helper for mocked function
-const mockListGreetings = greetingsApiPublic.listGreetings as Mock;
+const mockListGreetings = listGreetings as Mock;
 
 describe("useGreetings", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // Default: return mock data successfully
-        mockListGreetings.mockResolvedValue(createMockGreetingPage(mockGreetings));
+        // Default: return mock data successfully (hey-api returns { data, error })
+        mockListGreetings.mockResolvedValue({
+            data: createMockGreetingPage(mockGreetings),
+            error: undefined,
+        });
     });
 
     /**
@@ -84,7 +84,9 @@ describe("useGreetings", () => {
             renderHook(() => useGreetings({ page: 2, size: 10 }));
 
             await waitFor(() => {
-                expect(mockListGreetings).toHaveBeenCalledWith({ page: 2, size: 10 });
+                expect(mockListGreetings).toHaveBeenCalledWith({
+                    query: { page: 2, size: 10 },
+                });
             });
         });
     });
@@ -95,8 +97,14 @@ describe("useGreetings", () => {
     describe("pagination", () => {
         it("should fetch specific page when setPage is called", async () => {
             mockListGreetings
-                .mockResolvedValueOnce(createMockGreetingPage(mockGreetings, { pageNumber: 0 }))
-                .mockResolvedValueOnce(createMockGreetingPage([], { pageNumber: 1 }));
+                .mockResolvedValueOnce({
+                    data: createMockGreetingPage(mockGreetings, { pageNumber: 0 }),
+                    error: undefined,
+                })
+                .mockResolvedValueOnce({
+                    data: createMockGreetingPage([], { pageNumber: 1 }),
+                    error: undefined,
+                });
 
             const { result } = renderHook(() => useGreetings());
 
@@ -123,7 +131,10 @@ describe("useGreetings", () => {
                 pageSize: 1,
                 totalPages: 3,
             });
-            mockListGreetings.mockResolvedValue(singleItemPage);
+            mockListGreetings.mockResolvedValue({
+                data: singleItemPage,
+                error: undefined,
+            });
 
             const { result } = renderHook(() => useGreetings({ size: 1 }));
 
@@ -202,17 +213,11 @@ describe("useGreetings", () => {
         });
 
         it("should handle server errors (500)", async () => {
-            // Create a mock ResponseError
-            const mockResponse = new Response(
-                JSON.stringify({
-                    type: "https://api.example.com/problems/internal-error",
-                    title: "Internal Server Error",
-                    status: 500,
-                    detail: "Something went wrong",
-                }),
-                { status: 500 },
-            );
-            mockListGreetings.mockRejectedValue(new ResponseError(mockResponse, "Server Error"));
+            // hey-api returns errors as { data: undefined, error: ProblemDetail }
+            mockListGreetings.mockResolvedValue({
+                data: undefined,
+                error: mockErrors.serverError,
+            });
 
             const { result } = renderHook(() => useGreetings());
 
@@ -226,7 +231,10 @@ describe("useGreetings", () => {
 
         it("should clear error on successful refetch", async () => {
             // First call fails
-            mockListGreetings.mockRejectedValueOnce(new Error("Network error"));
+            mockListGreetings.mockResolvedValueOnce({
+                data: undefined,
+                error: mockErrors.serverError,
+            });
 
             const { result } = renderHook(() => useGreetings());
 
@@ -235,7 +243,10 @@ describe("useGreetings", () => {
             });
 
             // Setup successful response for refresh
-            mockListGreetings.mockResolvedValue(createMockGreetingPage(mockGreetings));
+            mockListGreetings.mockResolvedValue({
+                data: createMockGreetingPage(mockGreetings),
+                error: undefined,
+            });
 
             // Refresh should succeed
             await act(async () => {

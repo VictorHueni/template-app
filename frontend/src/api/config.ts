@@ -5,7 +5,7 @@
  * It handles:
  * - Base path configuration (environment-aware)
  * - Authentication token management
- * - Creating pre-configured API instances
+ * - Configuring the hey-api client instance
  *
  * WHY THIS PATTERN?
  * -----------------
@@ -15,7 +15,7 @@
  * 4. Testability: Easy to mock the entire API layer
  */
 
-import { Configuration, GreetingsApi } from "./generated";
+import { client } from "./generated/client.gen";
 
 /**
  * Get the demo authentication token for development.
@@ -97,56 +97,31 @@ export function getAuthToken(): string | null {
 }
 
 /**
- * Create the API configuration object.
- * This is used by all generated API clients.
- *
- * @param includeAuth - Whether to include authentication headers
- *                      Set to false for public endpoints to avoid sending unnecessary headers
+ * Configure the hey-api client with base URL and auth.
+ * This is called once at app startup.
  */
-export function createApiConfiguration(includeAuth = true): Configuration {
-    return new Configuration({
-        basePath: getApiBasePath(),
-        // accessToken is called for each request, allowing dynamic token refresh
-        accessToken: includeAuth
-            ? async () => {
-                  const token = getAuthToken();
-                  return token ?? "";
-              }
-            : undefined,
+export function configureApiClient(): void {
+    client.setConfig({
+        baseUrl: getApiBasePath(),
+    });
+
+    // Add auth interceptor to include Bearer token for authenticated requests
+    client.interceptors.request.use((request) => {
+        const token = getAuthToken();
+        if (token) {
+            request.headers.set("Authorization", `Bearer ${token}`);
+        }
+        return request;
     });
 }
 
-/**
- * Pre-configured API client instances.
- * Use these throughout the application for consistency.
- *
- * WHY SINGLETON INSTANCES?
- * - Consistent configuration across the app
- * - Easier to mock in tests
- * - No accidental misconfiguration
- */
-
-// API instance for public endpoints (no auth header sent)
-const publicConfig = createApiConfiguration(false);
-
-// API instance for authenticated endpoints (includes Bearer token)
-const authenticatedConfig = createApiConfiguration(true);
+// Configure the client on module load
+configureApiClient();
 
 /**
- * Greetings API client for public operations (GET list, GET by ID)
+ * Export the configured client for direct access if needed
  */
-export const greetingsApiPublic = new GreetingsApi(publicConfig);
-
-/**
- * Greetings API client for authenticated operations (POST, PUT, PATCH, DELETE)
- */
-export const greetingsApiAuth = new GreetingsApi(authenticatedConfig);
-
-/**
- * Default export: authenticated API for convenience
- * Most operations in a real app require authentication
- */
-export const greetingsApi = greetingsApiAuth;
+export { client };
 
 /**
  * Re-export types for convenience
@@ -159,4 +134,16 @@ export type {
     UpdateGreetingRequest,
     PatchGreetingRequest,
     ProblemDetail,
+} from "./generated";
+
+/**
+ * Re-export SDK functions for convenience
+ */
+export {
+    listGreetings,
+    getGreeting,
+    createGreeting,
+    updateGreeting,
+    patchGreeting,
+    deleteGreeting,
 } from "./generated";

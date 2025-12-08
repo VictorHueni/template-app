@@ -91,7 +91,7 @@ export const handlers = [
     http.get(`${API_BASE}/greetings/:id`, async ({ params }) => {
         await delay(50);
 
-        const { id } = params;
+        const id = Number(params.id);
         const greeting = greetingsStore.find((g) => g.id === id);
 
         if (!greeting) {
@@ -130,10 +130,10 @@ export const handlers = [
 
         // Create new greeting
         const newGreeting = createMockGreeting({
-            id: String(nextId++),
+            id: nextId++,
             message: body.message,
             recipient: body.recipient,
-            createdAt: new Date(),
+            createdAt: new Date().toISOString(),
         });
 
         greetingsStore.push(newGreeting);
@@ -154,7 +154,7 @@ export const handlers = [
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 
-        const { id } = params;
+        const id = Number(params.id);
         const index = greetingsStore.findIndex((g) => g.id === id);
 
         if (index === -1) {
@@ -197,7 +197,7 @@ export const handlers = [
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 
-        const { id } = params;
+        const id = Number(params.id);
         const index = greetingsStore.findIndex((g) => g.id === id);
 
         if (index === -1) {
@@ -230,7 +230,7 @@ export const handlers = [
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 
-        const { id } = params;
+        const id = Number(params.id);
         const index = greetingsStore.findIndex((g) => g.id === id);
 
         if (index === -1) {

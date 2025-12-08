@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { greetingsApiPublic } from "../../../api/config";
+import { getGreeting } from "../../../api/config";
 import { parseApiError, type ApiError } from "../../../api/errors";
 import type { GreetingResponse } from "../../../api/generated";
 
@@ -68,8 +68,17 @@ export function useGreeting(id: number | null | undefined): UseGreetingResult {
         setError(null);
 
         try {
-            const response = await greetingsApiPublic.getGreeting({ id });
-            setGreeting(response);
+            const { data, error: responseError } = await getGreeting({
+                path: { id },
+            });
+
+            if (responseError) {
+                const apiError = await parseApiError(responseError);
+                setError(apiError);
+                setGreeting(null);
+            } else if (data) {
+                setGreeting(data);
+            }
         } catch (e) {
             const apiError = await parseApiError(e);
             setError(apiError);

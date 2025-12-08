@@ -13,25 +13,22 @@ import {
     usePatchGreeting,
     useDeleteGreeting,
 } from "./useGreetingMutations";
-import { mockGreetings, createMockGreeting } from "../../../test/mocks/data";
-import { ResponseError } from "../../../api/generated";
+import { mockGreetings, createMockGreeting, mockErrors } from "../../../test/mocks/data";
 
 // Mock the API config module
 vi.mock("../../../api/config", () => ({
-    greetingsApi: {
-        createGreeting: vi.fn(),
-        updateGreeting: vi.fn(),
-        patchGreeting: vi.fn(),
-        deleteGreeting: vi.fn(),
-    },
+    createGreeting: vi.fn(),
+    updateGreeting: vi.fn(),
+    patchGreeting: vi.fn(),
+    deleteGreeting: vi.fn(),
 }));
 
-import { greetingsApi } from "../../../api/config";
+import { createGreeting, updateGreeting, patchGreeting, deleteGreeting } from "../../../api/config";
 
-const mockCreateGreeting = greetingsApi.createGreeting as Mock;
-const mockUpdateGreeting = greetingsApi.updateGreeting as Mock;
-const mockPatchGreeting = greetingsApi.patchGreeting as Mock;
-const mockDeleteGreeting = greetingsApi.deleteGreeting as Mock;
+const mockCreateGreeting = createGreeting as Mock;
+const mockUpdateGreeting = updateGreeting as Mock;
+const mockPatchGreeting = patchGreeting as Mock;
+const mockDeleteGreeting = deleteGreeting as Mock;
 
 describe("useCreateGreeting", () => {
     beforeEach(() => {
@@ -51,7 +48,10 @@ describe("useCreateGreeting", () => {
             message: "New greeting",
             recipient: "Alice",
         });
-        mockCreateGreeting.mockResolvedValue(newGreeting);
+        mockCreateGreeting.mockResolvedValue({
+            data: newGreeting,
+            error: undefined,
+        });
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -66,7 +66,7 @@ describe("useCreateGreeting", () => {
         expect(result.current.data).toEqual(newGreeting);
         expect(result.current.error).toBeNull();
         expect(mockCreateGreeting).toHaveBeenCalledWith({
-            createGreetingRequest: {
+            body: {
                 message: "New greeting",
                 recipient: "Alice",
             },
@@ -75,7 +75,10 @@ describe("useCreateGreeting", () => {
 
     it("should set loading state during mutation", async () => {
         mockCreateGreeting.mockImplementation(
-            () => new Promise((resolve) => setTimeout(() => resolve(mockGreetings[0]), 100)),
+            () =>
+                new Promise((resolve) =>
+                    setTimeout(() => resolve({ data: mockGreetings[0], error: undefined }), 100),
+                ),
         );
 
         const { result } = renderHook(() => useCreateGreeting());
@@ -95,17 +98,10 @@ describe("useCreateGreeting", () => {
     });
 
     it("should handle validation errors", async () => {
-        const mockResponse = new Response(
-            JSON.stringify({
-                type: "https://api.example.com/problems/validation-error",
-                title: "Validation Error",
-                status: 400,
-                detail: "Request validation failed",
-                errors: { message: "must not be blank" },
-            }),
-            { status: 400 },
-        );
-        mockCreateGreeting.mockRejectedValue(new ResponseError(mockResponse, "Bad Request"));
+        mockCreateGreeting.mockResolvedValue({
+            data: undefined,
+            error: mockErrors.validationError,
+        });
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -120,16 +116,10 @@ describe("useCreateGreeting", () => {
     });
 
     it("should handle unauthorized errors", async () => {
-        const mockResponse = new Response(
-            JSON.stringify({
-                type: "https://api.example.com/problems/unauthorized",
-                title: "Unauthorized",
-                status: 401,
-                detail: "Authentication required",
-            }),
-            { status: 401 },
-        );
-        mockCreateGreeting.mockRejectedValue(new ResponseError(mockResponse, "Unauthorized"));
+        mockCreateGreeting.mockResolvedValue({
+            data: undefined,
+            error: mockErrors.unauthorized,
+        });
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -141,7 +131,10 @@ describe("useCreateGreeting", () => {
     });
 
     it("should reset state when reset is called", async () => {
-        mockCreateGreeting.mockResolvedValue(mockGreetings[0]);
+        mockCreateGreeting.mockResolvedValue({
+            data: mockGreetings[0],
+            error: undefined,
+        });
 
         const { result } = renderHook(() => useCreateGreeting());
 
@@ -167,7 +160,10 @@ describe("useUpdateGreeting", () => {
 
     it("should update a greeting successfully", async () => {
         const updatedGreeting = { ...mockGreetings[0], message: "Updated message" };
-        mockUpdateGreeting.mockResolvedValue(updatedGreeting);
+        mockUpdateGreeting.mockResolvedValue({
+            data: updatedGreeting,
+            error: undefined,
+        });
 
         const { result } = renderHook(() => useUpdateGreeting());
 
@@ -180,8 +176,8 @@ describe("useUpdateGreeting", () => {
 
         expect(result.current.data).toEqual(updatedGreeting);
         expect(mockUpdateGreeting).toHaveBeenCalledWith({
-            id: mockGreetings[0].id,
-            updateGreetingRequest: {
+            path: { id: mockGreetings[0].id },
+            body: {
                 message: "Updated message",
                 recipient: "World",
             },
@@ -189,16 +185,10 @@ describe("useUpdateGreeting", () => {
     });
 
     it("should handle not found errors", async () => {
-        const mockResponse = new Response(
-            JSON.stringify({
-                type: "https://api.example.com/problems/not-found",
-                title: "Not Found",
-                status: 404,
-                detail: "Greeting not found",
-            }),
-            { status: 404 },
-        );
-        mockUpdateGreeting.mockRejectedValue(new ResponseError(mockResponse, "Not Found"));
+        mockUpdateGreeting.mockResolvedValue({
+            data: undefined,
+            error: mockErrors.notFound,
+        });
 
         const { result } = renderHook(() => useUpdateGreeting());
 
@@ -220,7 +210,10 @@ describe("usePatchGreeting", () => {
 
     it("should patch a greeting successfully", async () => {
         const patchedGreeting = { ...mockGreetings[0], message: "Patched message" };
-        mockPatchGreeting.mockResolvedValue(patchedGreeting);
+        mockPatchGreeting.mockResolvedValue({
+            data: patchedGreeting,
+            error: undefined,
+        });
 
         const { result } = renderHook(() => usePatchGreeting());
 
@@ -230,13 +223,16 @@ describe("usePatchGreeting", () => {
 
         expect(result.current.data).toEqual(patchedGreeting);
         expect(mockPatchGreeting).toHaveBeenCalledWith({
-            id: mockGreetings[0].id,
-            patchGreetingRequest: { message: "Patched message" },
+            path: { id: mockGreetings[0].id },
+            body: { message: "Patched message" },
         });
     });
 
     it("should allow partial updates", async () => {
-        mockPatchGreeting.mockResolvedValue(mockGreetings[0]);
+        mockPatchGreeting.mockResolvedValue({
+            data: mockGreetings[0],
+            error: undefined,
+        });
 
         const { result } = renderHook(() => usePatchGreeting());
 
@@ -246,8 +242,8 @@ describe("usePatchGreeting", () => {
         });
 
         expect(mockPatchGreeting).toHaveBeenCalledWith({
-            id: mockGreetings[0].id,
-            patchGreetingRequest: { recipient: "New Recipient" },
+            path: { id: mockGreetings[0].id },
+            body: { recipient: "New Recipient" },
         });
     });
 });
@@ -258,7 +254,10 @@ describe("useDeleteGreeting", () => {
     });
 
     it("should delete a greeting successfully", async () => {
-        mockDeleteGreeting.mockResolvedValue(undefined);
+        mockDeleteGreeting.mockResolvedValue({
+            data: undefined,
+            error: undefined,
+        });
 
         const { result } = renderHook(() => useDeleteGreeting());
 
@@ -269,20 +268,14 @@ describe("useDeleteGreeting", () => {
         expect(result.current.loading).toBe(false);
         expect(result.current.error).toBeNull();
         expect(result.current.isSuccess).toBe(true);
-        expect(mockDeleteGreeting).toHaveBeenCalledWith({ id: mockGreetings[0].id });
+        expect(mockDeleteGreeting).toHaveBeenCalledWith({ path: { id: mockGreetings[0].id } });
     });
 
     it("should handle not found errors", async () => {
-        const mockResponse = new Response(
-            JSON.stringify({
-                type: "https://api.example.com/problems/not-found",
-                title: "Not Found",
-                status: 404,
-                detail: "Greeting not found",
-            }),
-            { status: 404 },
-        );
-        mockDeleteGreeting.mockRejectedValue(new ResponseError(mockResponse, "Not Found"));
+        mockDeleteGreeting.mockResolvedValue({
+            data: undefined,
+            error: mockErrors.notFound,
+        });
 
         const { result } = renderHook(() => useDeleteGreeting());
 
@@ -295,7 +288,10 @@ describe("useDeleteGreeting", () => {
     });
 
     it("should reset success state when reset is called", async () => {
-        mockDeleteGreeting.mockResolvedValue(undefined);
+        mockDeleteGreeting.mockResolvedValue({
+            data: undefined,
+            error: undefined,
+        });
 
         const { result } = renderHook(() => useDeleteGreeting());
 

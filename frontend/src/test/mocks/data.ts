@@ -23,21 +23,21 @@ export const mockGreetings: GreetingResponse[] = [
         reference: "GRE-2025-000001",
         message: "Hello, World!",
         recipient: "World",
-        createdAt: new Date("2025-01-15T10:30:00Z"),
+        createdAt: "2025-01-15T10:30:00Z",
     },
     {
         id: 1002,
         reference: "GRE-2025-000002",
         message: "Welcome to the app!",
         recipient: "User",
-        createdAt: new Date("2025-01-15T11:00:00Z"),
+        createdAt: "2025-01-15T11:00:00Z",
     },
     {
         id: 1003,
         reference: "GRE-2025-000003",
         message: "Greetings from the API!",
         recipient: "Developer",
-        createdAt: new Date("2025-01-15T11:30:00Z"),
+        createdAt: "2025-01-15T11:30:00Z",
     },
 ];
 
@@ -51,7 +51,7 @@ export function createMockGreeting(overrides: Partial<GreetingResponse> = {}): G
         reference: "GRE-2025-000099",
         message: "Test greeting",
         recipient: "Test User",
-        createdAt: new Date("2025-01-15T12:00:00Z"),
+        createdAt: "2025-01-15T12:00:00Z",
         ...overrides,
     };
 }
@@ -99,7 +99,7 @@ export function createMockProblemDetail(
         status: 400,
         detail: "Something went wrong",
         instance: "/api/v1/greetings",
-        timestamp: new Date("2025-01-15T12:00:00Z"),
+        timestamp: "2025-01-15T12:00:00Z",
         traceId: "test-trace-id-00000000",
         ...overrides,
     };

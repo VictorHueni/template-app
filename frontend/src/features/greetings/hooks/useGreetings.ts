@@ -17,7 +17,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { greetingsApiPublic } from "../../../api/config";
+import { listGreetings } from "../../../api/config";
 import { parseApiError, type ApiError } from "../../../api/errors";
 import type { GreetingResponse, PageMeta } from "../../../api/generated";
 
@@ -99,14 +99,23 @@ export function useGreetings(options: UseGreetingsOptions = {}): UseGreetingsRes
         setError(null);
 
         try {
-            // Call the generated API client
-            // Using the public API instance (no auth needed for GET)
-            const response = await greetingsApiPublic.listGreetings({ page: currentPage, size });
+            // Call the generated SDK function
+            const { data, error: responseError } = await listGreetings({
+                query: { page: currentPage, size },
+            });
 
-            setGreetings(response.data);
-            setMeta(response.meta);
+            if (responseError) {
+                // Parse the error into our structured ApiError format
+                const apiError = await parseApiError(responseError);
+                setError(apiError);
+                setGreetings([]);
+                setMeta(null);
+            } else if (data) {
+                setGreetings(data.data);
+                setMeta(data.meta);
+            }
         } catch (e) {
-            // Parse the error into our structured ApiError format
+            // Handle unexpected errors (network errors, etc.)
             const apiError = await parseApiError(e);
             setError(apiError);
             setGreetings([]);

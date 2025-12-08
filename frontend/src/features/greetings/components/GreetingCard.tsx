@@ -21,7 +21,7 @@ export function GreetingCard({ greeting, onEdit, onDelete }: GreetingCardProps) 
         ? new Intl.DateTimeFormat("en-US", {
               dateStyle: "medium",
               timeStyle: "short",
-          }).format(greeting.createdAt)
+          }).format(new Date(greeting.createdAt))
         : null;
 
     return (
