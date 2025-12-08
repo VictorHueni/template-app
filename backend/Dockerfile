@@ -2,7 +2,7 @@
 ARG JAR_FILENAME=demo-0.0.1-SNAPSHOT.jar
 
 # === STAGE 1: BUILD (Same JDK is needed for compilation) ===
-FROM eclipse-temurin:21-jdk-jammy AS builder
+FROM eclipse-temurin:25-jdk-noble AS builder
 
 # Set the work directory to the final application root
 WORKDIR /app
@@ -35,7 +35,7 @@ RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true
 # === STAGE 2: RUNTIME (Distroless Production Image) ===
 # Using the Distroless image ensures only the JRE and minimal libraries are included.
 # This drastically reduces CVE count and eliminates the shell/package manager.
-FROM gcr.io/distroless/java21-debian12:latest AS final
+FROM gcr.io/distroless/java25-debian13:latest AS final
 
 # --- SECURITY & UTILITIES (AS NON-ROOT BY DEFAULT) ---
 # NOTE: No need to install wget or create a user. Distroless runs as 'nonroot'.
