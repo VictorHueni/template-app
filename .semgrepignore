@@ -127,15 +127,11 @@ pnpm-lock.yaml
 Gemfile.lock
 Pipfile.lock
 
-# ===== Demo/Development Files with Mock Secrets =====
-# API config contains intentionally invalid demo JWT for local development
-# The token has signature "demo-signature" which is cryptographically invalid
-frontend/src/api/config.ts
-
-# Nginx config: H2C smuggling mitigated by clearing Upgrade/Connection headers
-# False positive on proxy_http_version 1.1 - see Bishop Fox remediation:
-# https://bishopfox.com/blog/h2c-smuggling-request
-frontend/nginx.conf
+# ===== Demo/Development Files =====
+# NOTE: These files are NO LONGER excluded from scanning.
+# Instead, specific rules are excluded via --exclude-rule in CI.
+# See .semgrep.yml for documented justifications.
+# This ensures files are still scanned for OTHER vulnerabilities.
 
 # ===== Configuration Files (adjust based on security needs) =====
 # Skip config if they contain no code logic, only data

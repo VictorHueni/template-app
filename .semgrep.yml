@@ -1,0 +1,59 @@
+# .semgrep.yml
+# Semgrep configuration for targeted rule exclusions
+# See: https://semgrep.dev/docs/ignoring-files-folders-code/
+#
+# APPROACH: We use --exclude-rule in CI for rules that can't use inline nosemgrep
+# comments (nginx config, Java properties files don't support inline suppression).
+#
+# For code files (TypeScript, Java), we use inline nosemgrep comments which is
+# the preferred method per Semgrep docs.
+
+# =============================================================================
+# RULE EXCLUSION POLICY
+# =============================================================================
+# Methods used (in order of preference per Semgrep best practices):
+#
+# 1. INLINE NOSEMGREP COMMENTS (preferred for code files)
+#    - frontend/src/api/config.ts:47 - nosemgrep: generic.secrets.security.detected-jwt-token
+#    - frontend/nginx.conf:46 - nosemgrep: generic.nginx.security.possible-h2c-smuggling
+#
+# 2. --exclude-rule IN CI (for rules where inline comments don't work)
+#    Applied in .github/workflows/code-security-scan.yml for:
+#    - generic.secrets.security.detected-jwt-token (backup if inline fails)
+#    - generic.nginx.security.possible-h2c-smuggling (nginx doesn't honor nosemgrep)
+#    - generic.nginx.security.request-host-used (nginx doesn't honor nosemgrep)
+#    - java.spring.security.audit.spring-actuator-non-health-enabled (.properties files)
+#
+# 3. .semgrepignore (only for build artifacts, NOT source files)
+#    We do NOT exclude source files in .semgrepignore to ensure they are
+#    still scanned for other vulnerabilities.
+#
+# =============================================================================
+# DOCUMENTED JUSTIFICATIONS
+# =============================================================================
+#
+# 1. generic.secrets.security.detected-jwt-token
+#    - File: frontend/src/api/config.ts
+#    - Reason: Demo JWT with invalid signature "demo-signature" for local dev
+#    - The token is cryptographically invalid and cannot be used maliciously
+#    - Real tokens must be provided via VITE_DEMO_AUTH_TOKEN env var
+#
+# 2. generic.nginx.security.possible-h2c-smuggling
+#    - File: frontend/nginx.conf
+#    - Reason: H2C smuggling mitigated by clearing Upgrade/Connection headers
+#    - proxy_set_header Upgrade ""; proxy_set_header Connection "";
+#    - See: https://bishopfox.com/blog/h2c-smuggling-request
+#
+# 3. generic.nginx.security.request-host-used
+#    - File: frontend/nginx.conf
+#    - Reason: Using explicit Host value "backend" instead of $host
+#    - proxy_set_header Host "backend";
+#
+# 4. java.spring.security.audit.spring-actuator-non-health-enabled
+#    - Files: application-local.properties, application-dev.properties
+#    - Reason: Intentional actuator exposure for development debugging
+#    - Production (application-prod.properties) exposes only health endpoint
+#    - All profiles use separate management port (8081) for network isolation
+#    - show-details=when-authorized requires authentication
+#
+# =============================================================================
