@@ -19,10 +19,10 @@
 #
 # 2. --exclude-rule IN CI (for rules where inline comments don't work)
 #    Applied in .github/workflows/code-security-scan.yml for:
-#    - generic.secrets.security.detected-jwt-token (backup if inline fails)
-#    - generic.nginx.security.possible-h2c-smuggling (nginx doesn't honor nosemgrep)
-#    - generic.nginx.security.request-host-used (nginx doesn't honor nosemgrep)
-#    - java.spring.security.audit.spring-actuator-non-health-enabled (.properties files)
+#    - generic.secrets.security.detected-jwt-token.detected-jwt-token
+#    - generic.nginx.security.possible-h2c-smuggling.possible-nginx-h2c-smuggling
+#    - generic.nginx.security.request-host-used.request-host-used
+#    - java.spring.security.audit.spring-actuator-non-health-enabled.spring-actuator-dangerous-endpoints-enabled
 #
 # 3. .semgrepignore (only for build artifacts, NOT source files)
 #    We do NOT exclude source files in .semgrepignore to ensure they are
