@@ -448,16 +448,6 @@ test.describe("Pagination", () => {
     });
 
     test("pagination buttons work with multiple pages", async ({ page }) => {
-        const multiPageResponse = {
-            data: [mockGreetings[0]],
-            meta: {
-                pageNumber: 0,
-                pageSize: 1,
-                totalElements: 3,
-                totalPages: 3,
-            },
-        };
-
         let currentPage = 0;
         await page.route("**/api/v1/greetings**", (route) => {
             const url = new URL(route.request().url());

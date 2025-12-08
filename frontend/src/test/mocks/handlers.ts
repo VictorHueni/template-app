@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// @ts-nocheck - MSW handlers not currently used, kept for reference
 /**
  * MSW Request Handlers
  *
