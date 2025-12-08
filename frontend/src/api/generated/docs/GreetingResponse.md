@@ -6,7 +6,8 @@
 
 Name | Type
 ------------ | -------------
-`id` | string
+`id` | number
+`reference` | string
 `message` | string
 `recipient` | string
 `createdAt` | Date
@@ -18,7 +19,8 @@ import type { GreetingResponse } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "id": null,
+  "id": 506979954615549952,
+  "reference": GRE-2025-000042,
   "message": null,
   "recipient": null,
   "createdAt": null,

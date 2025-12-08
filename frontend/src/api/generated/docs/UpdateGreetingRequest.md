@@ -1,29 +1,25 @@
 
-# PageMeta
+# UpdateGreetingRequest
 
-Pagination metadata for list responses
+Full replacement update - all fields are required
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`pageNumber` | number
-`pageSize` | number
-`totalElements` | number
-`totalPages` | number
+`message` | string
+`recipient` | string
 
 ## Example
 
 ```typescript
-import type { PageMeta } from ''
+import type { UpdateGreetingRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "pageNumber": null,
-  "pageSize": null,
-  "totalElements": null,
-  "totalPages": null,
-} satisfies PageMeta
+  "message": Hello, World!,
+  "recipient": Universe,
+} satisfies UpdateGreetingRequest
 
 console.log(example)
 
@@ -32,7 +28,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as PageMeta
+const exampleParsed = JSON.parse(exampleJSON) as UpdateGreetingRequest
 console.log(exampleParsed)
 ```
 

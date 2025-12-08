@@ -4,7 +4,7 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "api:generate": "openapi-generator-cli generate -i ../api/specification/openapi.yaml -g typescript-fetch -o src/api/generated --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true",
+        "api:generate": "openapi-generator-cli generate -i ../api/specification/openapi.yaml -g typescript-fetch -o src/api/generated --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true && node scripts/post-process-generated.mjs",
         "dev": "npm run api:generate && vite",
         "build": "npm run api:generate && tsc -b && vite build",
         "lint": "eslint .",
@@ -39,6 +39,7 @@
         "eslint-plugin-react-refresh": "^0.4.22",
         "globals": "^16.4.0",
         "jsdom": "^27.2.0",
+        "msw": "^2.12.4",
         "prettier": "^3.3.3",
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.45.0",

@@ -1,94 +1,135 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, useCallback } from "react";
 
-import {
-    Configuration,
-    GreetingsApi,
-    type GreetingResponse,
-    type CreateGreetingRequest,
-    ResponseError,
+import type {
+    GreetingResponse,
+    CreateGreetingRequest,
+    UpdateGreetingRequest,
 } from "./api/generated";
-
-// 2. Configure the API Client
-// We use /api/v1 as the base path based on your openapi.yaml servers block
-const apiConfig = new Configuration({
-    basePath: (import.meta.env.VITE_API_URL ?? "") + "/api/v1",
-});
-
-const greetingsApi = new GreetingsApi(apiConfig);
+import { API_BASE_PATH } from "./api/config";
+import {
+    useGreetings,
+    useCreateGreeting,
+    useUpdateGreeting,
+    useDeleteGreeting,
+} from "./features/greetings/hooks";
+import {
+    GreetingList,
+    GreetingForm,
+    ErrorMessage,
+    LoadingSpinner,
+} from "./features/greetings/components";
 
 type Theme = "light" | "dark";
 
 export default function App() {
-    const [message, setMessage] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [name, setName] = useState("world");
     const [theme, setTheme] = useState<Theme>("light");
+    const [editingGreeting, setEditingGreeting] = useState<GreetingResponse | null>(null);
+    const [showCreateForm, setShowCreateForm] = useState(false);
 
-    const loadGreeting = async (customName?: string) => {
-        const effectiveName = customName ?? name;
-        setLoading(true);
-        setError(null);
+    // Hooks for data fetching and mutations
+    const {
+        greetings,
+        meta,
+        loading: listLoading,
+        error: listError,
+        refresh: refreshList,
+        setPage,
+    } = useGreetings({ page: 0, size: 5 });
 
-        try {
-            // 3. Construct the request body matching 'CreateGreetingRequest' schema
-            const requestBody: CreateGreetingRequest = {
-                message: `Hello, ${effectiveName}!`, // Simulating the backend logic for the demo
-                recipient: effectiveName,
-            };
+    const {
+        mutate: createGreeting,
+        loading: createLoading,
+        error: createError,
+        reset: resetCreate,
+    } = useCreateGreeting();
 
-            // 4. Call the generated API method
-            const response: GreetingResponse = await greetingsApi.createGreeting({
-                createGreetingRequest: requestBody,
-            });
+    const {
+        mutate: updateGreeting,
+        loading: updateLoading,
+        error: updateError,
+        reset: resetUpdate,
+    } = useUpdateGreeting();
 
-            // 5. Update UI with the response data
-            setMessage(response.message);
-        } catch (e: unknown) {
-            setMessage(null);
+    const {
+        mutate: deleteGreeting,
+        loading: deleteLoading,
+        error: deleteError,
+    } = useDeleteGreeting();
 
-            if (e instanceof ResponseError) {
-                // Explicitly cast to satisfy TS18046 if narrowing fails
-                const apiError = e as ResponseError;
-                try {
-                    // Try to parse the ProblemDetail JSON from the response
-                    const errorData = await apiError.response.json();
-                    setError(
-                        errorData.detail || errorData.title || `Error ${apiError.response.status}`,
-                    );
-                } catch {
-                    // Fallback if the body isn't JSON
-                    setError(`Request failed with status ${apiError.response.status}`);
-                }
-            } else if (e instanceof Error) {
-                setError(e.message);
-            } else {
-                setError(String(e));
+    // Combined loading and error states
+    const isLoading = listLoading || createLoading || updateLoading || deleteLoading;
+    const mutationError = createError || updateError || deleteError;
+
+    // Handlers
+    const handleCreate = useCallback(
+        async (data: CreateGreetingRequest) => {
+            const result = await createGreeting(data);
+            if (result) {
+                setShowCreateForm(false);
+                resetCreate();
+                await refreshList();
             }
-        } finally {
-            setLoading(false);
-        }
-    };
+        },
+        [createGreeting, resetCreate, refreshList],
+    );
 
-    // initial load
-    useEffect(() => {
-        void loadGreeting();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    const handleUpdate = useCallback(
+        async (data: CreateGreetingRequest) => {
+            if (!editingGreeting) return;
+            // Convert CreateGreetingRequest to UpdateGreetingRequest (recipient is required)
+            const updateData: UpdateGreetingRequest = {
+                message: data.message,
+                recipient: data.recipient ?? "", // Default to empty string if not provided
+            };
+            const result = await updateGreeting(editingGreeting.id, updateData);
+            if (result) {
+                setEditingGreeting(null);
+                resetUpdate();
+                await refreshList();
+            }
+        },
+        [editingGreeting, updateGreeting, resetUpdate, refreshList],
+    );
+
+    const handleDelete = useCallback(
+        async (id: number) => {
+            if (window.confirm("Are you sure you want to delete this greeting?")) {
+                const success = await deleteGreeting(id);
+                if (success) {
+                    await refreshList();
+                }
+            }
+        },
+        [deleteGreeting, refreshList],
+    );
+
+    const handleEdit = useCallback((greeting: GreetingResponse) => {
+        setEditingGreeting(greeting);
+        setShowCreateForm(false);
     }, []);
 
-    const handleSubmit = (event: FormEvent) => {
-        event.preventDefault();
-        void loadGreeting(name);
-    };
+    const handleCancelEdit = useCallback(() => {
+        setEditingGreeting(null);
+        resetUpdate();
+    }, [resetUpdate]);
+
+    const handleCancelCreate = useCallback(() => {
+        setShowCreateForm(false);
+        resetCreate();
+    }, [resetCreate]);
+
+    const handlePageChange = useCallback(
+        (page: number) => {
+            setPage(page);
+        },
+        [setPage],
+    );
 
     const toggleTheme = () => {
         setTheme((prev) => (prev === "light" ? "dark" : "light"));
     };
 
-    const clearMessage = () => {
-        setMessage(null);
-        setError(null);
-    };
+    const isDark = theme === "dark";
 
     return (
         <main
@@ -96,59 +137,147 @@ export default function App() {
             style={{
                 fontFamily: "system-ui",
                 padding: 24,
-                maxWidth: 720,
-                margin: "8vmin auto",
-                backgroundColor: theme === "light" ? "#ffffff" : "#111827",
-                color: theme === "light" ? "#111827" : "#f9fafb",
+                maxWidth: 800,
+                margin: "4vmin auto",
+                backgroundColor: isDark ? "#111827" : "#ffffff",
+                color: isDark ? "#f9fafb" : "#111827",
                 borderRadius: 12,
-                boxShadow:
-                    theme === "light"
-                        ? "0 10px 25px rgba(15, 23, 42, 0.08)"
-                        : "0 10px 25px rgba(15, 23, 42, 0.6)",
+                boxShadow: isDark
+                    ? "0 10px 25px rgba(15, 23, 42, 0.6)"
+                    : "0 10px 25px rgba(15, 23, 42, 0.08)",
             }}
         >
-            <header style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "center" }}>
-                <h1 style={{ margin: 0, fontSize: 28 }}>React + TypeScript → Spring</h1>
+            {/* Header */}
+            <header style={{ marginBottom: 24, display: "flex", gap: 12, alignItems: "center" }}>
+                <h1 style={{ margin: 0, fontSize: 28 }}>Greetings App</h1>
                 <button type="button" onClick={toggleTheme} style={{ marginLeft: "auto" }}>
-                    Switch to {theme === "light" ? "dark" : "light"} theme
+                    {isDark ? "☀️ Light" : "🌙 Dark"}
                 </button>
             </header>
 
-            <section style={{ marginBottom: 16 }}>
-                <p>API base: {apiConfig.basePath}</p>
-                {loading && <p aria-label="loading">Loading greeting…</p>}
-                {!loading && message && (
-                    <p>
-                        <strong>Message:</strong>{" "}
-                        <span aria-label="greeting-message">{message}</span>
-                    </p>
+            {/* API Info */}
+            <p style={{ fontSize: 14, color: isDark ? "#9ca3af" : "#6b7280", marginBottom: 16 }}>
+                API: {API_BASE_PATH}
+            </p>
+
+            {/* Global Error Display */}
+            {mutationError && (
+                <ErrorMessage
+                    error={mutationError}
+                    onDismiss={() => {
+                        resetCreate();
+                        resetUpdate();
+                    }}
+                />
+            )}
+
+            {/* Create/Edit Form Section */}
+            <section style={{ marginBottom: 24 }}>
+                {!showCreateForm && !editingGreeting && (
+                    <button
+                        type="button"
+                        onClick={() => setShowCreateForm(true)}
+                        style={{
+                            padding: "10px 20px",
+                            backgroundColor: "#2563eb",
+                            color: "white",
+                            border: "none",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            fontSize: 16,
+                        }}
+                    >
+                        + New Greeting
+                    </button>
                 )}
-                {!loading && !message && !error && <p>No greeting loaded yet.</p>}
-                {error && (
-                    <p style={{ color: "#b91c1c" }} aria-label="error-message">
-                        Error: {error}
-                    </p>
+
+                {showCreateForm && (
+                    <div
+                        style={{
+                            padding: 16,
+                            backgroundColor: isDark ? "#1f2937" : "#f3f4f6",
+                            borderRadius: 8,
+                        }}
+                    >
+                        <h2 style={{ margin: "0 0 12px 0", fontSize: 18 }}>Create New Greeting</h2>
+                        <GreetingForm
+                            onSubmit={handleCreate}
+                            onCancel={handleCancelCreate}
+                            loading={createLoading}
+                            fieldErrors={createError?.fieldErrors}
+                        />
+                    </div>
+                )}
+
+                {editingGreeting && (
+                    <div
+                        style={{
+                            padding: 16,
+                            backgroundColor: isDark ? "#1f2937" : "#f3f4f6",
+                            borderRadius: 8,
+                        }}
+                    >
+                        <h2 style={{ margin: "0 0 12px 0", fontSize: 18 }}>Edit Greeting</h2>
+                        <GreetingForm
+                            onSubmit={handleUpdate}
+                            onCancel={handleCancelEdit}
+                            initialValues={{
+                                message: editingGreeting.message,
+                                recipient: editingGreeting.recipient,
+                            }}
+                            loading={updateLoading}
+                            fieldErrors={updateError?.fieldErrors}
+                            submitLabel="Update"
+                        />
+                    </div>
                 )}
             </section>
 
+            {/* Greetings List Section */}
             <section>
-                <form onSubmit={handleSubmit} aria-label="greeting-form">
-                    <label htmlFor="name-input">Name</label>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 8 }}>
-                        <input
-                            id="name-input"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="world"
-                        />
-                        <button type="submit" disabled={loading}>
-                            Update greeting
-                        </button>
-                        <button type="button" onClick={clearMessage}>
-                            Clear
-                        </button>
-                    </div>
-                </form>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: 16,
+                        gap: 12,
+                    }}
+                >
+                    <h2 style={{ margin: 0, fontSize: 20 }}>All Greetings</h2>
+                    <button
+                        type="button"
+                        onClick={() => void refreshList()}
+                        disabled={isLoading}
+                        style={{
+                            padding: "6px 12px",
+                            backgroundColor: "transparent",
+                            border: `1px solid ${isDark ? "#4b5563" : "#d1d5db"}`,
+                            borderRadius: 4,
+                            cursor: isLoading ? "not-allowed" : "pointer",
+                            color: isDark ? "#f9fafb" : "#111827",
+                        }}
+                    >
+                        🔄 Refresh
+                    </button>
+                </div>
+
+                {listLoading && !greetings.length && (
+                    <LoadingSpinner message="Loading greetings..." />
+                )}
+
+                {listError && !listLoading && (
+                    <ErrorMessage error={listError} onRetry={() => void refreshList()} />
+                )}
+
+                {!listError && (
+                    <GreetingList
+                        greetings={greetings}
+                        meta={meta}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onPageChange={handlePageChange}
+                    />
+                )}
             </section>
         </main>
     );
