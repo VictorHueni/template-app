@@ -253,20 +253,25 @@ trivy fs --security-checks vuln,config,secret ./backend
 
 ### Semgrep (SAST)
 ```powershell
-# Install Semgrep
-pip install semgrep
+# Run Semgrep via Docker (recommended - no installation required)
+docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep --config "p/default" --config "p/owasp-top-ten" /src
 
-# Scan entire project
-semgrep --config "p/default" --config "p/owasp-top-ten" .
-
-# Scan backend only
-semgrep --config "p/java" ./backend
-
-# Scan frontend only
-semgrep --config "p/javascript" ./frontend
+# Scan with rule exclusions (matches CI configuration)
+docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep `
+  --config "p/default" `
+  --config "p/owasp-top-ten" `
+  --exclude-rule "generic.secrets.security.detected-jwt-token.detected-jwt-token" `
+  --exclude-rule "generic.nginx.security.possible-h2c-smuggling.possible-nginx-h2c-smuggling" `
+  --exclude-rule "generic.nginx.security.request-host-used.request-host-used" `
+  --exclude-rule "java.spring.security.audit.spring-actuator-non-health-enabled.spring-actuator-dangerous-endpoints-enabled" `
+  /src
 
 # Generate SARIF output
-semgrep --config "p/default" --sarif -o semgrep.sarif .
+docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep --config "p/default" --sarif -o /src/semgrep.sarif /src
+
+# Alternative: Install Semgrep locally via pip
+pip install semgrep
+semgrep --config "p/default" --config "p/owasp-top-ten" .
 ```
 
 ### Gitleaks (Secrets Scanning)
@@ -511,8 +516,8 @@ npm run test:e2e
 
 ### Run Security Scans Locally
 ```powershell
-# SAST (Semgrep)
-semgrep --config "p/default" --config "p/owasp-top-ten" .
+# SAST (Semgrep via Docker)
+docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep --config "p/default" --config "p/owasp-top-ten" /src
 
 # Secrets (Gitleaks)
 gitleaks detect --source=. --no-git
@@ -619,22 +624,22 @@ VITE_API_URL=/api
 
 ## 🎯 Quick Commands Summary
 
-| Task             | Command                                                     |
-| ---------------- | ----------------------------------------------------------- |
-| Start everything | `docker compose up -d --build`                              |
-| Stop everything  | `docker compose down -v`                                    |
-| Backend tests    | `cd backend && ./mvnw verify`                               |
-| Frontend tests   | `cd frontend && npm test`                                   |
-| Backend run      | `cd backend && ./mvnw spring-boot:run`                      |
-| Frontend run     | `cd frontend && npm run dev`                                |
-| Lint backend     | `cd backend && ./mvnw verify -DskipUTs=true -DskipITs=true` |
-| Lint frontend    | `cd frontend && npm run lint`                               |
-| Security scan    | `semgrep --config "p/default" .`                            |
-| Generate SBOM    | `cd backend && ./mvnw package -DskipTests`                  |
-| API client gen   | `cd frontend && npm run api:generate`                       |
-| View coverage    | `cd backend && ./mvnw test jacoco:report`                   |
-| Clean all        | `docker compose down -v --rmi local --remove-orphans`       |
-| Health check     | `curl http://localhost:8081/management/health`              |
+| Task             | Command                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| Start everything | `docker compose up -d --build`                                                       |
+| Stop everything  | `docker compose down -v`                                                             |
+| Backend tests    | `cd backend && ./mvnw verify`                                                        |
+| Frontend tests   | `cd frontend && npm test`                                                            |
+| Backend run      | `cd backend && ./mvnw spring-boot:run`                                               |
+| Frontend run     | `cd frontend && npm run dev`                                                         |
+| Lint backend     | `cd backend && ./mvnw verify -DskipUTs=true -DskipITs=true`                          |
+| Lint frontend    | `cd frontend && npm run lint`                                                        |
+| Security scan    | `docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep --config "p/default" /src` |
+| Generate SBOM    | `cd backend && ./mvnw package -DskipTests`                                           |
+| API client gen   | `cd frontend && npm run api:generate`                                                |
+| View coverage    | `cd backend && ./mvnw test jacoco:report`                                            |
+| Clean all        | `docker compose down -v --rmi local --remove-orphans`                                |
+| Health check     | `curl http://localhost:8081/management/health`                                       |
 
 ---
 
