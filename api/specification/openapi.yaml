@@ -12,8 +12,20 @@ info:
     url: https://github.com/VictorHueni/template-app
 
 servers:
-  - url: /api
-    description: Production API (Version 1)
+  # Production (first = default in most SDK generators)
+  - url: https://api.example.com/api
+    description: Production API - stable, live data
+
+  # Pre-production environments
+  - url: https://staging.api.example.com/api
+    description: Staging - integration testing before production
+
+  - url: https://dev.api.example.com/api
+    description: Development - latest features, may be unstable
+
+  # Local development
+  - url: http://localhost:8080/api
+    description: Local development server
 
 tags:
   - name: Greetings
@@ -199,6 +211,7 @@ components:
         type: integer
         default: 0
         minimum: 0
+        example: 0
     SizeParam:
       name: size
       in: query
@@ -208,6 +221,7 @@ components:
         default: 20
         minimum: 1
         maximum: 100
+        example: 20
 
   responses:
     BadRequest:
@@ -294,6 +308,7 @@ components:
     # RFC 7807 Problem Details
     ProblemDetail:
       type: object
+      additionalProperties: true
       description: |
         RFC 7807 Problem Details for HTTP APIs.
         See: https://datatracker.ietf.org/doc/html/rfc7807
@@ -358,6 +373,7 @@ components:
 
     CreateGreetingRequest:
       type: object
+      additionalProperties: false
       properties:
         message:
           type: string
@@ -372,6 +388,7 @@ components:
     UpdateGreetingRequest:
       type: object
       description: Full replacement update - all fields are required
+      additionalProperties: false
       properties:
         message:
           type: string
@@ -386,6 +403,7 @@ components:
     PatchGreetingRequest:
       type: object
       description: Partial update - only provided fields are updated
+      additionalProperties: false
       properties:
         message:
           type: string
@@ -398,6 +416,7 @@ components:
 
     GreetingResponse:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: integer
@@ -411,18 +430,23 @@ components:
           example: "GRE-2025-000042"
         message:
           type: string
+          description: The greeting message content
         recipient:
           type: string
+          description: Who the greeting is for
         createdAt:
           type: string
           format: date-time
+          description: Timestamp when the greeting was created
       required: [id, reference, message]
 
     GreetingPage:
       type: object
+      additionalProperties: false
       properties:
         data:
           type: array
+          description: List of greeting items in the current page
           items:
             $ref: '#/components/schemas/GreetingResponse'
         meta:
@@ -431,6 +455,8 @@ components:
 
     PageMeta:
       type: object
+      description: Pagination metadata for list responses
+      additionalProperties: false
       properties:
         pageNumber:
           type: integer

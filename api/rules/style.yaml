@@ -93,7 +93,7 @@ rules:
   error-response-model-4xx:
     description: "4xx error responses must use the ProblemDetail schema (RFC 7807)."
     severity: error
-    given: "$.paths.*.*.responses[?(@property.match(/^4[0-9]{2}$/))].content.application/json.schema"
+    given: "$.paths.*.*.responses[?(@property.match(/^4[0-9]{2}$/))].content['application/problem+json'].schema"
     then:
       field: "$ref"
       function: pattern
@@ -104,7 +104,7 @@ rules:
   error-response-model-5xx:
     description: "5xx error responses must use the ProblemDetail schema (RFC 7807)."
     severity: error
-    given: "$.paths.*.*.responses[?(@property.match(/^5[0-9]{2}$/))].content.application/json.schema"
+    given: "$.paths.*.*.responses[?(@property.match(/^5[0-9]{2}$/))].content['application/problem+json'].schema"
     then:
       field: "$ref"
       function: pattern
