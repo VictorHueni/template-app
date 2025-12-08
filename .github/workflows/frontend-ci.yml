@@ -28,6 +28,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Generate API client
+        run: npm run api:generate
+
       - name: Lint
         run: npm run lint
 
@@ -52,6 +55,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Generate API client
+        run: npm run api:generate
+
       - name: Type check
         run: npm run typecheck
 
@@ -72,6 +78,9 @@ jobs:
 
       - name: Install deps
         run: npm ci
+
+      - name: Generate API client
+        run: npm run api:generate
 
       - name: Unit tests with coverage (Vitest)
         run: npm run test:coverage
