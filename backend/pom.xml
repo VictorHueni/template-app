@@ -254,6 +254,7 @@
 					<!-- use builtin google_checks.xml to start with -->
 					<configLocation>google_checks.xml</configLocation>
 					<failOnViolation>true</failOnViolation>
+					<excludes>**/target/generated-sources/**/*.java</excludes>
 				</configuration>
 			</plugin>
 
@@ -289,6 +290,7 @@
 					<effort>Max</effort>
 					<threshold>Low</threshold>
 					<failOnError>true</failOnError>
+					<excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
 				</configuration>
 				<dependencies>
 					<dependency>
@@ -315,6 +317,10 @@
 				<configuration>
 					<!-- Let CLI -Djacoco.skip=true disable JaCoCo (e2e job). -->
 					<skip>${jacoco.skip}</skip>
+					<excludes>
+						<!-- Exclude OpenAPI generated code from coverage -->
+						<exclude>com/example/demo/api/v1/**</exclude>
+					</excludes>
 				</configuration>
 				<executions>
 					<!-- Attach JaCoCo agent to tests -->

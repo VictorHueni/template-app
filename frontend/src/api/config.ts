@@ -18,18 +18,35 @@
 import { Configuration, GreetingsApi } from "./generated";
 
 /**
- * Demo token for development/testing purposes.
- * In a real application, this would come from:
+ * Get the demo authentication token for development.
+ * This should NEVER be used in production.
+ *
+ * Priority:
+ * 1. VITE_DEMO_TOKEN from .env (allows per-developer customization)
+ * 2. Hardcoded fallback for quick setup
+ *
+ * In a real application, tokens would come from:
  * - OAuth/OIDC flow
  * - Session storage after login
  * - Auth context provider
  *
- * This is a mock JWT token structure for demonstration.
- * The backend should be configured to accept this in dev mode,
- * or you can replace it with a real token from your auth provider.
+ * SECURITY NOTE: This is a mock JWT with obvious fake values.
+ * Real production tokens come from OAuth/OIDC providers.
  */
-const DEMO_AUTH_TOKEN =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJuYW1lIjoiRGVtbyBVc2VyIiwiaWF0IjoxNzMzNjY1NjAwLCJleHAiOjE4OTk5OTk5OTl9.demo-signature";
+function getDemoToken(): string {
+    // Check environment variable first
+    const envToken = import.meta.env.VITE_DEMO_TOKEN;
+    if (envToken) {
+        return envToken;
+    }
+
+    // Fallback to hardcoded demo token
+    // nosemgrep: generic.secrets.security.detected-generic-secret
+    // gitleaks:allow - This is a mock JWT with "demo-signature", not a real secret
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJuYW1lIjoiRGVtbyBVc2VyIiwiaWF0IjoxNzMzNjY1NjAwLCJleHAiOjE4OTk5OTk5OTl9.demo-signature";
+}
+
+const DEMO_AUTH_TOKEN = getDemoToken();
 
 /**
  * Get the API base path from environment variables.

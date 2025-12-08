@@ -75,6 +75,13 @@ coverage/
 *.tsbuildinfo
 test-results/
 
+# OpenAPI generated TypeScript client (regenerated on build)
+frontend/src/api/generated/
+
+# Playwright browser binaries
+frontend/.playwright/
+.playwright/
+
 # ===== Docker / Misc =====
 *.sw?
 *.swp
