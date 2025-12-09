@@ -13,7 +13,7 @@ interface GreetingCardProps {
     /** Callback when edit button is clicked */
     onEdit?: (greeting: GreetingResponse) => void;
     /** Callback when delete button is clicked */
-    onDelete?: (id: number) => void;
+    onDelete?: (id: string) => void;
 }
 
 export function GreetingCard({ greeting, onEdit, onDelete }: GreetingCardProps) {

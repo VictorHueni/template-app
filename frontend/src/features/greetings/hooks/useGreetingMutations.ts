@@ -123,7 +123,7 @@ export function useCreateGreeting(): UseCreateGreetingResult {
 
 export interface UseUpdateGreetingResult extends MutationResult<GreetingResponse> {
     /** Execute the update mutation (full replacement) */
-    mutate: (id: number, data: UpdateGreetingRequest) => Promise<GreetingResponse | null>;
+    mutate: (id: string, data: UpdateGreetingRequest) => Promise<GreetingResponse | null>;
 }
 
 /**
@@ -152,7 +152,7 @@ export function useUpdateGreeting(): UseUpdateGreetingResult {
     const [error, setError] = useState<ApiError | null>(null);
 
     const mutate = useCallback(
-        async (id: number, input: UpdateGreetingRequest): Promise<GreetingResponse | null> => {
+        async (id: string, input: UpdateGreetingRequest): Promise<GreetingResponse | null> => {
             setLoading(true);
             setError(null);
 
@@ -202,7 +202,7 @@ export function useUpdateGreeting(): UseUpdateGreetingResult {
 
 export interface UsePatchGreetingResult extends MutationResult<GreetingResponse> {
     /** Execute the patch mutation (partial update) */
-    mutate: (id: number, data: PatchGreetingRequest) => Promise<GreetingResponse | null>;
+    mutate: (id: string, data: PatchGreetingRequest) => Promise<GreetingResponse | null>;
 }
 
 /**
@@ -228,7 +228,7 @@ export function usePatchGreeting(): UsePatchGreetingResult {
     const [error, setError] = useState<ApiError | null>(null);
 
     const mutate = useCallback(
-        async (id: number, input: PatchGreetingRequest): Promise<GreetingResponse | null> => {
+        async (id: string, input: PatchGreetingRequest): Promise<GreetingResponse | null> => {
             setLoading(true);
             setError(null);
 
@@ -284,7 +284,7 @@ export interface UseDeleteGreetingResult {
     /** Whether the delete was successful */
     isSuccess: boolean;
     /** Execute the delete mutation */
-    mutate: (id: number) => Promise<boolean>;
+    mutate: (id: string) => Promise<boolean>;
     /** Reset the hook state */
     reset: () => void;
 }
@@ -294,7 +294,7 @@ export interface UseDeleteGreetingResult {
  *
  * @example
  * ```tsx
- * function DeleteButton({ id, onDeleted }: { id: number; onDeleted: () => void }) {
+ * function DeleteButton({ id, onDeleted }: { id: string; onDeleted: () => void }) {
  *   const { mutate, loading, error, isSuccess } = useDeleteGreeting();
  *
  *   const handleDelete = async () => {
@@ -320,7 +320,7 @@ export function useDeleteGreeting(): UseDeleteGreetingResult {
     const [error, setError] = useState<ApiError | null>(null);
     const [isSuccess, setIsSuccess] = useState(false);
 
-    const mutate = useCallback(async (id: number): Promise<boolean> => {
+    const mutate = useCallback(async (id: string): Promise<boolean> => {
         setLoading(true);
         setError(null);
         setIsSuccess(false);

@@ -37,7 +37,7 @@ export interface UseGreetingResult {
  *
  * @example
  * ```tsx
- * function GreetingDetail({ id }: { id: number }) {
+ * function GreetingDetail({ id }: { id: string }) {
  *   const { greeting, loading, error } = useGreeting(id);
  *
  *   if (loading) return <p>Loading...</p>;
@@ -54,7 +54,7 @@ export interface UseGreetingResult {
  * }
  * ```
  */
-export function useGreeting(id: number | null | undefined): UseGreetingResult {
+export function useGreeting(id: string | null | undefined): UseGreetingResult {
     const [greeting, setGreeting] = useState<GreetingResponse | null>(null);
     const [loading, setLoading] = useState(id != null);
     const [error, setError] = useState<ApiError | null>(null);

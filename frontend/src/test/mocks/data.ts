@@ -7,33 +7,32 @@
  * 2. Easy updates when API schema changes
  * 3. Realistic data matching the actual API responses
  *
- * NOTE: IDs use smaller numbers that fit within JavaScript's safe integer range.
- * In production, TSIDs may be larger and should be handled as strings or BigInt.
+ * NOTE: IDs are strings to match the API schema (TSID serialized as string
+ * to preserve precision for large 64-bit integers in JavaScript).
  */
 
 import type { GreetingResponse, GreetingPage, PageMeta, ProblemDetail } from "../../api/generated";
 
 /**
  * Sample greetings for testing list views and CRUD operations.
- * IDs are kept within safe integer range for test reliability.
  */
 export const mockGreetings: GreetingResponse[] = [
     {
-        id: 1001,
+        id: "1001",
         reference: "GRE-2025-000001",
         message: "Hello, World!",
         recipient: "World",
         createdAt: "2025-01-15T10:30:00Z",
     },
     {
-        id: 1002,
+        id: "1002",
         reference: "GRE-2025-000002",
         message: "Welcome to the app!",
         recipient: "User",
         createdAt: "2025-01-15T11:00:00Z",
     },
     {
-        id: 1003,
+        id: "1003",
         reference: "GRE-2025-000003",
         message: "Greetings from the API!",
         recipient: "Developer",
@@ -47,7 +46,7 @@ export const mockGreetings: GreetingResponse[] = [
  */
 export function createMockGreeting(overrides: Partial<GreetingResponse> = {}): GreetingResponse {
     return {
-        id: 9999,
+        id: "9999",
         reference: "GRE-2025-000099",
         message: "Test greeting",
         recipient: "Test User",

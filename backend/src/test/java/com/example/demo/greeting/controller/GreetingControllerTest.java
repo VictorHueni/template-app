@@ -62,16 +62,17 @@ class GreetingControllerTest {
         void returnsGreetingWhenFound() {
             // Arrange
             Long id = 506979954615549952L;
+            String idStr = String.valueOf(id);
             Greeting entity = mockGreeting(id, "GRE-2025-000042", "Hello, World!", "Alice");
             when(service.getGreeting(id)).thenReturn(Optional.of(entity));
 
             // Act
-            ResponseEntity<GreetingResponse> response = controller.getGreeting(id);
+            ResponseEntity<GreetingResponse> response = controller.getGreeting(idStr);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().getId()).isEqualTo(id);
+            assertThat(response.getBody().getId()).isEqualTo(idStr);
             assertThat(response.getBody().getReference()).isEqualTo("GRE-2025-000042");
             assertThat(response.getBody().getMessage()).isEqualTo("Hello, World!");
             assertThat(response.getBody().getRecipient()).isEqualTo("Alice");
@@ -85,10 +86,11 @@ class GreetingControllerTest {
         void returnsNotFoundWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
+            String idStr = String.valueOf(id);
             when(service.getGreeting(id)).thenReturn(Optional.empty());
 
             // Act
-            ResponseEntity<GreetingResponse> response = controller.getGreeting(id);
+            ResponseEntity<GreetingResponse> response = controller.getGreeting(idStr);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -107,10 +109,11 @@ class GreetingControllerTest {
         void returnsNoContentWhenDeleted() {
             // Arrange
             Long id = 506979954615549952L;
+            String idStr = String.valueOf(id);
             when(service.deleteGreeting(id)).thenReturn(true);
 
             // Act
-            ResponseEntity<Void> response = controller.deleteGreeting(id);
+            ResponseEntity<Void> response = controller.deleteGreeting(idStr);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
@@ -124,10 +127,11 @@ class GreetingControllerTest {
         void throwsResourceNotFoundExceptionWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
+            String idStr = String.valueOf(id);
             when(service.deleteGreeting(id)).thenReturn(false);
 
             // Act & Assert
-            assertThatThrownBy(() -> controller.deleteGreeting(id))
+            assertThatThrownBy(() -> controller.deleteGreeting(idStr))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Greeting")
                     .hasMessageContaining("999");
@@ -145,17 +149,18 @@ class GreetingControllerTest {
         void returnsUpdatedGreetingWhenFound() {
             // Arrange
             Long id = 506979954615549952L;
+            String idStr = String.valueOf(id);
             UpdateGreetingRequest request = new UpdateGreetingRequest("Updated Message", "Bob");
             Greeting updatedEntity = mockGreeting(id, "GRE-2025-000042", "Updated Message", "Bob");
             when(service.updateGreeting(id, "Updated Message", "Bob")).thenReturn(Optional.of(updatedEntity));
 
             // Act
-            ResponseEntity<GreetingResponse> response = controller.updateGreeting(id, request);
+            ResponseEntity<GreetingResponse> response = controller.updateGreeting(idStr, request);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().getId()).isEqualTo(id);
+            assertThat(response.getBody().getId()).isEqualTo(idStr);
             assertThat(response.getBody().getMessage()).isEqualTo("Updated Message");
             assertThat(response.getBody().getRecipient()).isEqualTo("Bob");
 
@@ -167,11 +172,12 @@ class GreetingControllerTest {
         void throwsResourceNotFoundExceptionWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
+            String idStr = String.valueOf(id);
             UpdateGreetingRequest request = new UpdateGreetingRequest("Updated Message", "Bob");
             when(service.updateGreeting(id, "Updated Message", "Bob")).thenReturn(Optional.empty());
 
             // Act & Assert
-            assertThatThrownBy(() -> controller.updateGreeting(id, request))
+            assertThatThrownBy(() -> controller.updateGreeting(idStr, request))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Greeting")
                     .hasMessageContaining("999");
@@ -189,15 +195,16 @@ class GreetingControllerTest {
         void returnsUpdatedGreetingWhenPatchingMessage() {
             // Arrange
             Long id = 506979954615549952L;
+            String idStr = String.valueOf(id);
             PatchGreetingRequest request = new PatchGreetingRequest();
             request.setMessage("Patched Message");
             // recipient is null - not being patched
-            
+
             Greeting patchedEntity = mockGreeting(id, "GRE-2025-000042", "Patched Message", "Alice");
             when(service.patchGreeting(id, "Patched Message", null)).thenReturn(Optional.of(patchedEntity));
 
             // Act
-            ResponseEntity<GreetingResponse> response = controller.patchGreeting(id, request);
+            ResponseEntity<GreetingResponse> response = controller.patchGreeting(idStr, request);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -213,15 +220,16 @@ class GreetingControllerTest {
         void returnsUpdatedGreetingWhenPatchingRecipient() {
             // Arrange
             Long id = 506979954615549952L;
+            String idStr = String.valueOf(id);
             PatchGreetingRequest request = new PatchGreetingRequest();
             request.setRecipient("Charlie");
             // message is null - not being patched
-            
+
             Greeting patchedEntity = mockGreeting(id, "GRE-2025-000042", "Hello, World!", "Charlie");
             when(service.patchGreeting(id, null, "Charlie")).thenReturn(Optional.of(patchedEntity));
 
             // Act
-            ResponseEntity<GreetingResponse> response = controller.patchGreeting(id, request);
+            ResponseEntity<GreetingResponse> response = controller.patchGreeting(idStr, request);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -237,15 +245,16 @@ class GreetingControllerTest {
         void returnsUpdatedGreetingWhenPatchingBothFields() {
             // Arrange
             Long id = 506979954615549952L;
+            String idStr = String.valueOf(id);
             PatchGreetingRequest request = new PatchGreetingRequest();
             request.setMessage("New Message");
             request.setRecipient("Dave");
-            
+
             Greeting patchedEntity = mockGreeting(id, "GRE-2025-000042", "New Message", "Dave");
             when(service.patchGreeting(id, "New Message", "Dave")).thenReturn(Optional.of(patchedEntity));
 
             // Act
-            ResponseEntity<GreetingResponse> response = controller.patchGreeting(id, request);
+            ResponseEntity<GreetingResponse> response = controller.patchGreeting(idStr, request);
 
             // Assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -261,12 +270,13 @@ class GreetingControllerTest {
         void throwsResourceNotFoundExceptionWhenGreetingDoesNotExist() {
             // Arrange
             Long id = 999L;
+            String idStr = String.valueOf(id);
             PatchGreetingRequest request = new PatchGreetingRequest();
             request.setMessage("Patched Message");
             when(service.patchGreeting(id, "Patched Message", null)).thenReturn(Optional.empty());
 
             // Act & Assert
-            assertThatThrownBy(() -> controller.patchGreeting(id, request))
+            assertThatThrownBy(() -> controller.patchGreeting(idStr, request))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Greeting")
                     .hasMessageContaining("999");

@@ -66,7 +66,7 @@ public class GreetingController implements GreetingsApi {
      */
     private GreetingResponse toGreetingResponse(Greeting entity) {
         GreetingResponse response = new GreetingResponse(
-                entity.getId(),
+                String.valueOf(entity.getId()),
                 entity.getReference(),
                 entity.getMessage()
         );
@@ -76,33 +76,37 @@ public class GreetingController implements GreetingsApi {
     }
 
     @Override
-    public ResponseEntity<Void> deleteGreeting(Long id) {
-        if(service.deleteGreeting(id)) {
+    public ResponseEntity<Void> deleteGreeting(String id) {
+        Long idLong = Long.parseLong(id);
+        if (service.deleteGreeting(idLong)) {
             return ResponseEntity.noContent().build();
         } else {
-            throw new ResourceNotFoundException("Greeting", id);
+            throw new ResourceNotFoundException("Greeting", idLong);
         }
     }
 
     @Override
-    public ResponseEntity<GreetingResponse> getGreeting(Long id) {
-        return service.getGreeting(id)
+    public ResponseEntity<GreetingResponse> getGreeting(String id) {
+        Long idLong = Long.parseLong(id);
+        return service.getGreeting(idLong)
                 .map(this::toGreetingResponse)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @Override
-    public ResponseEntity<GreetingResponse> patchGreeting(Long id, PatchGreetingRequest patchGreetingRequest) {
-        Greeting greeting = service.patchGreeting(id, patchGreetingRequest.getMessage(), patchGreetingRequest.getRecipient())
-                .orElseThrow(() -> new ResourceNotFoundException("Greeting", id));
+    public ResponseEntity<GreetingResponse> patchGreeting(String id, PatchGreetingRequest patchGreetingRequest) {
+        Long idLong = Long.parseLong(id);
+        Greeting greeting = service.patchGreeting(idLong, patchGreetingRequest.getMessage(), patchGreetingRequest.getRecipient())
+                .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
         return ResponseEntity.ok(toGreetingResponse(greeting));
     }
 
     @Override
-    public ResponseEntity<GreetingResponse> updateGreeting(Long id, UpdateGreetingRequest updateGreetingRequest) {
-        Greeting greeting = service.updateGreeting(id, updateGreetingRequest.getMessage(), updateGreetingRequest.getRecipient())
-                .orElseThrow(() -> new ResourceNotFoundException("Greeting", id));
+    public ResponseEntity<GreetingResponse> updateGreeting(String id, UpdateGreetingRequest updateGreetingRequest) {
+        Long idLong = Long.parseLong(id);
+        Greeting greeting = service.updateGreeting(idLong, updateGreetingRequest.getMessage(), updateGreetingRequest.getRecipient())
+                .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
         return ResponseEntity.ok(toGreetingResponse(greeting));
     }
 }

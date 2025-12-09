@@ -1,5 +1,6 @@
 package com.example.demo.greeting.controller;
 
+import com.example.demo.contract.OpenApiValidator;
 import com.example.demo.greeting.service.GreetingService;
 import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 import org.junit.jupiter.api.Test;
@@ -7,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
@@ -25,6 +27,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void createsGreetingAndReturnsContract() {
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
                        {"message": "Hello, World!", "recipient": "Charlie"}
@@ -47,6 +50,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // 2. Act & Assert
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .queryParam("page", 0)
                 .queryParam("size", 10)
@@ -76,12 +80,13 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // Act & Assert
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .when()
                 .get("/api/v1/greetings/{id}", created.getId())
                 .then()
                 .statusCode(200)
-                .body("id", equalTo(created.getId()))
+                .body("id", equalTo(String.valueOf(created.getId())))
                 .body("reference", equalTo(created.getReference()))
                 .body("message", equalTo("Hello GET"))
                 .body("recipient", equalTo("GetTest"))
@@ -91,6 +96,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void returns404WhenGreetingNotFound() {
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .when()
                 .get("/api/v1/greetings/{id}", 999999999L)
@@ -105,6 +111,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // Act & Assert
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
                        {"message": "Updated Message", "recipient": "Updated"}
@@ -113,7 +120,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .put("/api/v1/greetings/{id}", created.getId())
                 .then()
                 .statusCode(200)
-                .body("id", equalTo(created.getId()))
+                .body("id", equalTo(String.valueOf(created.getId())))
                 .body("reference", equalTo(created.getReference())) // reference unchanged
                 .body("message", equalTo("Updated Message"))
                 .body("recipient", equalTo("Updated"));
@@ -122,6 +129,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void returns404WhenUpdatingNonExistentGreeting() {
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
                        {"message": "Updated Message", "recipient": "Updated"}
@@ -139,6 +147,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // Act & Assert: Patch only the message
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
                        {"message": "Patched Message"}
@@ -147,7 +156,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .patch("/api/v1/greetings/{id}", created.getId())
                 .then()
                 .statusCode(200)
-                .body("id", equalTo(created.getId()))
+                .body("id", equalTo(String.valueOf(created.getId())))
                 .body("message", equalTo("Patched Message"))
                 .body("recipient", equalTo("OriginalRecipient")); // unchanged
     }
@@ -159,6 +168,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // Act & Assert: Patch only the recipient
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
                        {"recipient": "PatchedRecipient"}
@@ -167,7 +177,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .patch("/api/v1/greetings/{id}", created.getId())
                 .then()
                 .statusCode(200)
-                .body("id", equalTo(created.getId()))
+                .body("id", equalTo(String.valueOf(created.getId())))
                 .body("message", equalTo("Original Message")) // unchanged
                 .body("recipient", equalTo("PatchedRecipient"));
     }
@@ -175,6 +185,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void returns404WhenPatchingNonExistentGreeting() {
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
                        {"message": "Patched Message"}
@@ -192,6 +203,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // Act: Delete the greeting
         given()
+                .filter(validationFilter())
                 .when()
                 .delete("/api/v1/greetings/{id}", created.getId())
                 .then()
@@ -199,6 +211,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
         // Assert: Verify it's gone
         given()
+                .filter(validationFilter())
                 .contentType("application/json")
                 .when()
                 .get("/api/v1/greetings/{id}", created.getId())
@@ -209,6 +222,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void returns404WhenDeletingNonExistentGreeting() {
         given()
+                .filter(validationFilter())
                 .when()
                 .delete("/api/v1/greetings/{id}", 999999999L)
                 .then()
@@ -218,5 +232,44 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("title", equalTo("Resource Not Found"))
                 .body("status", equalTo(404))
                 .body("traceId", notNullValue());
+    }
+
+    // ============================================================
+    // Regression test for JavaScript number precision issue
+    // ============================================================
+
+    /**
+     * Verifies that greeting IDs are serialized as JSON strings, not numbers.
+     *
+     * This prevents JavaScript precision loss for large TSID values.
+     * JavaScript's Number.MAX_SAFE_INTEGER is 2^53-1 (9007199254740991),
+     * but TSIDs can exceed this, causing precision loss when parsed as numbers.
+     *
+     * Example of the bug this prevents:
+     * - Backend returns: {"id": 785961326020039346}
+     * - JavaScript parses as: 785961326020039300 (precision lost!)
+     * - DELETE request fails with 404
+     *
+     * @see <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER">MDN: Number.MAX_SAFE_INTEGER</a>
+     */
+    @Test
+    void idIsSerializedAsStringToPreserveJavaScriptPrecision() {
+        // Arrange: Create a greeting (TSID will be a large 64-bit number)
+        var created = greetingService.createGreeting("Precision Test", "Test");
+
+        // Act & Assert: Verify ID is returned as a string in JSON
+        given()
+                .filter(validationFilter())
+                .contentType("application/json")
+                .when()
+                .get("/api/v1/greetings/{id}", created.getId())
+                .then()
+                .statusCode(200)
+                // The ID must be a string (quoted in JSON), not a raw number
+                .body("id", isA(String.class))
+                // The string value must match the actual ID exactly
+                .body("id", equalTo(String.valueOf(created.getId())))
+                // Verify it's a numeric string (digits only)
+                .body("id", matchesPattern("^\\d+$"));
     }
 }

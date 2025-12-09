@@ -17,7 +17,7 @@ interface GreetingListProps {
     /** Callback when user clicks edit on a greeting */
     onEdit?: (greeting: GreetingResponse) => void;
     /** Callback when user clicks delete on a greeting */
-    onDelete?: (id: number) => void;
+    onDelete?: (id: string) => void;
 }
 
 export function GreetingList({

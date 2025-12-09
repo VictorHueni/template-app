@@ -50,6 +50,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GreetingPage'
+              examples:
+                typical:
+                  summary: Typical paginated list with greetings
+                  value:
+                    data:
+                      - id: "1001"
+                        reference: "GRE-2025-000001"
+                        message: "Hello, World!"
+                        recipient: "World"
+                        createdAt: "2025-01-15T10:30:00Z"
+                      - id: "1002"
+                        reference: "GRE-2025-000002"
+                        message: "Bonjour, France!"
+                        recipient: "France"
+                        createdAt: "2025-01-15T11:00:00Z"
+                      - id: "1003"
+                        reference: "GRE-2025-000003"
+                        message: "Guten Tag, Deutschland!"
+                        recipient: "Germany"
+                        createdAt: "2025-01-15T12:15:00Z"
+                    meta:
+                      pageNumber: 0
+                      pageSize: 20
+                      totalElements: 3
+                      totalPages: 1
+                empty:
+                  summary: Empty list (no greetings)
+                  value:
+                    data: []
+                    meta:
+                      pageNumber: 0
+                      pageSize: 20
+                      totalElements: 0
+                      totalPages: 0
         '400':
           $ref: '#/components/responses/BadRequest'
     post:
@@ -66,6 +100,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateGreetingRequest'
+            examples:
+              typical:
+                summary: Create greeting with recipient
+                value:
+                  message: "Hello, World!"
+                  recipient: "World"
+              minimal:
+                summary: Create greeting without recipient (optional field)
+                value:
+                  message: "Good morning!"
       responses:
         '201':
           description: Created
@@ -73,6 +117,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully created greeting
+                  value:
+                    id: "1004"
+                    reference: "GRE-2025-000004"
+                    message: "Hello, World!"
+                    recipient: "World"
+                    createdAt: "2025-01-15T14:30:00Z"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -100,6 +153,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully retrieved greeting
+                  value:
+                    id: "1001"
+                    reference: "GRE-2025-000001"
+                    message: "Hello, World!"
+                    recipient: "World"
+                    createdAt: "2025-01-15T10:30:00Z"
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -117,6 +179,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateGreetingRequest'
+            examples:
+              typical:
+                summary: Full update with all fields
+                value:
+                  message: "Updated greeting message"
+                  recipient: "Updated recipient"
       responses:
         '200':
           description: The updated greeting
@@ -124,6 +192,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully updated greeting
+                  value:
+                    id: "1001"
+                    reference: "GRE-2025-000001"
+                    message: "Updated greeting message"
+                    recipient: "Updated recipient"
+                    createdAt: "2025-01-15T10:30:00Z"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -149,6 +226,20 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchGreetingRequest'
+            examples:
+              messageOnly:
+                summary: Update only the message
+                value:
+                  message: "Patched message only"
+              recipientOnly:
+                summary: Update only the recipient
+                value:
+                  recipient: "New recipient"
+              both:
+                summary: Update both message and recipient
+                value:
+                  message: "Patched message"
+                  recipient: "Patched recipient"
       responses:
         '200':
           description: The updated greeting
@@ -156,6 +247,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully patched greeting
+                  value:
+                    id: "1001"
+                    reference: "GRE-2025-000001"
+                    message: "Patched message"
+                    recipient: "Patched recipient"
+                    createdAt: "2025-01-15T10:30:00Z"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -199,9 +299,9 @@ components:
       required: true
       description: The unique identifier (TSID) of the greeting
       schema:
-        type: integer
-        format: int64
-      example: 506979954615549952
+        type: string
+        pattern: '^\d+$'
+      example: "506979954615549952"
 
     PageParam:
       name: page
@@ -419,10 +519,9 @@ components:
       additionalProperties: false
       properties:
         id:
-          type: integer
-          format: int64
-          description: Technical Unique identifier (TSID). Use for code/logic.
-          example: 506979954615549952
+          type: string
+          description: Technical Unique identifier (TSID). Use for code/logic. Serialized as string to preserve precision for large IDs.
+          example: "506979954615549952"
         reference:
           type: string
           description: Functional Business Identifier. Use for display/support.

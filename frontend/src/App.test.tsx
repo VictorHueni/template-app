@@ -167,7 +167,7 @@ describe("App", () => {
 
         it("creates a new greeting and refreshes list", async () => {
             const newGreeting: GreetingResponse = {
-                id: 1004,
+                id: "1004",
                 reference: "REF-1004",
                 message: "New greeting!",
                 recipient: "Test",
