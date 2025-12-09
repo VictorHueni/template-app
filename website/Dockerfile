@@ -21,8 +21,19 @@ RUN npm exec docusaurus build
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Copy built files
+# Create a non-root user and group
+RUN addgroup -S nginx && adduser -S nginx -G nginx
+
+# Copy built files and change ownership
 COPY --from=builder /app/build /usr/share/nginx/html
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /etc/nginx/conf.d
+RUN touch /var/run/nginx.pid && chown -R nginx:nginx /var/run/nginx.pid
+
+# Switch to the non-root user
+USER nginx
 
 # Copy nginx config
 COPY website/nginx.conf /etc/nginx/conf.d/default.conf
