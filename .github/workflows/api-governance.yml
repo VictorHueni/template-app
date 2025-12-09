@@ -1,0 +1,131 @@
+name: API Governance
+
+on:
+  workflow_call:
+    inputs:
+      NODE_VERSION:
+        required: true
+        type: string
+        description: "Node version for linting/diffing"
+      JAVA_VERSION:
+        required: true
+        type: string
+        description: "Java version for backend drift detection"
+
+jobs:
+  api_governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # --- 1. Setup Environments  ---
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.NODE_VERSION }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.JAVA_VERSION }}
+          cache: maven
+
+      # --- 2. Lint the spec ---
+      - name: Install API Tools
+        run: cd api && npm ci
+
+      - name: Lint OpenAPI Spec
+        run: cd api && npm run lint
+
+      - name: Validate OpenAPI Examples
+        run: |
+          cd api
+          # Validate that all 2xx responses have examples
+          npx @stoplight/spectral-cli lint specification/openapi.yaml --ruleset rules/examples.yaml
+
+      # --- 3. Breaking Change Detection ---
+      - name: Check for Breaking Changes
+        if: github.event_name == 'pull_request'
+        run: |
+          # Ensure we have the latest info from the default branch
+          git fetch origin main
+
+          # Try to get the OpenAPI spec from the origin/main branch
+          # We check if the command fails (file missing in main) to handle new files gracefully
+          if ! git show origin/main:api/specification/openapi.yaml > /tmp/main-openapi.yaml 2>/dev/null; then
+            echo "⚠️ 'api/specification/openapi.yaml' not found in origin/main."
+            echo "ℹ️ Assuming this is a new API or file location."
+            echo "✅ Skipping breaking change check (New File)."
+            exit 0
+          fi
+
+          cd api
+
+          # 1. Run openapi-diff and capture the exit code
+          set +e 
+          npx openapi-diff /tmp/main-openapi.yaml specification/openapi.yaml
+          DIFF_EXIT_CODE=$?
+          set -e
+
+          # 2. If no breaking changes (Exit Code 0), we are good
+          if [ $DIFF_EXIT_CODE -eq 0 ]; then
+            echo "✅ No breaking changes detected."
+            exit 0
+          fi
+
+          echo "⚠️ Breaking changes detected. Checking for valid version bump..."
+
+          # 3. Helper function to extract Major version
+          get_major_version() {
+            grep "version:" "$1" | head -n 1 | awk '{print $2}' | tr -d '"' | tr -d "'" | cut -d. -f1
+          }
+
+          OLD_MAJOR=$(get_major_version /tmp/main-openapi.yaml)
+          NEW_MAJOR=$(get_major_version specification/openapi.yaml)
+
+          echo "Detected Version Change: v$OLD_MAJOR.x.x -> v$NEW_MAJOR.x.x"
+
+          # 4. Compare versions
+          if [ "$NEW_MAJOR" -gt "$OLD_MAJOR" ]; then
+             echo "✅ Breaking changes accepted because Major version was bumped."
+             exit 0
+          else
+             echo "❌ Breaking changes detected without a Major version bump! (v$OLD_MAJOR -> v$NEW_MAJOR)"
+             echo "👉 Please bump the major version in openapi.yaml (e.g., 1.0.0 -> 2.0.0) to merge this."
+             exit 1
+          fi
+
+      # --- 4. Drift Detection ---
+      # Ensures the generated API code matches the OpenAPI specification.
+      # If developers manually modified generated files, this will catch it.
+      - name: Check Backend Drift
+        run: |
+          cd backend
+
+          # Generate fresh API code from the OpenAPI spec
+          ./mvnw clean compile -q
+
+          # Store a hash of the generated code (excluding @Generated timestamps which vary between runs)
+          # The @Generated annotation includes a timestamp that changes on each generation
+          find target/generated-sources/openapi/src/main/java -name "*.java" -exec cat {} \; \
+            | grep -v '@Generated(value = "org.openapitools.codegen' \
+            | sha256sum > /tmp/generated-hash-1.txt
+
+          # Clean and regenerate
+          ./mvnw clean compile -q
+
+          # Hash the regenerated code
+          find target/generated-sources/openapi/src/main/java -name "*.java" -exec cat {} \; \
+            | grep -v '@Generated(value = "org.openapitools.codegen' \
+            | sha256sum > /tmp/generated-hash-2.txt
+
+          # Compare hashes - they should be identical for deterministic generation
+          if diff /tmp/generated-hash-1.txt /tmp/generated-hash-2.txt > /dev/null; then
+            echo "✅ Backend API code generation is deterministic and in sync with OpenAPI specification"
+          else
+            echo "❌ API code generation is not deterministic! Check for non-deterministic elements in the OpenAPI spec."
+            exit 1
+          fi

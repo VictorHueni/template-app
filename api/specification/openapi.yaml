@@ -1,0 +1,572 @@
+openapi: 3.1.0
+info:
+  title: Template App API
+  version: 1.0.0
+  description: API for the Template Application
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: API Support
+    email: api-support@example.com
+    url: https://github.com/VictorHueni/template-app
+
+servers:
+  # Production (first = default in most SDK generators)
+  - url: https://api.example.com/api
+    description: Production API - stable, live data
+
+  # Pre-production environments
+  - url: https://staging.api.example.com/api
+    description: Staging - integration testing before production
+
+  - url: https://dev.api.example.com/api
+    description: Development - latest features, may be unstable
+
+  # Local development
+  - url: http://localhost:8080/api
+    description: Local development server
+
+tags:
+  - name: Greetings
+    description: Operations for managing greeting resources
+
+paths:
+  /v1/greetings:
+    get:
+      tags:
+        - Greetings
+      summary: List greetings
+      description: Retrieves a paginated list of all greetings. Supports pagination via page and size query parameters.
+      operationId: listGreetings
+      security: []  # Public endpoint - no authentication required
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: A paged list of greetings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingPage'
+              examples:
+                typical:
+                  summary: Typical paginated list with greetings
+                  value:
+                    data:
+                      - id: "1001"
+                        reference: "GRE-2025-000001"
+                        message: "Hello, World!"
+                        recipient: "World"
+                        createdAt: "2025-01-15T10:30:00Z"
+                      - id: "1002"
+                        reference: "GRE-2025-000002"
+                        message: "Bonjour, France!"
+                        recipient: "France"
+                        createdAt: "2025-01-15T11:00:00Z"
+                      - id: "1003"
+                        reference: "GRE-2025-000003"
+                        message: "Guten Tag, Deutschland!"
+                        recipient: "Germany"
+                        createdAt: "2025-01-15T12:15:00Z"
+                    meta:
+                      pageNumber: 0
+                      pageSize: 20
+                      totalElements: 3
+                      totalPages: 1
+                empty:
+                  summary: Empty list (no greetings)
+                  value:
+                    data: []
+                    meta:
+                      pageNumber: 0
+                      pageSize: 20
+                      totalElements: 0
+                      totalPages: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags:
+        - Greetings
+      summary: Create a greeting
+      description: Creates a new greeting resource. Requires authentication. Returns the created greeting with generated ID and reference.
+      operationId: createGreeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGreetingRequest'
+            examples:
+              typical:
+                summary: Create greeting with recipient
+                value:
+                  message: "Hello, World!"
+                  recipient: "World"
+              minimal:
+                summary: Create greeting without recipient (optional field)
+                value:
+                  message: "Good morning!"
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully created greeting
+                  value:
+                    id: "1004"
+                    reference: "GRE-2025-000004"
+                    message: "Hello, World!"
+                    recipient: "World"
+                    createdAt: "2025-01-15T14:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/greetings/{id}:
+    parameters:
+      - $ref: '#/components/parameters/GreetingIdParam'
+
+    get:
+      tags:
+        - Greetings
+      summary: Get a greeting by ID
+      description: Retrieves a single greeting by its unique TSID identifier.
+      operationId: getGreeting
+      security: []  # Public endpoint - no authentication required
+      responses:
+        '200':
+          description: The greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully retrieved greeting
+                  value:
+                    id: "1001"
+                    reference: "GRE-2025-000001"
+                    message: "Hello, World!"
+                    recipient: "World"
+                    createdAt: "2025-01-15T10:30:00Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Greetings
+      summary: Update a greeting (full replacement)
+      description: Performs a full replacement update of an existing greeting. All fields must be provided. Requires authentication.
+      operationId: updateGreeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGreetingRequest'
+            examples:
+              typical:
+                summary: Full update with all fields
+                value:
+                  message: "Updated greeting message"
+                  recipient: "Updated recipient"
+      responses:
+        '200':
+          description: The updated greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully updated greeting
+                  value:
+                    id: "1001"
+                    reference: "GRE-2025-000001"
+                    message: "Updated greeting message"
+                    recipient: "Updated recipient"
+                    createdAt: "2025-01-15T10:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    patch:
+      tags:
+        - Greetings
+      summary: Partially update a greeting
+      description: Performs a partial update of an existing greeting. Only provided fields are updated. Requires authentication.
+      operationId: patchGreeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchGreetingRequest'
+            examples:
+              messageOnly:
+                summary: Update only the message
+                value:
+                  message: "Patched message only"
+              recipientOnly:
+                summary: Update only the recipient
+                value:
+                  recipient: "New recipient"
+              both:
+                summary: Update both message and recipient
+                value:
+                  message: "Patched message"
+                  recipient: "Patched recipient"
+      responses:
+        '200':
+          description: The updated greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreetingResponse'
+              examples:
+                typical:
+                  summary: Successfully patched greeting
+                  value:
+                    id: "1001"
+                    reference: "GRE-2025-000001"
+                    message: "Patched message"
+                    recipient: "Patched recipient"
+                    createdAt: "2025-01-15T10:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags:
+        - Greetings
+      summary: Delete a greeting
+      description: Permanently removes a greeting resource. This action cannot be undone. Requires authentication.
+      operationId: deleteGreeting
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Greeting deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    GreetingIdParam:
+      name: id
+      in: path
+      required: true
+      description: The unique identifier (TSID) of the greeting
+      schema:
+        type: string
+        pattern: '^\d+$'
+      example: "506979954615549952"
+
+    PageParam:
+      name: page
+      in: query
+      description: The page number to retrieve (0-based index)
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+        example: 0
+    SizeParam:
+      name: size
+      in: query
+      description: The number of items per page
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+        example: 20
+
+  responses:
+    BadRequest:
+      description: The server could not process the request due to invalid syntax.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/validation-error"
+            title: "Validation Error"
+            status: 400
+            detail: "Request validation failed"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+            errors:
+              message: "must not be blank"
+
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/resource-not-found"
+            title: "Resource Not Found"
+            status: 404
+            detail: "Greeting with id '123' not found"
+            instance: "/api/v1/greetings/123"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+            resourceType: "Greeting"
+            resourceId: "123"
+
+    Conflict:
+      description: The request conflicts with the current state of the resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/conflict"
+            title: "Conflict"
+            status: 409
+            detail: "Resource already exists"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+            reason: "A greeting with this reference already exists"
+
+    Unauthorized:
+      description: Authentication is required to access this resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "Authentication is required to access this resource"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+
+    Forbidden:
+      description: You do not have permission to access this resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "https://api.example.com/problems/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "You do not have permission to access this resource"
+            instance: "/api/v1/greetings"
+            timestamp: "2025-01-15T10:30:00Z"
+            traceId: "550e8400-e29b-41d4-a716-446655440000"
+
+  schemas:
+    # RFC 7807 Problem Details
+    ProblemDetail:
+      type: object
+      additionalProperties: true
+      description: |
+        RFC 7807 Problem Details for HTTP APIs.
+        See: https://datatracker.ietf.org/doc/html/rfc7807
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference that identifies the problem type
+          example: "https://api.example.com/problems/resource-not-found"
+        title:
+          type: string
+          description: A short, human-readable summary of the problem type
+          example: "Resource Not Found"
+        status:
+          type: integer
+          description: The HTTP status code
+          example: 404
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence
+          example: "Greeting with id '123' not found"
+        instance:
+          type: string
+          format: uri-reference
+          description: A URI reference that identifies the specific occurrence
+          example: "/api/v1/greetings/123"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred (ISO-8601)
+          example: "2025-01-15T10:30:00Z"
+        traceId:
+          type: string
+          description: Unique identifier for debugging and log correlation
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Field-level validation errors (for 400 responses)
+          example:
+            message: "must not be blank"
+            recipient: "size must be between 1 and 100"
+        resourceType:
+          type: string
+          description: Type of resource not found (for 404 responses)
+          example: "Greeting"
+        resourceId:
+          type: string
+          description: ID of the resource not found (for 404 responses)
+          example: "123"
+        reason:
+          type: string
+          description: Reason for the conflict (for 409 responses)
+          example: "Resource already exists"
+      required:
+        - type
+        - title
+        - status
+        - timestamp
+        - traceId
+
+    CreateGreetingRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          description: The greeting message content
+          example: "Hello, World!"
+        recipient:
+          type: string
+          description: Who the greeting is for
+          example: "Universe"
+      required: [message]
+
+    UpdateGreetingRequest:
+      type: object
+      description: Full replacement update - all fields are required
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          description: The greeting message content
+          example: "Hello, World!"
+        recipient:
+          type: string
+          description: Who the greeting is for
+          example: "Universe"
+      required: [message, recipient]
+
+    PatchGreetingRequest:
+      type: object
+      description: Partial update - only provided fields are updated
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          description: The greeting message content
+          example: "Hello, World!"
+        recipient:
+          type: string
+          description: Who the greeting is for
+          example: "Universe"
+
+    GreetingResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Technical Unique identifier (TSID). Use for code/logic. Serialized as string to preserve precision for large IDs.
+          example: "506979954615549952"
+        reference:
+          type: string
+          description: Functional Business Identifier. Use for display/support.
+          pattern: '^[A-Z]{3}-\d{4}-\d{6}$'
+          example: "GRE-2025-000042"
+        message:
+          type: string
+          description: The greeting message content
+        recipient:
+          type: string
+          description: Who the greeting is for
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the greeting was created
+      required: [id, reference, message]
+
+    GreetingPage:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          description: List of greeting items in the current page
+          items:
+            $ref: '#/components/schemas/GreetingResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      required: [data, meta]
+
+    PageMeta:
+      type: object
+      description: Pagination metadata for list responses
+      additionalProperties: false
+      properties:
+        pageNumber:
+          type: integer
+          description: Current page number
+        pageSize:
+          type: integer
+          description: Items per page
+        totalElements:
+          type: integer
+          description: Total items across all pages
+        totalPages:
+          type: integer
+          description: Total number of pages available
+      required: [pageNumber, pageSize, totalElements, totalPages]

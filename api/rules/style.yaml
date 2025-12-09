@@ -1,0 +1,327 @@
+extends: ["spectral:oas"] # Extends Stoplight's OpenAPI ruleset
+
+rules:
+  # =============================================================================
+  # PATH & URL RULES
+  # =============================================================================
+
+  # Naming Convention: path segments must be kebab-case
+  paths-kebab-case:
+    description: "Path segments must be kebab-case."
+    given: "$.paths[*]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/|[a-z0-9-.]+|{[a-zA-Z0-9_]+})+$"
+
+  # Versioning: All paths must start with /v{n}/
+  paths-version-prefix:
+    description: "All API paths must be versioned with /v{n}/ prefix (e.g., /v1/users)."
+    severity: error
+    given: "$.paths[*]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^/v[0-9]+/"
+  
+
+  # =============================================================================
+  # SECURITY & PERMISSIONS (FUTURE ENFORCEMENT - COMMENTED OUT)
+  # =============================================================================
+
+  # Rule: DELETE operations must require explicit permissions
+  # delete-requires-permissions:
+  #   description: "DELETE operations must define a specific 'x-permissions' scope."
+  #   severity: error
+  #   given: "$.paths.*.delete"
+  #   then:
+  #     field: "x-permissions"
+  #     function: truthy
+
+  # Rule: Validate x-permissions format (must be an array of strings)
+  # x-permissions-format:
+  #   description: "'x-permissions' extension must be an array of permission strings."
+  #   severity: error
+  #   given: "$..x-permissions"
+  #   then:
+  #     function: schema
+  #     functionOptions:
+  #       schema:
+  #         type: array
+  #         items:
+  #           type: string
+
+  # =============================================================================
+  # OPERATION METADATA RULES (DevX: SDK generation, documentation quality)
+  # =============================================================================
+
+  # OperationId must be camelCase for consistent SDK method naming
+  operation-operationId-camelCase:
+    description: "operationId must be camelCase for consistent SDK method naming."
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete,head,options].operationId"
+    then:
+      function: casing
+      functionOptions:
+        type: camel
+
+  # Every operation must have a summary (short description for docs)
+  operation-summary-required:
+    description: "Every operation must have a summary for documentation."
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete,head,options]"
+    then:
+      field: summary
+      function: truthy
+
+  # Summary should be concise (max 80 chars)
+  operation-summary-length:
+    description: "Operation summary should be concise (max 80 characters)."
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete,head,options].summary"
+    then:
+      function: length
+      functionOptions:
+        max: 80
+
+  # Every operation must have a description (detailed explanation)
+  operation-description-required:
+    description: "Every operation must have a description for detailed documentation."
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete,head,options]"
+    then:
+      field: description
+      function: truthy
+
+  # Every operation must have at least one tag for grouping in docs
+  operation-tags-required:
+    description: "Every operation must have at least one tag for documentation grouping."
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete,head,options]"
+    then:
+      field: tags
+      function: truthy
+
+  # Tags should not be empty arrays
+  operation-tags-not-empty:
+    description: "Operation tags array must not be empty."
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete,head,options].tags"
+    then:
+      function: length
+      functionOptions:
+        min: 1
+
+  # =============================================================================
+  # ERROR MODEL RULES
+  # =============================================================================
+
+  # Error Model Enforcement (improved JSONPath for 4xx errors)
+  error-response-model-4xx:
+    description: "4xx error responses must use the ProblemDetail schema (RFC 7807)."
+    severity: error
+    given: "$.paths.*.*.responses[?(@property.match(/^4[0-9]{2}$/))].content['application/problem+json'].schema"
+    then:
+      field: "$ref"
+      function: pattern
+      functionOptions:
+        match: "#/components/schemas/ProblemDetail"
+
+  # Error Model Enforcement (improved JSONPath for 5xx errors)
+  error-response-model-5xx:
+    description: "5xx error responses must use the ProblemDetail schema (RFC 7807)."
+    severity: error
+    given: "$.paths.*.*.responses[?(@property.match(/^5[0-9]{2}$/))].content['application/problem+json'].schema"
+    then:
+      field: "$ref"
+      function: pattern
+      functionOptions:
+        match: "#/components/schemas/ProblemDetail"
+
+  # =============================================================================
+  # SCHEMA NAMING CONVENTIONS
+  # =============================================================================
+
+  # Enforce Request naming: Must end in 'Request' or 'Command'
+  schema-names-request:
+    description: "Request schemas (Create/Update/Patch) must end with 'Request' or 'Command'."
+    severity: warn
+    given: "$.components.schemas[?(@property.match(/^(Create|Update|Patch)/))]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][a-zA-Z0-9]*(Request|Command)$"
+
+  # Enforce Response naming: Must end in 'Response', 'Page', 'Dto', 'Meta', or be a utility schema
+  schema-names-response:
+    description: "Response/Read models must follow naming convention (Response|Page|List|Dto|Meta|Error)."
+    severity: warn
+    given: "$.components.schemas[?(!@property.match(/^(Create|Update|Patch)/) && !@property.match(/^ProblemDetail$/))]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][a-zA-Z0-9]*(Response|Page|List|Dto|Meta|Error)$"
+
+  # Schema properties must be camelCase
+  schema-properties-camelCase:
+    description: "Schema properties must use camelCase naming."
+    severity: error
+    given: "$.components.schemas.*.properties[*]~"
+    then:
+      function: casing
+      functionOptions:
+        type: camel
+
+  # =============================================================================
+  # SCHEMA DOCUMENTATION RULES (DevX: better docs, examples for mocking)
+  # =============================================================================
+
+  # Schema properties should have descriptions
+  schema-property-description:
+    description: "Schema properties should have descriptions for better documentation."
+    severity: warn
+    given: "$.components.schemas.*.properties.*"
+    then:
+      field: description
+      function: truthy
+
+  # Request schemas should have examples
+  schema-request-examples:
+    description: "Request schemas should have examples for documentation and mocking."
+    severity: warn
+    given: "$.components.schemas[?(@property.match(/(Request|Command)$/))].properties.*"
+    then:
+      field: example
+      function: defined
+
+  # =============================================================================
+  # PAGINATION RULES (DevX: consistent list responses)
+  # =============================================================================
+
+  # GET operations returning arrays should use Page wrapper
+  pagination-page-wrapper:
+    description: "List endpoints should return paginated responses using *Page schema."
+    severity: warn
+    given: "$.paths.*.get.responses.200.content.application/json.schema"
+    then:
+      - field: "$ref"
+        function: pattern
+        functionOptions:
+          match: "(Page|List)$"
+
+  # =============================================================================
+  # SECURITY RULES (DevX: clear auth requirements)
+  # =============================================================================
+
+  # Mutating operations (POST/PUT/PATCH/DELETE) should have security defined
+  security-mutating-operations:
+    description: "POST, PUT, PATCH, DELETE operations should have security defined."
+    severity: warn
+    given: "$.paths.*[post,put,patch,delete]"
+    then:
+      field: security
+      function: truthy
+
+  # =============================================================================
+  # RESPONSE RULES (DevX: predictable responses)
+  # =============================================================================
+
+  # Success responses should have content defined
+  response-success-content:
+    description: "Success responses (2xx) should have content defined."
+    severity: warn
+    given: "$.paths.*.*.responses[?(@property.match(/^2[0-9]{2}$/) && @property != '204')]"
+    then:
+      field: content
+      function: truthy
+
+  # 204 responses should NOT have content
+  response-204-no-content:
+    description: "204 No Content responses must not have content."
+    severity: error
+    given: "$.paths.*.*.responses.204"
+    then:
+      field: content
+      function: falsy
+
+  # =============================================================================
+  # PARAMETER RULES (DevX: consistent parameters)
+  # =============================================================================
+
+  # Path parameters should have descriptions
+  parameter-path-description:
+    description: "Path parameters must have descriptions."
+    severity: error
+    given: "$.paths.*.*.parameters[?(@.in == 'path')]"
+    then:
+      field: description
+      function: truthy
+
+  # Query parameters should have descriptions
+  parameter-query-description:
+    description: "Query parameters should have descriptions."
+    severity: warn
+    given: "$.paths.*.*.parameters[?(@.in == 'query')]"
+    then:
+      field: description
+      function: truthy
+
+  # Query parameters should have examples
+  parameter-query-example:
+    description: "Query parameters should have examples for documentation."
+    severity: info
+    given: "$.paths.*.*.parameters[?(@.in == 'query')].schema"
+    then:
+      field: example
+      function: defined
+
+  # =============================================================================
+  # ADDITIONAL QUALITY RULES
+  # =============================================================================
+
+  # Schemas should not allow arbitrary additional properties (strict typing for SDKs)
+  schema-no-additional-properties:
+    description: "Schemas should explicitly define additionalProperties for strict SDK typing."
+    severity: info
+    given: "$.components.schemas[?(@.type == 'object')]"
+    then:
+      field: additionalProperties
+      function: defined
+
+  # Enum values should be SCREAMING_SNAKE_CASE or lowercase
+  enum-values-uppercase:
+    description: "Enum values should be SCREAMING_SNAKE_CASE for consistency."
+    severity: info
+    given: "$.components.schemas..enum[*]"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][A-Z0-9_]*$|^[a-z][a-z0-9_]*$"
+
+  # Server URLs should be valid HTTPS (production) or localhost (dev)
+  server-url-https:
+    description: "Server URLs should use HTTPS for production or http://localhost for development."
+    severity: warn
+    given: "$.servers[*].url"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(https://|http://localhost)"
+
+  # API should have contact information
+  info-contact-required:
+    description: "API must have contact information for support."
+    severity: error
+    given: "$.info"
+    then:
+      field: contact
+      function: truthy
+
+  # API should have license information
+  info-license-required:
+    description: "API must have license information."
+    severity: warn
+    given: "$.info"
+    then:
+      field: license
+      function: truthy

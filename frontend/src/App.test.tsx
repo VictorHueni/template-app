@@ -1,110 +1,252 @@
+/**
+ * App Component Tests
+ *
+ * Tests for the main App component which displays a list of greetings
+ * with CRUD operations (create, read, update, delete).
+ */
+
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
+import {
+    createMockGreetingPage,
+    mockGreetings,
+    mockApiSuccess,
+    mockApiError,
+    mockErrors,
+} from "./test/mocks/data";
+import type { GreetingResponse } from "./api/generated";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+// Mock the API config module
+vi.mock("./api/config", async () => {
+    const actual = await vi.importActual<typeof import("./api/config")>("./api/config");
+    return {
+        ...actual,
+        API_BASE_PATH: "/api/v1",
+        listGreetings: vi.fn(),
+        getGreeting: vi.fn(),
+        createGreeting: vi.fn(),
+        updateGreeting: vi.fn(),
+        patchGreeting: vi.fn(),
+        deleteGreeting: vi.fn(),
+    };
+});
 
-type FetchMock = ReturnType<typeof vi.fn>;
+// Get the mocked modules
+import { listGreetings, createGreeting } from "./api/config";
 
-// Helper to mock fetch per test
-function mockFetchOnce(response: unknown, ok = true, status = 200) {
-    const json = async () => response;
-    const res = { ok, status, json } as Response;
-    (globalThis.fetch as FetchMock).mockResolvedValueOnce(res);
-}
+const mockListGreetings = vi.mocked(listGreetings);
+const mockCreateGreeting = vi.mocked(createGreeting);
 
 describe("App", () => {
     beforeEach(() => {
-        vi.resetAllMocks();
-        globalThis.fetch = vi.fn() as unknown as typeof fetch;
+        vi.clearAllMocks();
+        // Default: return empty page (hey-api returns { data, error, request, response })
+        mockListGreetings.mockResolvedValue(
+            mockApiSuccess(createMockGreetingPage([])) as Awaited<ReturnType<typeof listGreetings>>,
+        );
     });
 
-    it("shows loading and then the greeting message on success", async () => {
-        mockFetchOnce({ message: "Hello world" });
+    describe("loading state", () => {
+        it("shows loading indicator initially", () => {
+            // Make the API hang - use type assertion for never-resolving promise
+            mockListGreetings.mockImplementation(
+                () => new Promise(() => {}) as Promise<Awaited<ReturnType<typeof listGreetings>>>,
+            );
 
-        render(<App />);
+            render(<App />);
 
-        // Initial loading state
-        expect(screen.getByLabelText(/loading/i)).toBeInTheDocument();
+            expect(screen.getByRole("status", { name: /loading/i })).toBeInTheDocument();
+        });
 
-        // Wait for the message to appear
-        await waitFor(() =>
-            expect(screen.getByLabelText("greeting-message")).toHaveTextContent("Hello world"),
-        );
+        it("hides loading after data loads", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
-        // Loading indicator should be gone
-        expect(screen.queryByLabelText(/loading/i)).not.toBeInTheDocument();
+            render(<App />);
 
-        // Fetch called once, with default URL (default param is world)
-        expect(globalThis.fetch).toHaveBeenCalledWith(`${API_BASE}/api/hello?name=world`);
+            await waitFor(() => {
+                expect(screen.queryByRole("status", { name: /loading/i })).not.toBeInTheDocument();
+            });
+        });
     });
 
-    it("shows an error when the fetch fails", async () => {
-        (globalThis.fetch as FetchMock).mockRejectedValueOnce(new Error("Network down"));
+    describe("displaying greetings", () => {
+        it("shows list of greetings", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
-        render(<App />);
+            render(<App />);
 
-        await waitFor(() =>
-            expect(screen.getByLabelText("error-message")).toHaveTextContent("Network down"),
-        );
+            await waitFor(() => {
+                expect(screen.getByText("Hello, World!")).toBeInTheDocument();
+                expect(screen.getByText("Welcome to the app!")).toBeInTheDocument();
+            });
+        });
 
-        expect(screen.queryByLabelText("greeting-message")).not.toBeInTheDocument();
+        it("shows empty state when no greetings", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
+
+            render(<App />);
+
+            await waitFor(() => {
+                expect(screen.getByText(/no greetings found/i)).toBeInTheDocument();
+            });
+        });
+
+        it("shows error state on API failure", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiError(mockErrors.serverError) as Awaited<ReturnType<typeof listGreetings>>,
+            );
+
+            render(<App />);
+
+            await waitFor(() => {
+                expect(screen.getByRole("alert")).toBeInTheDocument();
+            });
+        });
     });
 
-    it("submits a custom name and updates the greeting", async () => {
-        // initial load
-        mockFetchOnce({ message: "Hello world" });
-        render(<App />);
-        await waitFor(() =>
-            expect(screen.getByLabelText("greeting-message")).toHaveTextContent("Hello world"),
-        );
+    describe("theme toggle", () => {
+        it("toggles between light and dark theme", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
+            const { container } = render(<App />);
 
-        // Next call for custom name
-        mockFetchOnce({ message: "Hello Alice" });
+            const main = container.querySelector("main");
+            expect(main).toHaveAttribute("data-theme", "light");
 
-        const user = userEvent.setup();
-        const input = screen.getByLabelText(/name/i);
-        const button = screen.getByRole("button", { name: /update greeting/i });
+            // Button should show dark option when in light mode
+            const toggleButton = screen.getByRole("button", { name: /dark/i });
+            const user = userEvent.setup();
 
-        await user.clear(input);
-        await user.type(input, "Alice");
-        await user.click(button);
+            await user.click(toggleButton);
 
-        await waitFor(() =>
-            expect(screen.getByLabelText("greeting-message")).toHaveTextContent("Hello Alice"),
-        );
+            expect(main).toHaveAttribute("data-theme", "dark");
 
-        expect(globalThis.fetch).toHaveBeenLastCalledWith(`${API_BASE}/api/hello?name=Alice`);
+            // Now should show light option
+            expect(screen.getByRole("button", { name: /light/i })).toBeInTheDocument();
+        });
     });
 
-    it("clears the message when clicking Clear", async () => {
-        mockFetchOnce({ message: "Hello world" });
-        render(<App />);
-        await waitFor(() =>
-            expect(screen.getByLabelText("greeting-message")).toHaveTextContent("Hello world"),
-        );
+    describe("creating greetings", () => {
+        it("shows create form when clicking New Greeting button", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
-        const clearButton = screen.getByRole("button", { name: /clear/i });
-        const user = userEvent.setup();
-        await user.click(clearButton);
+            render(<App />);
+            const user = userEvent.setup();
 
-        expect(screen.queryByLabelText("greeting-message")).not.toBeInTheDocument();
-        expect(screen.queryByLabelText("error-message")).not.toBeInTheDocument();
+            await waitFor(() => {
+                expect(screen.getByRole("button", { name: /new greeting/i })).toBeInTheDocument();
+            });
+
+            await user.click(screen.getByRole("button", { name: /new greeting/i }));
+
+            expect(
+                screen.getByRole("heading", { name: /create new greeting/i }),
+            ).toBeInTheDocument();
+        });
+
+        it("creates a new greeting and refreshes list", async () => {
+            const newGreeting: GreetingResponse = {
+                id: "1004",
+                reference: "REF-1004",
+                message: "New greeting!",
+                recipient: "Test",
+            };
+
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
+            mockCreateGreeting.mockResolvedValue(
+                mockApiSuccess(newGreeting) as Awaited<ReturnType<typeof createGreeting>>,
+            );
+
+            render(<App />);
+            const user = userEvent.setup();
+
+            // Wait for initial load
+            await waitFor(() => {
+                expect(screen.getByRole("button", { name: /new greeting/i })).toBeInTheDocument();
+            });
+
+            // Open form
+            await user.click(screen.getByRole("button", { name: /new greeting/i }));
+
+            // Fill form
+            await user.type(screen.getByLabelText(/message/i), "New greeting!");
+            await user.type(screen.getByLabelText(/recipient/i), "Test");
+
+            // Update mock for refresh
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage([newGreeting])) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
+
+            // Submit
+            await user.click(screen.getByRole("button", { name: /create greeting/i }));
+
+            // Verify API was called with hey-api format
+            await waitFor(() => {
+                expect(mockCreateGreeting).toHaveBeenCalledWith({
+                    body: {
+                        message: "New greeting!",
+                        recipient: "Test",
+                    },
+                });
+            });
+
+            // Verify list was refreshed
+            await waitFor(() => {
+                expect(mockListGreetings).toHaveBeenCalledTimes(2);
+            });
+        });
     });
 
-    it("toggles theme between light and dark", async () => {
-        mockFetchOnce({ message: "Hello world" });
-        const { container } = render(<App />);
+    describe("refresh functionality", () => {
+        it("refreshes list when clicking refresh button", async () => {
+            mockListGreetings.mockResolvedValue(
+                mockApiSuccess(createMockGreetingPage(mockGreetings)) as Awaited<
+                    ReturnType<typeof listGreetings>
+                >,
+            );
 
-        const main = container.querySelector("main");
-        expect(main).toHaveAttribute("data-theme", "light");
+            render(<App />);
+            const user = userEvent.setup();
 
-        const toggleButton = screen.getByRole("button", { name: /switch to dark theme/i });
-        const user = userEvent.setup();
+            // Wait for initial load
+            await waitFor(() => {
+                expect(screen.getByText("Hello, World!")).toBeInTheDocument();
+            });
 
-        await user.click(toggleButton);
+            // Click refresh
+            await user.click(screen.getByRole("button", { name: /refresh/i }));
 
-        expect(main).toHaveAttribute("data-theme", "dark");
+            // Verify API called again
+            await waitFor(() => {
+                expect(mockListGreetings).toHaveBeenCalledTimes(2);
+            });
+        });
     });
 });

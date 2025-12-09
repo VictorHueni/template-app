@@ -1,0 +1,84 @@
+# .github/workflows/container-security-scan.yml
+name: Container Security Scans
+
+on:
+  workflow_call:
+    inputs:
+      JAVA_VERSION:
+        description: "Java version to use for building"
+        required: true
+        type: string
+
+jobs:
+  # Container Scanning (Trivy)
+  container_scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Download the JAR built by backend_pipeline instead of rebuilding
+      - name: Download Backend JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target
+
+      # --- Buildx Setup ---
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # --- Build the Backend Docker Image ---
+      - name: Set Image Tag
+        id: meta
+        run: echo "IMAGE_TAG=demo-backend:${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./backend/Dockerfile
+          tags: ${{ env.IMAGE_TAG }}
+          load: true
+          cache-from: type=gha,scope=backend-build
+          cache-to: type=gha,mode=max,scope=backend-build
+
+      # --- Scan the Built Backend Image (Trivy) ---
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-backend-results.sarif
+          severity: CRITICAL,HIGH
+          vuln-type: "os,library"
+          scanners: "vuln,config"
+          ignore-unfixed: true
+
+      # --- Upload Trivy SARIF Report ---
+      - name: Upload Trivy SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-backend-results.sarif
+          category: backend-image
+
+      # --- Scan the Existing Postgres Image (Trivy) ---
+      - name: Scan Postgres Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: postgres:18.1-alpine
+          format: sarif
+          output: trivy-postgres-results.sarif
+          severity: CRITICAL,HIGH
+          vuln-type: "os,library"
+          ignore-unfixed: true
+
+      # --- Upload Postgres Trivy Report ---
+      - name: Upload Postgres Trivy SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-postgres-results.sarif
+          category: postgres-image

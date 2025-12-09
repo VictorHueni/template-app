@@ -1,0 +1,140 @@
+# .semgrepignore
+# Semgrep exclusion patterns (similar to .gitignore syntax)
+# See: https://semgrep.dev/docs/ignoring-files-folders-code/
+
+# ===== Build Outputs & Artifacts =====
+# Backend (Maven)
+backend/target/
+backend/build/
+
+# Frontend (Vite)
+frontend/dist/
+frontend/build/
+
+# Test coverage reports
+frontend/coverage/
+backend/target/site/
+
+# ===== Dependencies & Package Managers =====
+# Node.js
+frontend/node_modules/
+node_modules/
+**/node_modules/
+
+# Maven wrapper
+backend/.mvn/
+.mvn/
+
+# ===== Generated Code (OpenAPI, Protobuf, etc.) =====
+# Backend OpenAPI generated controllers & models
+backend/target/generated-sources/
+backend/src/main/generated/
+
+# Frontend OpenAPI generated TypeScript client
+frontend/src/api/generated/
+
+# ===== Test Results & Reports =====
+# Backend test reports
+backend/target/surefire-reports/
+backend/target/failsafe-reports/
+backend/target/pmd/
+backend/target/reports/
+backend/target/sbom/
+
+# Frontend test results
+frontend/test-results/
+test-results/
+frontend/.playwright/
+
+# JaCoCo coverage
+backend/target/jacoco.exec
+backend/target/site/jacoco/
+
+# ===== Data & Databases =====
+pgdata/
+**/pgdata/
+*.db
+*.sqlite
+
+# ===== IDE & Editor Files =====
+# JetBrains (IntelliJ IDEA, WebStorm)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Eclipse
+.project
+.classpath
+.settings/
+.apt_generated/
+.factorypath
+.springBeans
+.sts4-cache
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+
+# ===== OS & System Files =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Version Control =====
+.git/
+.svn/
+.hg/
+
+# ===== Logs & Temporary Files =====
+*.log
+logs/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ===== Documentation & Assets (optional - adjust based on needs) =====
+# Uncomment if you want to skip scanning docs/images
+# docs/
+# *.md
+# *.svg
+# *.png
+# *.jpg
+# *.jpeg
+
+# ===== CI/CD Artifacts (if scanning locally) =====
+.github/workflows/artifacts/
+
+# ===== Specific File Types to Skip =====
+# Minified files
+*.min.js
+*.min.css
+
+# Source maps
+*.map
+
+# Lock files (dependencies already vetted)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+Gemfile.lock
+Pipfile.lock
+
+
+# ===== Demo/Development Files with Mock Secrets =====
+# API config contains intentionally invalid demo JWT for local development
+# The token has signature "demo-signature" which is cryptographically invalid
+frontend/src/api/config.ts
+
+# ===== Configuration Files (adjust based on security needs) =====
+# Skip config if they contain no code logic, only data
+# *.json
+# *.yaml
+# *.yml

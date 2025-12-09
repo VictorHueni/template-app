@@ -1,0 +1,56 @@
+extends: [[spectral:oas, all]]
+
+rules:
+  # Ensure all 2xx responses have at least one example
+  response-examples-required:
+    description: All 2xx responses must have at least one example
+    message: "{{property}} should have examples defined"
+    severity: error
+    given: "$.paths..responses[?(@property.match(/^2/))].content.application/json"
+    then:
+      field: examples
+      function: truthy
+
+  # Ensure examples have summaries for documentation
+  example-summaries-required:
+    description: All examples should have descriptive summaries
+    message: "Example '{{property}}' should have a summary"
+    severity: warn
+    given: "$.paths..responses..content..examples.*"
+    then:
+      field: summary
+      function: truthy
+
+  # Ensure examples have values
+  example-values-required:
+    description: All examples must have a value property
+    message: "Example '{{property}}' must have a value"
+    severity: error
+    given: "$.paths..responses..content..examples.*"
+    then:
+      field: value
+      function: truthy
+
+  # Ensure request bodies with schemas have examples
+  request-body-examples-required:
+    description: Request bodies should have examples for documentation
+    message: "Request body should have examples"
+    severity: warn
+    given: "$.paths..requestBody.content.application/json[?(@.schema)]"
+    then:
+      field: examples
+      function: truthy
+
+  # Ensure response examples for error codes have error structure
+  error-response-examples-structure:
+    description: Error responses (4xx, 5xx) should have ProblemDetail structure
+    message: "Error response example should include type, title, status, timestamp, and traceId"
+    severity: warn
+    given: "$.paths..responses[?(@property.match(/^[45]/))]..examples.*.value"
+    then:
+      - field: type
+        function: truthy
+      - field: title
+        function: truthy
+      - field: status
+        function: truthy

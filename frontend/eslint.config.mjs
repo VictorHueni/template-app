@@ -7,7 +7,9 @@ import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
     // Global ignores for linting
-    globalIgnores(["dist", "node_modules"]),
+    // Follow ESLint flat config best-practice: use `globalIgnores` for ignored paths
+    // (replaces legacy `.eslintignore`). Also ignore generated OpenAPI client.
+    globalIgnores(["dist", "node_modules", "src/api/generated", "coverage"]),
 
     {
         files: ["**/*.{ts,tsx}"],

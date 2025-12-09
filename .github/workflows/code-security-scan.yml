@@ -1,0 +1,97 @@
+# .github/workflows/code-security-scan.yml
+name: Code Security Scans
+
+on:
+  workflow_call:
+
+jobs:
+  # Job 1: Static Analysis (Semgrep)
+  sast:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # required to upload SARIF
+      contents: read # recommended
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        run: |
+          python -m pip install --upgrade pip
+          pip install "semgrep~=1.90.0"
+
+      - name: Run Semgrep SAST (JS + Java)
+        run: |
+          semgrep \
+            --config "p/default" \
+            --config "p/owasp-top-ten" \
+            --error \
+            --sarif -o semgrep.sarif \
+            --exclude-rule "generic.secrets.security.detected-jwt-token.detected-jwt-token" \
+            --exclude-rule "generic.nginx.security.possible-h2c-smuggling.possible-nginx-h2c-smuggling" \
+            --exclude-rule "generic.nginx.security.request-host-used.request-host-used" \
+            --exclude-rule "java.spring.security.audit.spring-actuator-non-health-enabled.spring-actuator-dangerous-endpoints-enabled" \
+            .
+        # Rule exclusions documented in .semgrep.yml
+
+      - name: Upload Semgrep SAST report
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sast-report
+          path: semgrep.sarif
+          if-no-files-found: error
+
+      - name: Upload Semgrep SARIF to GitHub code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+
+  # Job 2: Secrets Scanning (Gitleaks)
+  secrets_scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect \
+            --source=. \
+            --no-git \
+            --redact \
+            --config .gitleaks.toml \
+            --report-format sarif \
+            --report-path gitleaks.sarif
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Upload Gitleaks report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-secrets-report
+          path: results.sarif
+          if-no-files-found: ignore
+
+      # Optional: show findings in GitHub Security > Code scanning alerts
+      - name: Upload Gitleaks SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

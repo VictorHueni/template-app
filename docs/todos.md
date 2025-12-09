@@ -1,8 +1,7 @@
-
 ## 🎯 Goals & Scope
-- [ ] Add a short **Purpose** section explaining what the project does, who it’s for, and what it’s *not*.
+- [ ] Add a short **Purpose** section explaining what the project does, who it's for, and what it's *not*.
 - [ ] Add a **Prerequisites** block listing versions (AWS CLI v2, Copilot v1.34+, Node 20+, Java 25, Docker, jq).
-- [ ] Add a concise **“What You’ll Deploy”** summary (ECS/Fargate API + S3/CloudFront SPA + optional RDS).
+- [ ] Add a concise **"What You'll Deploy"** summary (ECS/Fargate API + S3/CloudFront SPA + optional RDS).
 
 ## 🧭 Structure & Navigation
 - [ ] Add a top-level **Quickstart** (5–10 essential commands).
@@ -12,7 +11,7 @@
 
 ## 🔒 Security & Privacy Hygiene
 - [ ] Replace all real IDs, ARNs, and URLs with `<PLACEHOLDER>` consistently.
-- [ ] Highlight “**Do not commit**” list early (IDs, ARNs, `.env*`, `cloudfront.json`, ALB URLs).
+- [ ] Highlight "**Do not commit**" list early (IDs, ARNs, `.env*`, `cloudfront.json`, ALB URLs).
 - [ ] Add a `.env.example` file with safe defaults.
 - [ ] Clarify that ACM certificates for CloudFront **must be in us-east-1**.
 
@@ -37,7 +36,7 @@
 ## 🧱 Backend Containerization
 - [ ] Keep minimal, secure **Dockerfile** (non-root, healthcheck, BuildKit caching).
 - [ ] Add a **Makefile** or scripts for `build`, `run`, and `deploy`.
-- [ ] Include test examples: `curl /actuator/health` and `curl /api/hello`.
+- [ ] Include test examples: `curl http://localhost:8081/management/health` and `curl /api/hello`.
 
 ## 🗄️ Optional RDS Integration
 - [ ] Clearly mark RDS as optional in the README.
@@ -55,7 +54,7 @@
 - [ ] Add **test workflow** example (unit tests).
 - [ ] Add **deploy workflow** example (ECS deploy by digest/tag).
 - [ ] Add **promote workflow** example (promote to staging).
-- [ ] Add **Secret management** 
+- [ ] Add **Secret management**
 
 - [ ] Implement Path Filters in ci.yml: This is the most important change for efficiency and cost control.
 - [ ] Add Architectural Testing: Include a Maven plugin (like ArchUnit) or a dedicated test in the backend project and ensure it runs during the backend_unit_tests job.

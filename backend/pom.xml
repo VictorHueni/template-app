@@ -27,9 +27,9 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
+		<hypersistence-utils.version>3.13.2</hypersistence-utils.version>
 		<!-- default: do NOT skip unit tests -->
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
@@ -84,6 +84,18 @@
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>io.hypersistence</groupId>
+			<artifactId>hypersistence-utils-hibernate-63</artifactId>
+			<version>${hypersistence-utils.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.hypersistence</groupId>
+			<artifactId>hypersistence-tsid</artifactId>
+			<version>2.1.4</version>
+		</dependency>
+
 		<!-- H2 Database for Testing -->
 		<dependency>
 			<groupId>com.h2database</groupId>
@@ -99,6 +111,12 @@
 		</dependency>
 
 		<!-- Testcontainers + JUnit 5 integration -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>junit-jupiter</artifactId>
@@ -125,12 +143,32 @@
 			<version>5.5.6</version>
 			<scope>test</scope>
 		</dependency>
+
+		<!-- Swagger Request Validator for contract testing -->
 		<dependency>
-			<groupId>com.github.docker-java</groupId>
-			<artifactId>docker-java-api</artifactId>
-			<version>3.4.2</version>
-			<scope>compile</scope>
+			<groupId>com.atlassian.oai</groupId>
+			<artifactId>swagger-request-validator-restassured</artifactId>
+			<version>2.41.0</version>
+			<scope>test</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>org.openapitools</groupId>
+			<artifactId>jackson-databind-nullable</artifactId>
+			<version>0.2.8</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-annotations</artifactId>
+			<version>2.2.41</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -152,7 +190,7 @@
 				</configuration>
 			</plugin>
 
-			<!-- Spring Boot plugin (unchanged) -->
+			<!-- Spring Boot plugin -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
@@ -163,6 +201,55 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+				</configuration>
+				<executions>
+					<!-- Generate build-info.properties for /info actuator endpoint -->
+					<execution>
+						<id>build-info</id>
+						<goals>
+							<goal>build-info</goal>
+						</goals>
+						<configuration>
+							<additionalProperties>
+								<java.version>${java.version}</java.version>
+							</additionalProperties>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Git Commit ID Plugin - generates git.properties for /info endpoint -->
+			<plugin>
+				<groupId>io.github.git-commit-id</groupId>
+				<artifactId>git-commit-id-maven-plugin</artifactId>
+				<version>9.0.1</version>
+				<executions>
+					<execution>
+						<id>get-git-info</id>
+						<goals>
+							<goal>revision</goal>
+						</goals>
+						<phase>initialize</phase>
+					</execution>
+				</executions>
+				<configuration>
+					<!-- Gracefully handle missing .git directory (e.g., Docker builds) -->
+					<failOnNoGitDirectory>false</failOnNoGitDirectory>
+					<failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+					<!-- Generate git.properties file -->
+					<generateGitPropertiesFile>true</generateGitPropertiesFile>
+					<generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+					<!-- Include only essential git info (security: avoid exposing user emails) -->
+					<includeOnlyProperties>
+						<includeOnlyProperty>^git.branch$</includeOnlyProperty>
+						<includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
+						<includeOnlyProperty>^git.commit.id.full$</includeOnlyProperty>
+						<includeOnlyProperty>^git.commit.time$</includeOnlyProperty>
+						<includeOnlyProperty>^git.dirty$</includeOnlyProperty>
+						<includeOnlyProperty>^git.tags$</includeOnlyProperty>
+					</includeOnlyProperties>
+					<!-- Offline mode for faster builds when network is unavailable -->
+					<offline>true</offline>
 				</configuration>
 			</plugin>
 
@@ -175,6 +262,7 @@
 					<!-- use builtin google_checks.xml to start with -->
 					<configLocation>google_checks.xml</configLocation>
 					<failOnViolation>true</failOnViolation>
+					<excludes>**/target/generated-sources/**/*.java</excludes>
 				</configuration>
 			</plugin>
 
@@ -186,6 +274,10 @@
 				<configuration>
 					<failOnViolation>true</failOnViolation>
 					<printFailingErrors>true</printFailingErrors>
+					<excludeRoots>
+						<excludeRoot>target/generated-sources/openapi</excludeRoot>
+						<excludeRoot>target/generated-sources</excludeRoot>
+					</excludeRoots>
 				</configuration>
 				<executions>
 					<execution>
@@ -206,6 +298,7 @@
 					<effort>Max</effort>
 					<threshold>Low</threshold>
 					<failOnError>true</failOnError>
+					<excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
 				</configuration>
 				<dependencies>
 					<dependency>
@@ -232,6 +325,10 @@
 				<configuration>
 					<!-- Let CLI -Djacoco.skip=true disable JaCoCo (e2e job). -->
 					<skip>${jacoco.skip}</skip>
+					<excludes>
+						<!-- Exclude OpenAPI generated code from coverage -->
+						<exclude>com/example/demo/api/v1/**</exclude>
+					</excludes>
 				</configuration>
 				<executions>
 					<!-- Attach JaCoCo agent to tests -->
@@ -258,6 +355,9 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.5.4</version>
 				<configuration>
+					<!-- Increase timeout to 60s for proper Spring Boot + Testcontainers shutdown -->
+					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
+
 					<!-- Allow skipping unit tests when running integration-only job -->
 					<skipTests>${skipUTs}</skipTests>
 
@@ -276,6 +376,9 @@
 					<systemPropertyVariables>
 						<spring.profiles.active>test</spring.profiles.active>
 					</systemPropertyVariables>
+
+					<!-- JVM args for better test performance -->
+					<argLine>@{argLine} -Xmx512m -Djava.security.egd=file:/dev/./urandom</argLine>
 				</configuration>
 			</plugin>
 
@@ -285,12 +388,21 @@
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<version>3.5.4</version>
 				<configuration>
-					<includes>
-						<include>**/*IT.java</include>
-						<include>**/*ITCase.java</include>
-					</includes>
-				</configuration>
-				<executions>
+					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
+				<includes>
+					<include>**/*IT.java</include>
+					<include>**/*ITCase.java</include>
+				</includes>
+
+				<!--
+					JVM arguments for integration test execution:
+					- -Xmx512m: Sets maximum heap memory to 512MB (integration tests with Testcontainers need more memory)
+					- -Djava.security.egd=file:/dev/./urandom: Uses non-blocking /dev/urandom for random number generation
+					  (avoids blocking on entropy, significantly reduces container startup time)
+				-->
+				<argLine>-Xmx512m -Djava.security.egd=file:/dev/./urandom</argLine>
+			</configuration>
+			<executions>
 					<execution>
 						<id>integration-tests</id>
 						<goals>
@@ -325,18 +437,29 @@
 			</plugin>
 
 			<plugin>
-				<groupId>org.owasp</groupId>
-				<artifactId>dependency-check-maven</artifactId>
-				<version>12.1.9</version>
-				<configuration>
-					<!-- Fail build on high severity; tune to your needs -->
-					<failBuildOnCVSS>7.0</failBuildOnCVSS>
-					<!-- Where reports are written -->
-					<outputDirectory>${project.build.directory}/dependency-check-report</outputDirectory>
-					<format>ALL</format>
-					<!-- Do not run during normal verify by default (trigger explicitly in CI) -->
-					<skip>true</skip>
-				</configuration>
+				<groupId>org.openapitools</groupId>
+				<artifactId>openapi-generator-maven-plugin</artifactId>
+				<version>7.17.0</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/../api/specification/openapi.yaml</inputSpec>
+							<addCompileSourceRoot>true</addCompileSourceRoot>
+							<generatorName>spring</generatorName>
+							<apiPackage>com.example.demo.api.v1.controller</apiPackage>
+							<modelPackage>com.example.demo.api.v1.model</modelPackage>
+							<configOptions>
+								<interfaceOnly>true</interfaceOnly>
+								<useSpringBoot3>true</useSpringBoot3>
+								<useTags>true</useTags>
+								<skipDefaultInterface>true</skipDefaultInterface>
+							</configOptions>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 
 		</plugins>

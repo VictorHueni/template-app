@@ -75,6 +75,19 @@ coverage/
 *.tsbuildinfo
 test-results/
 
+# OpenAPI generated TypeScript client (regenerated on build)
+frontend/src/api/generated/
+
+# ===== Docusaurus (website folder) =====
+website/.docusaurus/
+website/build/
+website/node_modules/
+website/static/openapi.yaml
+
+# Playwright browser binaries
+frontend/.playwright/
+.playwright/
+
 # ===== Docker / Misc =====
 *.sw?
 *.swp
@@ -85,3 +98,15 @@ test-results/
 #===== Database =====
 pgdata/
 bck/
+
+
+
+# ===== LLM =====
+.claude/
+claude.md
+# gemini-cli settings
+.gemini/
+gemini.md
+
+# GitHub App credentials
+gha-creds-*.json
