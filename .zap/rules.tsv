@@ -1,2 +1,3 @@
 10112	IGNORE	Session Management Response Identified
 90005	IGNORE	Sec-Fetch-Dest Header
+10038 IGNORE  Content Security Policy (CSP) Header Not Set

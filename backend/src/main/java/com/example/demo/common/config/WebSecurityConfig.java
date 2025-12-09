@@ -1,14 +1,17 @@
 package com.example.demo.common.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,7 +21,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
-import org.springframework.security.config.Customizer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -53,15 +55,21 @@ public class WebSecurityConfig {
 
                 .authorizeHttpRequests((requests) -> requests
 
-                        // 1. PUBLIC Actuator Endpoints (Explicitly allow 'health' and 'info')
-                        .requestMatchers(EndpointRequest.to("health")).permitAll()
+                                // 1. Allow Error Dispatches (Fixes missing headers on 404 pages)
+                                .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
 
-                        // 2. DENY/AUTHENTICATE ALL OTHER Actuator Endpoints
-                        .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
+                                // 2. Allow access to the /error endpoint itself
+                                .requestMatchers("/error").permitAll()
 
-                        // 3. Application Endpoints
-                        .requestMatchers("/", "/v1/greetings", "/v1/greetings/**").permitAll()
-                        .anyRequest().authenticated()
+                                // 3. PUBLIC Actuator Endpoints
+                                .requestMatchers(EndpointRequest.to("health")).permitAll()
+
+                                // 4. DENY/AUTHENTICATE ALL OTHER Actuator Endpoints
+                                .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
+
+                                // 5. Application Endpoints
+                                .requestMatchers("/", "/v1/greetings", "/v1/greetings/**").permitAll()
+                                .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
@@ -70,10 +78,7 @@ public class WebSecurityConfig {
                 .httpBasic(basic -> basic
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )
-                .formLogin(AbstractHttpConfigurer::disable /*(form) -> form
-                        .loginPage("/login")
-                        .permitAll()*/
-                )
+                .formLogin(AbstractHttpConfigurer::disable)
                 .logout(LogoutConfigurer::permitAll)
                 // Security headers configuration (fixes ZAP DAST scan warnings)
                 .headers(headers -> {
@@ -82,13 +87,13 @@ public class WebSecurityConfig {
                                 .policyDirectives("default-src 'none'; frame-ancestors 'none'")
                         );
                         // Permissions-Policy (fixes ZAP 10063)
-                        headers.permissionsPolicy(permissions -> permissions
+                        headers.permissionsPolicyHeader(permissions -> permissions
                                 .policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()")
                         );
                         // Cache-Control to prevent caching sensitive responses (fixes ZAP 10049)
                         headers.cacheControl(Customizer.withDefaults());
                         // X-Frame-Options: DENY
-                        headers.frameOptions(frame -> frame.deny());
+                        headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny);
                         // X-Content-Type-Options: nosniff
                         headers.contentTypeOptions(Customizer.withDefaults());
                 });
