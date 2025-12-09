@@ -66,13 +66,13 @@ jobs:
       - name: Repo hygiene (Checkstyle, PMD, SpotBugs+FindSecBugs)
         run: ./mvnw -B verify -DskipUTs=true -DskipITs=true
 
-  # 3. Job C: Dependency Scanning and SBOM (Independent)
-  backend_build_and_sca:
+  # 3. Job C: Build Artifacts (Critical Path)
+  # FAST: Only builds the JAR. Does not run scans.
+  backend_build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
-
     steps:
       - uses: actions/checkout@v4
 
@@ -83,36 +83,9 @@ jobs:
           java-version: ${{ inputs.JAVA_VERSION }}
           cache: maven
 
-      # Cache Dependency-Check's local DB (CVE data)
-      - name: Cache OWASP Dependency-Check data
-        uses: actions/cache@v4
-        with:
-          path: ~/.org.owasp/dependency-check
-          key: ${{ runner.os }}-owasp-dc-v12-1-9-${{ hashFiles('backend/pom.xml') }}
-
-      - name: OWASP Dependency-Check (Maven)
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          ./mvnw -B \
-            -Dnvd.api.key="${NVD_API_KEY}" \
-            -Ddependency-check.skip=false \
-            -DskipUTs=true \
-            -DskipITs=true \
-            -DskipTests=true \
-            org.owasp:dependency-check-maven:check
-
-      - name: Upload OWASP Dependency-Check report
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-dependency-vuln-report
-          path: backend/target/dependency-check-report/**
-          if-no-files-found: error
-
-      - name: Generate Backend SBOM
-        run: |
-          # This executes the cyclonedx plugin (bound to 'package' phase)
-          ./mvnw -B clean package -DskipTests -Djacoco.skip=true
+      # Build JAR & SBOM only. Skip all slow checks.
+      - name: Build JAR and SBOM
+        run: ./mvnw -B clean package -DskipTests -Djacoco.skip=true
 
       - name: Upload Backend SBOM
         uses: actions/upload-artifact@v4
@@ -128,31 +101,57 @@ jobs:
           path: backend/target/*.jar
           if-no-files-found: error
 
-  ## 4. Job D: Integration Tests (Chained)
-  backend_integration_test:
+  # 3.5 Job D: Trivy Dependency Scan (Parallel & Fast)
+  # Replaces OWASP Maven Plugin. Scans backend/pom.xml directly.
+  backend_trivy_scan:
     runs-on: ubuntu-latest
-    needs: [backend_unit_tests, backend_static_analysis, backend_build_and_sca]
-    defaults:
-      run:
-        working-directory: backend
-
+    permissions:
+      security-events: write
+      contents: read
+    # Optimization: Only run if pom.xml changed, or on main/schedule
+    if: |
+      github.ref == 'refs/heads/main' || 
+      github.event_name == 'schedule' || 
+      contains(github.event.pull_request.changed_files, 'pom.xml')
     steps:
       - uses: actions/checkout@v4
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: "fs"
+          scan-ref: "backend" # Only scan the backend folder
+          format: "sarif"
+          output: "trivy-backend-deps.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-backend-deps.sarif
+          category: backend-dependencies
+
+  # 4. Job E: Integration Tests (Optimized)
+  backend_integration_test:
+    runs-on: ubuntu-latest
+    # Depends ONLY on the build, not the security scan
+    needs: [backend_unit_tests, backend_static_analysis, backend_build]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ inputs.JAVA_VERSION }}
           cache: maven
-
-      # Docker is already available on ubuntu-latest; no extra setup needed
       - name: Run backend integration tests (Failsafe + Testcontainers)
         env:
-          # optional but common in CI to simplify container cleanup
           TESTCONTAINERS_RYUK_DISABLED: true
         run: ./mvnw -B verify -DskipUTs=true
-
       - name: Upload backend integration test reports (Failsafe)
         uses: actions/upload-artifact@v4
         with:

@@ -437,21 +437,6 @@
 			</plugin>
 
 			<plugin>
-				<groupId>org.owasp</groupId>
-				<artifactId>dependency-check-maven</artifactId>
-				<version>12.1.9</version>
-				<configuration>
-					<!-- Fail build on high severity; tune to your needs -->
-					<failBuildOnCVSS>7.0</failBuildOnCVSS>
-					<!-- Where reports are written -->
-					<outputDirectory>${project.build.directory}/dependency-check-report</outputDirectory>
-					<format>ALL</format>
-					<!-- Do not run during normal verify by default (trigger explicitly in CI) -->
-					<skip>true</skip>
-				</configuration>
-			</plugin>
-
-			<plugin>
 				<groupId>org.openapitools</groupId>
 				<artifactId>openapi-generator-maven-plugin</artifactId>
 				<version>7.17.0</version>
