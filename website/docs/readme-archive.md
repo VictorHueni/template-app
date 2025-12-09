@@ -90,7 +90,7 @@ It's meant as a **reference architecture** and **learning resource**.
 <!-- TOC -->
 
 # Architecture
-[Architecture](docs/application-architecuture.md)
+[Architecture](docs/architecture.md)
 
 ---
 

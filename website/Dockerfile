@@ -15,8 +15,8 @@ COPY website/ ./
 # Copy OpenAPI spec from api folder (context is root)
 COPY api/specification/openapi.yaml static/openapi.yaml
 
-# Build the site
-RUN npm run build
+# Build the site (run docusaurus directly to skip prebuild hook - OpenAPI already copied above)
+RUN npm exec docusaurus build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
