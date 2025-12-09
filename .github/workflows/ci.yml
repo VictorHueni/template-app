@@ -6,12 +6,10 @@ on:
     branches: [main]
     paths-ignore:
       - "**.md"
-      - "docs/**"
   push:
     branches: [main, feature/**]
     paths-ignore:
       - "**.md"
-      - "docs/**"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -27,6 +25,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       zap: ${{ steps.filter.outputs.zap }}
       api: ${{ steps.filter.outputs.api }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -47,6 +46,9 @@ jobs:
             api:
               - 'api/**'
               - '.github/workflows/api-governance.yml'
+            docs:
+              - 'api/specification/**'
+              - 'website/**'
 
   # --- 1. API Governance ---
   api_governance_pipeline:
@@ -76,6 +78,36 @@ jobs:
     secrets: inherit
     with:
       NODE_VERSION: ${{ vars.NODE_VERSION }}
+
+  # --- 3.5. Documentation Build Check (Docusaurus + Scalar) ---
+  docs_pipeline:
+    needs: changes
+    if: ${{ needs.changes.outputs.docs == 'true' || needs.changes.outputs.api == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "website/package-lock.json"
+
+      - name: Install Website Dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build Documentation
+        working-directory: website
+        run: npm run build
+
+      - name: Upload Documentation Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-documentation
+          path: website/build/
+          if-no-files-found: warn
 
   # --- 4. Calls the Backend Checks Workflow ---
   backend_pipeline:

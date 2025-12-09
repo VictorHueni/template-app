@@ -5,12 +5,10 @@
         "lint": "spectral lint specification/openapi.yaml --ruleset rules/style.yaml",
         "validate": "openapi-generator-cli validate -i specification/openapi.yaml",
         "mock": "prism mock specification/openapi.yaml",
-        "docs:build": "redocly build-docs specification/openapi.yaml -o ../docs/api-reference.html",
         "diff": "openapi-diff"
     },
     "devDependencies": {
         "@openapitools/openapi-generator-cli": "^2.25.2",
-        "@redocly/cli": "^2.12.2",
         "@stoplight/prism-cli": "^5.14.2",
         "@stoplight/spectral-cli": "^6.15.0",
         "openapi-diff": "^0.24.1"

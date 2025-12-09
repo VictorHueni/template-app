@@ -1,5 +1,11 @@
+---
+sidebar_position: 2
+---
 
-## High Level Architecture 
+# Architecture
+
+## High Level Architecture
+
 ```mermaid
 flowchart TB
   %% Style / groups
@@ -77,7 +83,7 @@ flowchart TB
 | **CloudWatch**           | Logs, metrics, and alarms for monitoring and rollback visibility. |
 
 
-# Backend Clean Architecture
+## Backend Clean Architecture
 
 ```mermaid
 classDiagram
@@ -147,6 +153,8 @@ classDiagram
     GreetingConfiguration --> GreetingRepositoryAdapter
     GreetingConfiguration --> Clock
 ```
+
+## Request Flow
 
 ```mermaid
 sequenceDiagram

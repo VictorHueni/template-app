@@ -96,3 +96,22 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+  # --- 4. API DOCUMENTATION SERVICE (Docusaurus + Scalar) ---
+  docs:
+    build:
+      context: .
+      dockerfile: website/Dockerfile
+
+    container_name: demo-docs
+    restart: on-failure
+    networks:
+      - backend-network
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test:
+        ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
