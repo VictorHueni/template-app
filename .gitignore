@@ -98,3 +98,15 @@ frontend/.playwright/
 #===== Database =====
 pgdata/
 bck/
+
+
+
+# ===== LLM =====
+.claude/
+claude.md
+# gemini-cli settings
+.gemini/
+gemini.md
+
+# GitHub App credentials
+gha-creds-*.json

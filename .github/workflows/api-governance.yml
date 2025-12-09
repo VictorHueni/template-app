@@ -50,8 +50,12 @@ jobs:
       - name: Check for Breaking Changes
         if: github.event_name == 'pull_request'
         run: |
-          # Get the OpenAPI spec from the main branch
-          git show main:api/specification/openapi.yaml > /tmp/main-openapi.yaml
+          # Ensure we have the latest info from the default branch
+          git fetch origin main
+
+          # Get the OpenAPI spec from the origin/main branch
+          # We use origin/main because local 'main' might not exist in the runner
+          git show origin/main:api/specification/openapi.yaml > /tmp/main-openapi.yaml
 
           cd api
 
@@ -71,7 +75,6 @@ jobs:
           echo "⚠️ Breaking changes detected. Checking for valid version bump..."
 
           # 3. Helper function to extract Major version (e.g., '1' from '1.5.0')
-          # We use grep/head/awk to robustly find the 'version:' field in the info block
           get_major_version() {
             grep "version:" "$1" | head -n 1 | awk '{print $2}' | tr -d '"' | tr -d "'" | cut -d. -f1
           }
