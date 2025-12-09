@@ -53,14 +53,18 @@ jobs:
           # Ensure we have the latest info from the default branch
           git fetch origin main
 
-          # Get the OpenAPI spec from the origin/main branch
-          # We use origin/main because local 'main' might not exist in the runner
-          git show origin/main:api/specification/openapi.yaml > /tmp/main-openapi.yaml
+          # Try to get the OpenAPI spec from the origin/main branch
+          # We check if the command fails (file missing in main) to handle new files gracefully
+          if ! git show origin/main:api/specification/openapi.yaml > /tmp/main-openapi.yaml 2>/dev/null; then
+            echo "⚠️ 'api/specification/openapi.yaml' not found in origin/main."
+            echo "ℹ️ Assuming this is a new API or file location."
+            echo "✅ Skipping breaking change check (New File)."
+            exit 0
+          fi
 
           cd api
 
           # 1. Run openapi-diff and capture the exit code
-          # set +e prevents the script from exiting immediately if diff fails
           set +e 
           npx openapi-diff /tmp/main-openapi.yaml specification/openapi.yaml
           DIFF_EXIT_CODE=$?
@@ -74,7 +78,7 @@ jobs:
 
           echo "⚠️ Breaking changes detected. Checking for valid version bump..."
 
-          # 3. Helper function to extract Major version (e.g., '1' from '1.5.0')
+          # 3. Helper function to extract Major version
           get_major_version() {
             grep "version:" "$1" | head -n 1 | awk '{print $2}' | tr -d '"' | tr -d "'" | cut -d. -f1
           }
