@@ -8,7 +8,16 @@ export default defineConfig(({ mode }) => ({
     server: {
         proxy:
             mode === "development"
-                ? { "/api": "http://localhost:8080" } // local backend
+                ? {
+                      "/api": {
+                          target: process.env.VITE_PROXY_TARGET || "http://localhost:8080",
+                          changeOrigin: true,
+                          rewrite:
+                              process.env.VITE_USE_PRISM === "true"
+                                  ? (path) => path.replace(/^\/api/, "")
+                                  : undefined,
+                      },
+                  }
                 : undefined,
     },
     build: { outDir: "dist" },
