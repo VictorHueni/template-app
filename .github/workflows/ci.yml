@@ -119,14 +119,23 @@ jobs:
       needs.api_governance_pipeline.result != 'failure' &&
       needs.code_security_pipeline.result != 'failure'
     uses: ./.github/workflows/backend-ci.yml
-    secrets:
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+    permissions:
+      contents: read
+      security-events: write
+    secrets: inherit
     with:
       JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 5. Container Security Scans (Trivy) - Run after backend builds Docker image ---
   container_security_pipeline:
-    needs: [changes, api_governance_pipeline, code_security_pipeline, frontend_pipeline, backend_pipeline]
+    needs:
+      [
+        changes,
+        api_governance_pipeline,
+        code_security_pipeline,
+        frontend_pipeline,
+        backend_pipeline,
+      ]
     # Run if Backend changed AND all previous pipelines succeeded or were skipped
     if: |
       always() &&
