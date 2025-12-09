@@ -53,9 +53,43 @@ jobs:
           # Get the OpenAPI spec from the main branch
           git show main:api/specification/openapi.yaml > /tmp/main-openapi.yaml
 
-          # Compare main spec with current branch spec using locally installed openapi-diff
-          # openapi-diff exits with code 1 if there are breaking changes
-          cd api && npx openapi-diff /tmp/main-openapi.yaml specification/openapi.yaml
+          cd api
+
+          # 1. Run openapi-diff and capture the exit code
+          # set +e prevents the script from exiting immediately if diff fails
+          set +e 
+          npx openapi-diff /tmp/main-openapi.yaml specification/openapi.yaml
+          DIFF_EXIT_CODE=$?
+          set -e
+
+          # 2. If no breaking changes (Exit Code 0), we are good
+          if [ $DIFF_EXIT_CODE -eq 0 ]; then
+            echo "✅ No breaking changes detected."
+            exit 0
+          fi
+
+          echo "⚠️ Breaking changes detected. Checking for valid version bump..."
+
+          # 3. Helper function to extract Major version (e.g., '1' from '1.5.0')
+          # We use grep/head/awk to robustly find the 'version:' field in the info block
+          get_major_version() {
+            grep "version:" "$1" | head -n 1 | awk '{print $2}' | tr -d '"' | tr -d "'" | cut -d. -f1
+          }
+
+          OLD_MAJOR=$(get_major_version /tmp/main-openapi.yaml)
+          NEW_MAJOR=$(get_major_version specification/openapi.yaml)
+
+          echo "Detected Version Change: v$OLD_MAJOR.x.x -> v$NEW_MAJOR.x.x"
+
+          # 4. Compare versions
+          if [ "$NEW_MAJOR" -gt "$OLD_MAJOR" ]; then
+             echo "✅ Breaking changes accepted because Major version was bumped."
+             exit 0
+          else
+             echo "❌ Breaking changes detected without a Major version bump! (v$OLD_MAJOR -> v$NEW_MAJOR)"
+             echo "👉 Please bump the major version in openapi.yaml (e.g., 1.0.0 -> 2.0.0) to merge this."
+             exit 1
+          fi
 
       # --- 4. Drift Detection ---
       # Ensures the generated API code matches the OpenAPI specification.

@@ -23,6 +23,33 @@ rules:
       function: pattern
       functionOptions:
         match: "^/v[0-9]+/"
+  
+
+  # =============================================================================
+  # SECURITY & PERMISSIONS (FUTURE ENFORCEMENT - COMMENTED OUT)
+  # =============================================================================
+
+  # Rule: DELETE operations must require explicit permissions
+  # delete-requires-permissions:
+  #   description: "DELETE operations must define a specific 'x-permissions' scope."
+  #   severity: error
+  #   given: "$.paths.*.delete"
+  #   then:
+  #     field: "x-permissions"
+  #     function: truthy
+
+  # Rule: Validate x-permissions format (must be an array of strings)
+  # x-permissions-format:
+  #   description: "'x-permissions' extension must be an array of permission strings."
+  #   severity: error
+  #   given: "$..x-permissions"
+  #   then:
+  #     function: schema
+  #     functionOptions:
+  #       schema:
+  #         type: array
+  #         items:
+  #           type: string
 
   # =============================================================================
   # OPERATION METADATA RULES (DevX: SDK generation, documentation quality)
