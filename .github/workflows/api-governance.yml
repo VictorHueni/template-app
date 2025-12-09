@@ -40,6 +40,12 @@ jobs:
       - name: Lint OpenAPI Spec
         run: cd api && npm run lint
 
+      - name: Validate OpenAPI Examples
+        run: |
+          cd api
+          # Validate that all 2xx responses have examples
+          npx @stoplight/spectral-cli lint specification/openapi.yaml --ruleset rules/examples.yaml
+
       # --- 3. Breaking Change Detection ---
       - name: Check for Breaking Changes
         if: github.event_name == 'pull_request'
