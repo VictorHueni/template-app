@@ -17,7 +17,6 @@ It's meant as a **reference architecture** and **learning resource**.
 ---
 
 # Table of Contents
-<!-- TOC -->
 - [To Do's](#to-dos)
 - [Reference Resources \& Templates](#reference-resources--templates)
 - [Table of Contents](#table-of-contents)
@@ -87,7 +86,7 @@ It's meant as a **reference architecture** and **learning resource**.
     - [9. Validate your AWS account is clean](#9-validate-your-aws-account-is-clean)
     - [10. Common Misses (and hidden costs)](#10-common-misses-and-hidden-costs)
 - [Cheatsheet](#cheatsheet)
-<!-- TOC -->
+
 
 # Architecture
 [Architecture](docs/architecture.md)
