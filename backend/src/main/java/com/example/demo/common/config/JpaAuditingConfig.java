@@ -1,7 +1,5 @@
 package com.example.demo.common.config;
 
-import com.example.demo.user.domain.UserDetailsImpl;
-import com.example.demo.user.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.AuditorAware;
@@ -22,15 +20,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @EnableEnversRepositories(basePackages = "com.example.demo")
 public class JpaAuditingConfig {
 
-    private final UserRepository userRepository;
+    // 1. REMOVED: UserRepository dependency (no longer needed)
 
-    public JpaAuditingConfig(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
+    // 2. CHANGED: Return type is now AuditorAware<String>
     @Bean
-    public AuditorAware<UserDetailsImpl> auditorProvider() {
-        return new AuditorAwareImpl(userRepository);
+    public AuditorAware<String> auditorProvider() {
+        // 3. CHANGED: No arguments passed to the constructor
+        return new AuditorAwareImpl();
     }
 }
-

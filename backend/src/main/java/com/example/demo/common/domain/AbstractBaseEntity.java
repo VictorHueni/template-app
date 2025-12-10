@@ -1,6 +1,5 @@
 package com.example.demo.common.domain;
 
-import com.example.demo.user.domain.UserDetailsImpl;
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -11,8 +10,9 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-import java.time.Instant;
+
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -59,18 +59,16 @@ public abstract class AbstractBaseEntity implements Serializable {
     private Instant updatedAt;
 
     @CreatedBy
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
+    @Column(name = "created_by_id", nullable = false, updatable = false)
     @NotAudited
     @Getter
-    private UserDetailsImpl createdBy;
+    private String createdBy;
 
     @LastModifiedBy
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by_id")
+    @Column(name = "updated_by_id")
     @NotAudited
     @Getter
-    private UserDetailsImpl updatedBy;
+    private String updatedBy;
 
 
     /**

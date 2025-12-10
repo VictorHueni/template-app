@@ -34,78 +34,60 @@ class CustomRevisionListenerTest {
 
     @AfterEach
     void tearDown() {
-        // Clean up SecurityContext after each test
         SecurityContextHolder.clearContext();
     }
 
     @Nested
-    @DisplayName("newRevision")
-    class NewRevision {
+    @DisplayName("Logic Tests")
+    class LogicTests {
 
         @Test
-        @DisplayName("should set username from authentication")
+        @DisplayName("should set 'system' when Context is empty (Batch Job)")
+        void shouldSetSystemWhenNoAuthentication() {
+            // Arrange
+            SecurityContextHolder.clearContext();
+
+            // Act
+            listener.newRevision(revisionEntity);
+
+            // Assert
+            assertThat(revisionEntity.getUsername()).isEqualTo("system");
+        }
+
+        @Test
+        @DisplayName("should set 'anonymous' when user is Anonymous (Public API)")
+        void shouldSetAnonymousWhenAnonymousUser() {
+            // Arrange
+            setAnonymousUser();
+
+            // Act
+            listener.newRevision(revisionEntity);
+
+            // Assert
+            assertThat(revisionEntity.getUsername()).isEqualTo("anonymous");
+        }
+
+        @Test
+        @DisplayName("sShould set username from Authenticated User")
         void shouldSetUsernameFromAuthentication() {
             // Arrange
-            String username = "testuser";
-            setAuthenticatedUser(username);
+            setAuthenticatedUser("alice");
 
             // Act
             listener.newRevision(revisionEntity);
 
             // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo(username);
+            assertThat(revisionEntity.getUsername()).isEqualTo("alice");
         }
 
         @Test
-        @DisplayName("should set system when no authentication")
-        void shouldSetSystemWhenNoAuthentication() {
-            // Arrange - no authentication set (SecurityContext is empty)
-            SecurityContextHolder.clearContext();
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should set system when anonymous user")
-        void shouldSetSystemWhenAnonymousUser() {
-            // Arrange
-            setAnonymousUser();
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should set system when authentication is not authenticated")
-        void shouldSetSystemWhenAuthenticationIsNotAuthenticated() {
-            // Arrange
-            Authentication auth = mock(Authentication.class);
-            when(auth.isAuthenticated()).thenReturn(false);
-            SecurityContext securityContext = mock(SecurityContext.class);
-            when(securityContext.getAuthentication()).thenReturn(auth);
-            SecurityContextHolder.setContext(securityContext);
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should handle null authentication name")
-        void shouldHandleNullAuthenticationName() {
+        @DisplayName("Edge Case: Should set 'unknown' when Authenticated but Name is Null")
+        void shouldSetUnknownWhenNameIsNull() {
             // Arrange
             Authentication auth = mock(Authentication.class);
             when(auth.isAuthenticated()).thenReturn(true);
-            when(auth.getName()).thenReturn(null);
+            when(auth.getName()).thenReturn(null); // Null name scenario
+
             SecurityContext securityContext = mock(SecurityContext.class);
             when(securityContext.getAuthentication()).thenReturn(auth);
             SecurityContextHolder.setContext(securityContext);
@@ -114,168 +96,50 @@ class CustomRevisionListenerTest {
             listener.newRevision(revisionEntity);
 
             // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
+            assertThat(revisionEntity.getUsername()).isEqualTo("unknown");
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should set 'unknown' when not authenticated and not AnonymousToken")
+        void shouldSetUnknownWhenNotAuthenticatedAndNotAnonymous() {
+            // Arrange: A generic Authentication token that is NOT authenticated
+            Authentication auth = mock(Authentication.class);
+            when(auth.isAuthenticated()).thenReturn(false);
+
+            SecurityContext securityContext = mock(SecurityContext.class);
+            when(securityContext.getAuthentication()).thenReturn(auth);
+            SecurityContextHolder.setContext(securityContext);
+
+            // Act
+            listener.newRevision(revisionEntity);
+
+            // Assert
+            assertThat(revisionEntity.getUsername()).isEqualTo("unknown");
         }
     }
 
     @Nested
-    @DisplayName("getCurrentUsername")
-    class GetCurrentUsername {
-
-        @Test
-        @DisplayName("should return username from security context")
-        void shouldReturnUsernameFromSecurityContext() {
-            // Arrange
-            String expectedUsername = "john.doe";
-            setAuthenticatedUser(expectedUsername);
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo(expectedUsername);
-        }
-
-        @Test
-        @DisplayName("should return system when no authentication")
-        void shouldReturnSystemWhenNoAuthentication() {
-            // Arrange
-            SecurityContextHolder.clearContext();
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should return system when authentication is null")
-        void shouldReturnSystemWhenAuthenticationIsNull() {
-            // Arrange
-            SecurityContext securityContext = mock(SecurityContext.class);
-            when(securityContext.getAuthentication()).thenReturn(null);
-            SecurityContextHolder.setContext(securityContext);
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should return system when principal is anonymous")
-        void shouldReturnSystemWhenPrincipalIsAnonymous() {
-            // Arrange
-            setAnonymousUser();
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should return system when authentication not authenticated")
-        void shouldReturnSystemWhenAuthenticationNotAuthenticated() {
-            // Arrange
-            Authentication auth = mock(Authentication.class);
-            when(auth.isAuthenticated()).thenReturn(false);
-            when(auth.getName()).thenReturn("someuser");
-            SecurityContext securityContext = mock(SecurityContext.class);
-            when(securityContext.getAuthentication()).thenReturn(auth);
-            SecurityContextHolder.setContext(securityContext);
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should handle different authenticated usernames")
-        void shouldHandleDifferentAuthenticatedUsernames() {
-            // Arrange & Act & Assert for first user
-            setAuthenticatedUser("user1");
-            listener.newRevision(revisionEntity);
-            assertThat(revisionEntity.getUsername()).isEqualTo("user1");
-
-            // Reset and test second user
-            revisionEntity = new CustomRevisionEntity();
-            setAuthenticatedUser("admin");
-            listener.newRevision(revisionEntity);
-            assertThat(revisionEntity.getUsername()).isEqualTo("admin");
-        }
-
-        @Test
-        @DisplayName("should return system when getName returns null")
-        void shouldReturnSystemWhenGetNameReturnsNull() {
-            // Arrange
-            Authentication auth = mock(Authentication.class);
-            when(auth.isAuthenticated()).thenReturn(true);
-            when(auth.getName()).thenReturn(null);
-            SecurityContext securityContext = mock(SecurityContext.class);
-            when(securityContext.getAuthentication()).thenReturn(auth);
-            SecurityContextHolder.setContext(securityContext);
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-    }
-
-    @Nested
-    @DisplayName("integration scenarios")
+    @DisplayName("Integration Scenarios")
     class IntegrationScenarios {
 
         @Test
-        @DisplayName("should handle batch job scenario with no authentication")
-        void shouldHandleBatchJobScenario() {
-            // Arrange - batch job has no security context
+        @DisplayName("Batch Job: No Security Context -> system")
+        void batchJobScenario() {
             SecurityContextHolder.clearContext();
-
-            // Act
             listener.newRevision(revisionEntity);
-
-            // Assert
             assertThat(revisionEntity.getUsername()).isEqualTo("system");
         }
 
         @Test
-        @DisplayName("should handle application startup scenario")
-        void shouldHandleApplicationStartupScenario() {
-            // Arrange - application startup might have no authentication
-            SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
-            SecurityContextHolder.setContext(emptyContext);
-
-            // Act
+        @DisplayName("Startup: Empty Context -> system")
+        void startupScenario() {
+            SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext());
             listener.newRevision(revisionEntity);
-
-            // Assert
             assertThat(revisionEntity.getUsername()).isEqualTo("system");
-        }
-
-        @Test
-        @DisplayName("should handle authenticated user making changes")
-        void shouldHandleAuthenticatedUserMakingChanges() {
-            // Arrange
-            String authenticatedUser = "authenticated.user";
-            setAuthenticatedUser(authenticatedUser);
-
-            // Act
-            listener.newRevision(revisionEntity);
-
-            // Assert
-            assertThat(revisionEntity.getUsername()).isEqualTo(authenticatedUser);
         }
     }
 
-    // Helper methods
+    // --- Helpers ---
 
     private void setAuthenticatedUser(String username) {
         UserDetails userDetails = User.builder()
@@ -294,7 +158,7 @@ class CustomRevisionListenerTest {
 
     private void setAnonymousUser() {
         Authentication auth = new AnonymousAuthenticationToken(
-                "key", "anonymous", Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
+                "key", "anonymousUser", Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
 
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(auth);
