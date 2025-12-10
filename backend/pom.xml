@@ -84,6 +84,18 @@
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 
+		<!-- Hibernate Envers for audit history tables -->
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-envers</artifactId>
+		</dependency>
+
+		<!-- Spring Data Envers for RevisionRepository support -->
+		<dependency>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-envers</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>io.hypersistence</groupId>
 			<artifactId>hypersistence-utils-hibernate-63</artifactId>

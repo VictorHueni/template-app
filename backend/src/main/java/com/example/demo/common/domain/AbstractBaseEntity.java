@@ -1,10 +1,14 @@
 package com.example.demo.common.domain;
 
+import com.example.demo.user.domain.UserDetailsImpl;
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
 import lombok.Getter;
+import org.hibernate.envers.NotAudited;
 import org.hibernate.proxy.HibernateProxy;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.Instant;
@@ -13,11 +17,21 @@ import java.util.Objects;
 
 /**
  * Base Entity for all persistent domain objects.
- * * STRATEGY: TSID (Time-Sorted Unique Identifier)
- * * Benefits:
- * 1. Fits in a Long (64-bit) -> 50% storage saving over UUID (128-bit).
- * 2. k-sortable -> Indexes like an auto-increment integer (fast inserts).
- * 3. Collision-free -> Safe for distributed systems/microservices.
+ *
+ * <p>Features:</p>
+ * <ul>
+ *   <li>TSID (Time-Sorted Unique Identifier) - 50% storage saving over UUID, k-sortable</li>
+ *   <li>JPA Auditing (@CreatedDate, @LastModifiedDate, @CreatedBy, @LastModifiedBy)</li>
+ *   <li>Hibernate Envers ready - add @Audited to subclasses that need audit history</li>
+ *   <li>Optimistic locking via @Version</li>
+ * </ul>
+ *
+ * <p>To enable Envers audit history for an entity, add {@code @Audited} to the subclass:</p>
+ * <pre>
+ * {@code @Entity}
+ * {@code @Audited}
+ * public class MyEntity extends AbstractBaseEntity { ... }
+ * </pre>
  */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
@@ -43,6 +57,20 @@ public abstract class AbstractBaseEntity implements Serializable {
     @Column(name = "updated_at")
     @Getter
     private Instant updatedAt;
+
+    @CreatedBy
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
+    @NotAudited
+    @Getter
+    private UserDetailsImpl createdBy;
+
+    @LastModifiedBy
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by_id")
+    @NotAudited
+    @Getter
+    private UserDetailsImpl updatedBy;
 
 
     /**

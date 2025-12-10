@@ -13,12 +13,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
@@ -41,12 +35,6 @@ public class WebSecurityConfig {
 
     @Value("${cors.allowed.origins:http://localhost:5173}")
     private String corsAllowedOrigins;
-
-    @Value("${admin.username:user}")
-    private String adminUsername;
-
-    @Value("${admin.password:password}")
-    private String adminPassword;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -113,23 +101,6 @@ public class WebSecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails user = User.builder()
-                .username(adminUsername)
-                .password(passwordEncoder.encode(adminPassword))
-                .roles("USER", "ADMIN")
-                .build();
-
-        return new InMemoryUserDetailsManager(user);
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        // Use BCrypt for production
-        return new BCryptPasswordEncoder();
     }
 }
 

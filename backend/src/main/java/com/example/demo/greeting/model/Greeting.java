@@ -1,11 +1,12 @@
 package com.example.demo.greeting.model;
 
 import com.example.demo.common.domain.AbstractBaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.Instant;
+import org.hibernate.envers.Audited;
 
 /**
  * Greeting entity with dual identity strategy:
@@ -14,11 +15,12 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "greeting")
+@Audited
 public class Greeting extends AbstractBaseEntity {
 
     @Getter
     @Setter
-    @Column(name = "reference", nullable = false, unique = true, length = 32)
+    @Column(name = "reference", nullable = false, unique = true, length = 32, updatable = false)
     private String reference;
 
     @Getter
@@ -31,16 +33,12 @@ public class Greeting extends AbstractBaseEntity {
     @Column(name = "message", nullable = false)
     private String message;
 
-    @Getter
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
 
-    protected Greeting() {  }
+    public Greeting() {  }
 
-    public Greeting(String recipient, String message, Instant createdAt) {
+    public Greeting(String recipient, String message) {
         this.recipient = recipient;
         this.message = message;
-        this.createdAt = createdAt;
     }
 
 }
