@@ -1,9 +1,13 @@
 package com.example.demo.contract;
 
+import com.example.demo.testsupport.AbstractIntegrationTest;
+import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.repository.UserRepository;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
@@ -50,10 +54,19 @@ class GreetingContractTest {
     @LocalServerPort
     private int port;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
         RestAssured.baseURI = "http://localhost";
+
+        // Ensure system user exists for JPA auditing
+        if (userRepository.findByUsername("system").isEmpty()) {
+            UserDetailsImpl systemUser = new UserDetailsImpl("system", "encoded-password");
+            userRepository.saveAndFlush(systemUser);
+        }
     }
 
     /**
