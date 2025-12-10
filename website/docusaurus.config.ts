@@ -111,8 +111,12 @@ const config: Config = {
               to: '/docs/intro',
             },
             {
+              label: 'Product',
+              to: '/docs/product/intro',
+            },
+            {
               label: 'Architecture',
-              to: '/docs/architecture',
+              to: '/docs/architecture/intro',
             },
             {
               label: 'API Reference',
@@ -124,12 +128,12 @@ const config: Config = {
           title: 'Development',
           items: [
             {
-              label: 'Cheatsheet',
-              to: '/docs/dev-cheatsheet',
+                label: 'Developer Guides',
+                to: '/docs/developer-guides/intro',
             },
             {
-              label: 'References',
-              to: '/docs/references',
+              label: 'Operations',
+              to: '/docs/operations/intro',
             },
           ],
         },
