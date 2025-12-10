@@ -130,4 +130,79 @@ class SecurityAuditorAwareTest extends AbstractIntegrationTest {
         assertThat(current).isPresent();
         assertThat(current.get().getUsername()).isEqualTo("system");
     }
+
+    @Test
+    void returnsSystemUserWhenAnonymousAuthentication() {
+        // Arrange: Set up anonymous authentication
+        Authentication auth = new org.springframework.security.authentication.AnonymousAuthenticationToken(
+                "key", "anonymous", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        // Act
+        Optional<UserDetailsImpl> current = auditorAware.getCurrentAuditor();
+
+        // Assert
+        assertThat(current).isPresent();
+        assertThat(current.get().getUsername()).isEqualTo("system");
+    }
+
+    @Test
+    void returnsSystemUserWhenNotAuthenticated() {
+        // Arrange: Create authentication that is not authenticated
+        Authentication auth = new UsernamePasswordAuthenticationToken("user", "pass");
+        // Note: UsernamePasswordAuthenticationToken without authorities is not authenticated
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        // Act
+        Optional<UserDetailsImpl> current = auditorAware.getCurrentAuditor();
+
+        // Assert
+        assertThat(current).isPresent();
+        assertThat(current.get().getUsername()).isEqualTo("system");
+    }
+
+    @Test
+    void handlesUsernameExtractionFromUnknownPrincipalType() {
+        // Arrange: Use an unusual principal type (neither UserDetails, String, nor UserDetailsImpl)
+        Object customPrincipal = new Object() {
+            @Override
+            public String toString() {
+                return "customPrincipal";
+            }
+        };
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                customPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))) {
+            @Override
+            public String getName() {
+                return "alice";
+            }
+        };
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        // Act
+        Optional<UserDetailsImpl> current = auditorAware.getCurrentAuditor();
+
+        // Assert: Should fall back to authentication.getName() and find user
+        assertThat(current).isPresent();
+        assertThat(current.get().getUsername()).isEqualTo("alice");
+    }
+
+    @Test
+    void returnsSystemUserWhenUserNotFoundInRepository() {
+        // Arrange: Authenticate with a user that doesn't exist in repository
+        UserDetails springUser = User.withUsername("nonexistent")
+                .password("pw")
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_USER")))
+                .build();
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                springUser, springUser.getPassword(), springUser.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        // Act
+        Optional<UserDetailsImpl> current = auditorAware.getCurrentAuditor();
+
+        // Assert: Should fall back to system user when lookup fails
+        assertThat(current).isPresent();
+        assertThat(current.get().getUsername()).isEqualTo("system");
+    }
 }
