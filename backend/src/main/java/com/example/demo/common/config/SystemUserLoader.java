@@ -1,31 +1,40 @@
-package com.example.demo.testsupport;
+package com.example.demo.common.config;
 
+import com.example.demo.user.domain.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import
 
 @Configuration
-@Profile("test")
-public class TestUserDataLoader {
+@Profile({"test", "dev"}) // WARNING: Do not enable in production environments
+public class SystemUserLoader {
+
+    @Value("${admin.username:user}")
+    private String adminUsername;
+
+    @Value("${admin.password:password}")
+    private String adminPassword;
 
     @Bean
-    public CommandLineRunner loadTestUser(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public CommandLineRunner initSystemUser(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
-            // Check if user exists to avoid errors on reload
-            if (userRepository.findByUsername("system").isEmpty()) {
-                User testUser = new User();
-                testUser.setUsername("system");
+            // 1. Check if user already exists to prevent startup errors
+            if (userRepository.findByUsername(adminUsername).isEmpty()) {
 
-                // This generates the hash at runtime.
-                // Since the hash string doesn't exist in the code, Semgrep won't flag it.
-                testUser.setPassword(passwordEncoder.encode("system"));
+                // 2. Create the user object
+                UserDetailsImpl systemUser = new UserDetailsImpl();
+                systemUser.setUsername(adminUsername);
 
-                userRepository.save(testUser);
-                System.out.println("Test user 'system' inserted via CommandLineRunner");
+                // 3. Encode the password dynamically at runtime
+                // TODO : Variabilize the password for better security practices
+                systemUser.setPassword(passwordEncoder.encode(adminPassword));
+
+                // 4. Save to DB
+                userRepository.save(systemUser);
             }
         };
     }

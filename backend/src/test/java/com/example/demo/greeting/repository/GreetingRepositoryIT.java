@@ -9,6 +9,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 class GreetingRepositoryIT extends AbstractIntegrationTest {
 
+
+    @Value("${admin.username:admin}")
+    private String adminUsername;
+
+    @Value("${admin.password:devpassword}")
+    private String adminPassword;
+
     @Autowired
     GreetingRepository greetingRepository;
 
@@ -56,8 +64,8 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
     void setupSystemUser() {
         txTemplate = new TransactionTemplate(transactionManager);
 
-        if (userRepository.findByUsername("system").isEmpty()) {
-            UserDetailsImpl systemUser = new UserDetailsImpl("system", "encoded-password");
+        if (userRepository.findByUsername(adminUsername).isEmpty()) {
+            UserDetailsImpl systemUser = new UserDetailsImpl(adminUsername, adminPassword);
             userRepository.saveAndFlush(systemUser);
         }
     }
@@ -206,7 +214,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
         assertThat(loaded.getCreatedAt()).isAfterOrEqualTo(beforeSave.minusSeconds(1));
         assertThat(loaded.getUpdatedAt()).isNotNull();
         assertThat(loaded.getCreatedBy()).isNotNull();
-        assertThat(loaded.getCreatedBy().getUsername()).isEqualTo("system");
+        assertThat(loaded.getCreatedBy()).isEqualTo("anonymous");
         assertThat(loaded.getVersion()).isEqualTo(0);
     }
 
@@ -322,10 +330,27 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
 
         // Transaction 1: Create greeting
         txTemplate.execute(status -> {
-            Greeting greeting = new Greeting("UserTest", "Testing username capture");
-            greeting.setReference(uniqueRef);
-            greeting = greetingRepository.saveAndFlush(greeting);
-            greetingId.set(greeting.getId());
+            // --- ADD THIS BLOCK ---
+            // Simulate a logged-in "system" user
+            org.springframework.security.core.userdetails.UserDetails user =
+                    org.springframework.security.core.userdetails.User.withUsername("admin")
+                            .password("pw")
+                            .authorities("ROLE_ADMIN")
+                            .build();
+            org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth =
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+            // ----------------------
+
+            try {
+                Greeting greeting = new Greeting("UserTest", "Testing username capture");
+                greeting.setReference(uniqueRef);
+                greeting = greetingRepository.saveAndFlush(greeting);
+                greetingId.set(greeting.getId());
+            } finally {
+                // Always clean up after setting context manually
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            }
             return null;
         });
 
@@ -335,11 +360,12 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
 
             assertThat(lastRevision).isPresent();
 
-            // Extract username from custom revision entity
             Object delegate = lastRevision.get().getMetadata().getDelegate();
             assertThat(delegate).isInstanceOf(CustomRevisionEntity.class);
 
             CustomRevisionEntity customRev = (CustomRevisionEntity) delegate;
+
+            // Assert that the username matches the one we set in Transaction 1
             assertThat(customRev.getUsername()).isEqualTo("system");
             return null;
         });

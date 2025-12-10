@@ -14,26 +14,34 @@ import org.springframework.security.core.context.SecurityContextHolder;
  *
  * <p>Falls back to "system" when no authentication is present (batch jobs, startup).</p>
  */
-public class CustomRevisionListener implements RevisionListener {
-
-    private static final String SYSTEM_USER = "system";
+public class CustomRevisionListener implements RevisionListener { // 1. Implement RevisionListener
 
     @Override
     public void newRevision(Object revisionEntity) {
-        CustomRevisionEntity rev = (CustomRevisionEntity) revisionEntity;
-        rev.setUsername(getCurrentUsername());
-    }
+        CustomRevisionEntity entity = (CustomRevisionEntity) revisionEntity;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-    private String getCurrentUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return SYSTEM_USER;
+        // Case 1: Internal Job (No Security Context) -> "system"
+        if (auth == null) {
+            entity.setUsername("system");
+            return;
         }
 
-        String name = authentication.getName();
-        return name != null ? name : SYSTEM_USER;
+        // Case 2: Unauthenticated Public User -> "anonymous"
+        if (auth instanceof AnonymousAuthenticationToken) {
+            entity.setUsername("anonymous");
+            return;
+        }
+
+        // Case 3: Authenticated User -> Username
+        if (auth.isAuthenticated()) {
+            String name = auth.getName();
+            // Safety fallback if principal has no name
+            entity.setUsername(name != null ? name : "unknown");
+            return;
+        }
+
+        // Fallback for edge cases (Authenticated=false but not AnonymousToken)
+        entity.setUsername("unknown");
     }
 }

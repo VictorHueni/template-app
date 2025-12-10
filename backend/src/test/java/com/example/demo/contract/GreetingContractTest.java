@@ -8,6 +8,7 @@ import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
@@ -57,14 +58,22 @@ class GreetingContractTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Value("${admin.username:admin}")
+    private String adminUsername;
+
+    @Value("${admin.password:devpassword}")
+    private String adminPassword;
+
+
+
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
         RestAssured.baseURI = "http://localhost";
 
         // Ensure system user exists for JPA auditing
-        if (userRepository.findByUsername("system").isEmpty()) {
-            UserDetailsImpl systemUser = new UserDetailsImpl("system", "encoded-password");
+        if (userRepository.findByUsername(adminUsername).isEmpty()) {
+            UserDetailsImpl systemUser = new UserDetailsImpl(adminUsername, adminPassword);
             userRepository.saveAndFlush(systemUser);
         }
     }
