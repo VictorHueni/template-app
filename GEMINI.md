@@ -145,6 +145,7 @@ Living in `website/docs/architecture`, this explains the system structure.
 * **Structure:** We follow the **Arc42** template (Context, Building Blocks, Runtime View, Deployment).
 * **Diagrams as Code:** All architectural diagrams MUST be created using **Mermaid.js** or **PlantUML** within the markdown. Binary images (PNG/JPG) for architecture are prohibited.
 * **Decision Records (ADRs):** Significant architectural decisions (database choice, framework selection) MUST be recorded in `website/docs/architecture/09-design-decisions/` using the MADR format.
+*   **Justification & Sourcing**: All ADRs **MUST** include a "References" section with links to recent and authoritative online sources (e.g., official documentation, articles by recognized experts, technology blogs) that support the analysis and justify the decision.
 
 * **JSDoc/JavaDoc**: Required for all public interfaces.
 * **Commits**: Conventional Commits (e.g., `feat(api): add greeting endpoint`).
