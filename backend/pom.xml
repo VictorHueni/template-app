@@ -30,6 +30,7 @@
 		<java.version>25</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<hypersistence-utils.version>3.13.2</hypersistence-utils.version>
+		<archunit.version>1.4.1</archunit.version>
 		<!-- default: do NOT skip unit tests -->
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
@@ -180,6 +181,13 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
+		<!-- ArchUnit for architectural testing -->
+		<dependency>
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit-junit5-api</artifactId>
+			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
 
 	</dependencies>
 
@@ -272,7 +280,7 @@
 				<version>3.6.0</version>
 				<configuration>
 					<!-- use builtin google_checks.xml to start with -->
-					<configLocation>google_checks.xml</configLocation>
+					<configLocation>checkstyle.xml</configLocation>
 					<failOnViolation>true</failOnViolation>
 					<excludes>**/target/generated-sources/**/*.java</excludes>
 				</configuration>

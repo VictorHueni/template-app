@@ -41,6 +41,9 @@
 6.  **Docs as Code**: Documentation is not an afterthought.
     * No feature is "Done" until its PRD (`docs/product`), Architecture (`docs/architecture`), Operation (`docs/operations`), Developer Guide (`docs/developer-guide`) & README files are updated.
     * Binary diagrams (PNG/JPG) are prohibited for architecture; use Mermaid.js.
+7.  **Code Quality & Enforcement**: All backend code **MUST** adhere to the standards defined in `backend/CODING_GUIDELINES.md`. Enforcement is automated via:
+    *   **Checkstyle**: For code style and naming conventions.
+    *   **ArchUnit**: For architectural constraints and layer validity.
 
 ## 4. Operational Protocols
 ### <PROTOCOL: EXPLAIN>
@@ -269,6 +272,47 @@ This document serves as the authoritative technical guide for the Spring Boot ba
 * **Quality Assurance:**
     * [`<TECH_GUIDE:TESTING_STRATEGY_SPRING>`](#tech_guidetesting_strategy_spring)
     * [`<TECH_GUIDE:OBSERVABILITY_AND_OPS>`](#tech_guideobservability_and_ops)
+    * [`<TECH_GUIDE:CODING_GUIDELINES>`](#tech_guidecoding_guidelines)
+
+---
+
+<details>
+<summary id="tech_guidecoding_guidelines">TECH_GUIDE:CODING_GUIDELINES</summary>
+
+#### Backend Coding Guidelines Summary
+
+This section summarizes the key coding standards for backend development, enforced by static analysis tools. For full details, refer to `backend/CODING_GUIDELINES.md`.
+
+##### 1. Naming Conventions:
+*   **Packages**: Feature-based (`com.example.demo.feature`).
+*   **Classes**: `PascalCase` with appropriate suffixes (`Controller`, `Service`, `Repository`, `Mapper`, `Config`, `Exception`). Entities are simple nouns. DTOs are `*Request`, `*Response`, `*DTO`.
+*   **Methods**: `camelCase`, verb-first.
+*   **Variables**: `camelCase` for fields/locals, `UPPER_SNAKE_CASE` for `static final` constants.
+
+##### 2. Formatting:
+*   **Indentation**: 4 spaces.
+*   **Braces**: K&R style (opening brace on same line).
+*   **Line Length**: Max 120 characters.
+*   **Imports**: No wildcards, specific ordering (java, jakarta, org, com, static).
+
+##### 3. Programming Practices & Patterns:
+*   **Constructor Injection**: **Mandatory** with `private final` fields and `@RequiredArgsConstructor`. Field injection is forbidden.
+*   **Immutability**: Favor Java `record`s for DTOs.
+*   **API Layer (Controllers)**: Implement OpenAPI-generated interfaces. Handle HTTP concerns, DTO conversion, delegate business logic to services. **MUST NOT** access repositories directly.
+*   **Service Layer**: Business logic, transactional boundaries. Operates on **Entities only**. **MUST NOT** accept/return DTOs directly.
+*   **DTO & Entity Mapping**: **MapStruct is MANDATORY** for all DTO-to-Entity conversions.
+*   **`Optional` Usage**: For return types where a value might be absent. **NEVER** for method parameters or class fields.
+*   **Modern Java**: Utilize `var` for local variables, Java `record`s for DTOs.
+
+##### 4. Lombok Usage:
+*   `@RequiredArgsConstructor`: Recommended for DI.
+*   `@Getter`, `@Setter`: Allowed on individual fields in entities/DTOs.
+*   `@Builder`: Recommended for test data/complex objects.
+*   `@Slf4j`: Recommended for logging.
+*   `@Data` on Entities: **FORBIDDEN**.
+*   `@EqualsAndHashCode` on Entities: **FORBIDDEN** (use `AbstractBaseEntity`'s implementation).
+
+</details>
 
 ---
 
@@ -374,7 +418,7 @@ Leverage the modern capabilities of the stack. Do not write legacy Java.
 ##### 2. Dependency Injection
 
 * **Constructor Injection**: **Mandatory**. Do not use `@Autowired` on fields.
-* **Lombok**: Use `@RequiredArgsConstructor` to generate constructors for `final` fields.
+* **Lombok**: Use `@RequiredArgsConstructor` to generate constructors for `final` fields. This is the **mandatory** approach for dependency injection.
 
 ##### 3. Bean Validation
 
