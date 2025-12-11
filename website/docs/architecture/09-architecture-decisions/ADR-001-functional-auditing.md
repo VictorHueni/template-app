@@ -12,7 +12,7 @@ The template application is designed with future scalability in mind, targeting 
 *   **Standard Spring Application Events (`@TransactionalEventListener`)**: The "Modern" Spring Pattern.
 *   **Spring Modulith's Eventing with Transactional Outbox**: The "Strategic" Way.
 
-(For a detailed analysis of these options, refer to `functional-auditing-options-analysis.md`.)
+(For a detailed analysis of these options, refer to `../04-solution-strategy/functional-auditing-options-analysis.md`.)
 
 ## Decision Outcome
 

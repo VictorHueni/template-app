@@ -103,6 +103,7 @@
     * Update Architecture Diagrams (`docs/architecture`) if the flow changed.
     * Update Runbooks (`docs/operations`) if new configs/secrets were added.
     * Mark PRD as "Implemented" in `docs/product`.
+7.  **Final Validation**: Before committing, run a full local build and verification to ensure all tests pass and there are no regressions (`mvn clean install` for backend, `npm test && npm run build` for frontend).
 
 ### <PROTOCOL: DEBUG>
 **Trigger**: When fixing a bug.
@@ -116,6 +117,7 @@
    2. Use logs and `traceId` correlation (as per `ProblemDetail` schema) to locate the issue
 5. **Fix**: Apply the fix in the appropriate layer (Backend/Frontend/API Spec)
 6. **Verify**: Ensure the test case passes and no other tests are broken.
+7. **Final Validation**: Before committing, run a full local build and verification to ensure all tests pass and there are no regressions (`mvn clean install` for backend, `npm test && npm run build` for frontend).
 
 ## 5. Documentation Protocol
 

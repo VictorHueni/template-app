@@ -12,7 +12,7 @@ It's meant as a **reference architecture** and **learning resource**.
 
 ---
 # Reference Resources & Templates
-[Reference Resources & Templates](docs/references.md)
+[Reference Resources & Templates](developer-guides/references.md)
 
 ---
 
