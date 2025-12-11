@@ -26,6 +26,6 @@ docker compose up -d --build
 ## Documentation Sections
 
 - [Architecture](./architecture) - High-level system design and backend clean architecture
-- [Development Cheatsheet](./dev-cheatsheet) - Commands for development, testing, and debugging
-- [References](./references) - AWS and external documentation links
+- [Development Cheatsheet](./developer-guides/dev-cheatsheet) - Commands for development, testing, and debugging
+- [References](./developer-guides/references) - AWS and external documentation links
 - [API Reference](/api-reference) - Interactive OpenAPI documentation

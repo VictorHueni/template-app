@@ -1,4 +1,4 @@
-# Design Decisions
+# Architecture Decisions
 
 ## Contents
 
