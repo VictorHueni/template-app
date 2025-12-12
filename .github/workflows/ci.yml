@@ -152,7 +152,7 @@ jobs:
       JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 6. DAST Scan - Run only after successful container security scan ---
-  dast_scan:
+  dast_scan_pipeline:
     needs: [changes, backend_pipeline, container_security_pipeline]
     if: |
       always() &&
@@ -161,9 +161,11 @@ jobs:
       needs.container_security_pipeline.result == 'success'
     uses: ./.github/workflows/dast-scan.yml
     secrets: inherit
+    with:
+      JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 7. Final E2E Test (Runs last after all checks and builds are complete) ---
-  e2e_test:
+  e2e_test_pipeline:
     needs:
       - changes
       - api_governance_pipeline
@@ -171,7 +173,7 @@ jobs:
       - frontend_pipeline
       - backend_pipeline
       - container_security_pipeline
-      - dast_scan
+      - dast_scan_pipeline
     # Run only if frontend OR backend changed AND all required pipelines succeeded
     if: |
       always() &&
@@ -181,8 +183,9 @@ jobs:
       (needs.frontend_pipeline.result == 'success' || needs.frontend_pipeline.result == 'skipped') &&
       (needs.backend_pipeline.result == 'success' || needs.backend_pipeline.result == 'skipped') &&
       (needs.container_security_pipeline.result == 'success' || needs.container_security_pipeline.result == 'skipped') &&
-      (needs.dast_scan.result == 'success' || needs.dast_scan.result == 'skipped')
+      (needs.dast_scan_pipeline.result == 'success' || needs.dast_scan_pipeline.result == 'skipped')
     uses: ./.github/workflows/e2e-test.yml
     secrets: inherit
     with:
       NODE_VERSION: ${{ vars.NODE_VERSION }}
+      JAVA_VERSION: ${{ vars.JAVA_VERSION }}

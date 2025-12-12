@@ -10,6 +10,9 @@ on:
       NODE_VERSION:
         required: true
         type: string
+      JAVA_VERSION:
+        required: true
+        type: string
 
 jobs:
   e2e_playwright:
@@ -33,6 +36,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.JAVA_VERSION }}
 
       # OPTIMIZATION: Download pre-built JAR instead of rebuilding
       - name: Download Backend JAR artifact

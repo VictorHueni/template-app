@@ -2,10 +2,14 @@
 # DAST (Dynamic Application Security Testing) using OWASP ZAP
 # Runs security scans against the running application
 
-name: DAST Security Scan
+name: DAST Scans
 
 on:
   workflow_call:
+    inputs:
+      JAVA_VERSION:
+        required: true
+        type: string
 
 jobs:
   dast_zap_scan:
@@ -29,6 +33,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.JAVA_VERSION }}
 
       # OPTIMIZATION: Download pre-built JAR instead of rebuilding
       - name: Download Backend JAR artifact
