@@ -28,8 +28,8 @@ RUN chmod +x mvnw && ./mvnw dependency:go-offline
 COPY backend/src src
 
 # 6. Build the application
-# When this runs, pom.xml looks for "../api/...", which resolves to "/app/api/..." (Valid!)
-RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true
+# Skip test compilation and execution for faster Docker builds (tests run in CI)
+RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true -Djacoco.skip=true
 
 
 # === STAGE 2: CI RUNTIME (Optimized for CI/CD pipelines) ===
