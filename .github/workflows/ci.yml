@@ -179,18 +179,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- BACKEND SETUP, BUILD, START, WAIT ---
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # OPTIMIZATION: Download pre-built JAR instead of rebuilding
+      - name: Download Backend JAR artifact
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: ${{ vars.JAVA_VERSION }}
-          cache: maven
+          name: backend-jar
+          path: backend/target
 
-      # The rest of the DAST job's steps go here...
-      - name: Build backend (skip tests)
-        working-directory: backend
-        run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
+      - name: Verify JAR artifact
+        run: |
+          echo "Downloaded JAR files:"
+          ls -lh backend/target/*.jar
+          test -f backend/target/demo-0.0.1-SNAPSHOT.jar
 
       - name: Wait for Postgres to be Ready
         run: |
@@ -307,17 +307,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- BACKEND SETUP/START ---
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # OPTIMIZATION: Download pre-built JAR instead of rebuilding
+      - name: Download Backend JAR artifact
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: ${{ vars.JAVA_VERSION }}
-          cache: maven
+          name: backend-jar
+          path: backend/target
 
-      - name: Build backend (skip tests, they already ran)
-        working-directory: backend
-        run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
+      - name: Verify JAR artifact
+        run: |
+          echo "Downloaded JAR files:"
+          ls -lh backend/target/*.jar
+          test -f backend/target/demo-0.0.1-SNAPSHOT.jar
 
       - name: Start backend
         working-directory: backend
