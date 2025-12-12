@@ -31,10 +31,23 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<hypersistence-utils.version>3.13.2</hypersistence-utils.version>
 		<archunit.version>1.4.1</archunit.version>
+		<spring-modulith.version>1.4.5</spring-modulith.version>
 		<!-- default: do NOT skip unit tests -->
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
 	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.modulith</groupId>
+				<artifactId>spring-modulith-bom</artifactId>
+				<version>${spring-modulith.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<!-- Spring Boot Actuator -->
 		<dependency>
@@ -186,6 +199,31 @@
 			<groupId>com.tngtech.archunit</groupId>
 			<artifactId>archunit-junit5-api</artifactId>
 			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Spring Modulith: JPA event store (transactional outbox pattern) -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-jpa</artifactId>
+		</dependency>
+
+		<!-- Spring Modulith: Observability (Micrometer tracing for trace_id propagation) -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-insight</artifactId>
+		</dependency>
+
+		<!-- Micrometer Tracing with OpenTelemetry bridge -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-tracing-bridge-otel</artifactId>
+		</dependency>
+
+		<!-- Spring Modulith: Testing support (@ApplicationModuleTest, Scenario) -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 

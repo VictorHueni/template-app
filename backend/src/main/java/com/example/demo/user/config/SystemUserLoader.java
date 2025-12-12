@@ -1,4 +1,4 @@
-package com.example.demo.common.config;
+package com.example.demo.user.config;
 
 import com.example.demo.user.domain.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;

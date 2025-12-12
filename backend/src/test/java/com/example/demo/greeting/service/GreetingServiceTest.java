@@ -22,6 +22,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
@@ -33,13 +35,15 @@ class GreetingServiceTest {
 
     private FunctionalIdGenerator idGenerator;
     private GreetingRepository repo;
+    private ApplicationEventPublisher eventPublisher;
     private GreetingService service;
 
     @BeforeEach
     void setUp() {
         idGenerator = mock(FunctionalIdGenerator.class);
         repo = mock(GreetingRepository.class);
-        service = new GreetingService(idGenerator, repo);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        service = new GreetingService(idGenerator, repo, eventPublisher);
     }
 
     /**
