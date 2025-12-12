@@ -111,13 +111,10 @@ jobs:
           name: backend-generated-sources
           path: backend/target/generated-sources
 
-      # Run unit tests WITHOUT recompiling
+      # Run unit tests with pre-compiled classes
+      # Maven's incremental compilation will detect no changes and skip recompilation
       - name: Run unit tests with JaCoCo coverage
-        run: |
-          ./mvnw -B test \
-            -Dmaven.main.skip=true \
-            -Dmaven.test.skip=true \
-            -Dsurefire.skip=false
+        run: ./mvnw -B test
 
       - name: Upload unit test reports (Surefire)
         uses: actions/upload-artifact@v4
@@ -314,15 +311,12 @@ jobs:
           name: backend-generated-sources
           path: backend/target/generated-sources
 
-      # Run integration tests WITHOUT recompiling
-      # Uses integration-tests profile: parallel execution (2 threads), skips unit tests
+      # Run integration tests with pre-compiled classes
+      # Maven's incremental compilation will detect no changes and skip recompilation
       - name: Run integration tests (Parallel execution - 2 threads)
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-        run: |
-          ./mvnw -B verify \
-            -Pintegration-tests \
-            -Dmaven.main.skip=true
+        run: ./mvnw -B verify -Pintegration-tests
 
       - name: Upload integration test reports (Failsafe)
         uses: actions/upload-artifact@v4
