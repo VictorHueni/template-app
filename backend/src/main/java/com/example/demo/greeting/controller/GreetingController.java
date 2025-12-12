@@ -1,7 +1,12 @@
 package com.example.demo.greeting.controller;
 
 import com.example.demo.api.v1.controller.GreetingsApi;
-import com.example.demo.api.v1.model.*;
+import com.example.demo.api.v1.model.GreetingResponse;
+import com.example.demo.api.v1.model.CreateGreetingRequest;
+import com.example.demo.api.v1.model.GreetingPage;
+import com.example.demo.api.v1.model.PatchGreetingRequest;
+import com.example.demo.api.v1.model.UpdateGreetingRequest;
+import com.example.demo.api.v1.model.PageMeta;
 import com.example.demo.common.exception.ResourceNotFoundException;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;

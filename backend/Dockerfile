@@ -28,14 +28,36 @@ RUN chmod +x mvnw && ./mvnw dependency:go-offline
 COPY backend/src src
 
 # 6. Build the application
-# When this runs, pom.xml looks for "../api/...", which resolves to "/app/api/..." (Valid!)
-RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true
+# Skip test compilation and execution for faster Docker builds (tests run in CI)
+RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true -Djacoco.skip=true
 
 
-# === STAGE 2: RUNTIME (Distroless Production Image) ===
+# === STAGE 2: CI RUNTIME (Optimized for CI/CD pipelines) ===
+# This stage uses a pre-built JAR artifact from the CI pipeline (backend_pipeline job)
+# Skips compilation entirely, making Docker builds ~3-6 minutes faster
+# Usage in CI: docker build --target ci -t demo-backend:ci .
+FROM gcr.io/distroless/java25-debian13:latest AS ci
+
+WORKDIR /app
+
+ENV TZ=UTC LANG=C.UTF-8 \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
+    SPRING_PROFILES_ACTIVE=default
+
+EXPOSE 8080 8081
+
+# Copy pre-built JAR from CI artifact (expects backend/target/*.jar to exist)
+COPY backend/target/*.jar /app/app.jar
+
+ENTRYPOINT ["java","-jar","/app/app.jar"]
+
+
+# === STAGE 3: PRODUCTION RUNTIME (Full build for local development) ===
 # Using the Distroless image ensures only the JRE and minimal libraries are included.
 # This drastically reduces CVE count and eliminates the shell/package manager.
-FROM gcr.io/distroless/java25-debian13:latest AS final
+# This is the default stage when building without --target flag
+# Usage locally: docker build -t demo-backend:latest .
+FROM gcr.io/distroless/java25-debian13:latest AS production
 
 # --- SECURITY & UTILITIES (AS NON-ROOT BY DEFAULT) ---
 # NOTE: No need to install wget or create a user. Distroless runs as 'nonroot'.

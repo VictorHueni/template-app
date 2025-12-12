@@ -3,26 +3,58 @@ package com.example.demo.greeting.controller;
 import com.example.demo.contract.OpenApiValidator;
 import com.example.demo.greeting.service.GreetingService;
 import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
 /**
  * API-level integration tests for Greeting HTTP endpoints.
  * Hits the real Spring Boot app and real PostgreSQL (via Testcontainers singleton).
  * Uses the "test" profile for simplified security configuration.
+ *
+ * IMPORTANT: This test class uses @Execution(ExecutionMode.SAME_THREAD) to ensure
+ * it runs in isolation from other parallel tests. This prevents transaction
+ * management conflicts when running alongside @Transactional repository/service tests.
+ *
+ * REST controller tests should NOT use @Transactional because the HTTP requests
+ * execute in separate threads from the test thread, making transaction rollback ineffective.
+ * Instead, we clean up test data manually in @BeforeEach.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Execution(ExecutionMode.SAME_THREAD)
+@TestExecutionListeners(
+    listeners = {},
+    mergeMode = MERGE_WITH_DEFAULTS
+)
 class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
     @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @Autowired
     GreetingService greetingService;
+
+    /**
+     * Clean up database before each test to ensure test isolation.
+     * REST controller tests cannot use @Transactional rollback because HTTP requests
+     * run in separate threads, so we manually clean up data instead.
+     */
+    @BeforeEach
+    void cleanupDatabase() {
+        jdbcTemplate.execute("TRUNCATE TABLE greeting CASCADE");
+    }
 
     @Test
     void createsGreetingAndReturnsContract() {

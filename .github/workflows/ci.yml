@@ -7,7 +7,7 @@ on:
     paths-ignore:
       - "**.md"
   push:
-    branches: [main, feature/**]
+    branches: [main, feature/**, chore/**]
     paths-ignore:
       - "**.md"
 
@@ -152,123 +152,20 @@ jobs:
       JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 6. DAST Scan - Run only after successful container security scan ---
-  dast_scan:
+  dast_scan_pipeline:
     needs: [changes, backend_pipeline, container_security_pipeline]
     if: |
       always() &&
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.zap == 'true') &&
       needs.backend_pipeline.result == 'success' &&
       needs.container_security_pipeline.result == 'success'
-    runs-on: ubuntu-latest
-    # The original DAST job (must be kept intact)
-    services:
-      postgres:
-        image: postgres:18.1-alpine
-        env:
-          POSTGRES_DB: demo
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U demo -d demo"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # --- BACKEND SETUP, BUILD, START, WAIT ---
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ vars.JAVA_VERSION }}
-          cache: maven
-
-      # The rest of the DAST job's steps go here...
-      - name: Build backend (skip tests)
-        working-directory: backend
-        run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
-
-      - name: Wait for Postgres to be Ready
-        run: |
-          echo "Waiting for PostgreSQL service (postgres:5432)..."
-          for i in {1..60}; do
-            if nc -z -w1 localhost 5432; then
-              echo "Postgres is up! Starting backend."
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Postgres failed to become ready after 60 seconds." >&2
-          exit 1
-
-      - name: Start backend
-        working-directory: backend
-        run: |
-          nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
-          echo $! > backend.pid
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/demo
-          SPRING_DATASOURCE_USERNAME: demo
-          SPRING_DATASOURCE_PASSWORD: demo
-          SPRING_SERVER_PORT: 8080
-          SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-      - name: Wait for backend readiness
-        run: |
-          echo "Waiting for Spring Boot health endpoint (http://localhost:8081/management/health)..."
-          for i in {1..40}; do
-            if curl -s http://localhost:8081/management/health | grep -q "UP"; then
-              echo "Backend is ready!"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Backend did not become ready after 40 seconds." >&2
-          exit 1
-
-      - name: Print Backend Startup Logs for Debug
-        if: failure()
-        run: |
-          echo "--- DEBUGGING BACKEND STARTUP LOGS ---"
-          cat backend/backend.log
-          echo "----------------------------------------"
-
-      # --- ZAP SCAN ---
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
-          target: "http://localhost:8080/api"
-          docker_name: "ghcr.io/zaproxy/zaproxy:stable"
-          rules_file_name: ".zap/rules.tsv"
-          cmd_options: "-a"
-          fail_action: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          allow_issue_writing: false
-
-      # --- ARTIFACT UPLOAD ---
-      - name: Upload ZAP report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dast-zap-baseline-report
-          # The action defaults to these filenames:
-          path: |
-            report_json.json
-            report_html.html
-          if-no-files-found: ignore
-
-      # --- CLEANUP ---
-      - name: Stop backend
-        if: always()
-        run: kill $(cat backend/backend.pid) 2>/dev/null || true
+    uses: ./.github/workflows/dast-scan.yml
+    secrets: inherit
+    with:
+      JAVA_VERSION: ${{ vars.JAVA_VERSION }}
 
   # --- 7. Final E2E Test (Runs last after all checks and builds are complete) ---
-  e2e_test:
-    runs-on: ubuntu-latest
+  e2e_test_pipeline:
     needs:
       - changes
       - api_governance_pipeline
@@ -276,117 +173,19 @@ jobs:
       - frontend_pipeline
       - backend_pipeline
       - container_security_pipeline
-      - dast_scan
+      - dast_scan_pipeline
     # Run only if frontend OR backend changed AND all required pipelines succeeded
     if: |
-      always() && 
+      always() &&
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') &&
       (needs.api_governance_pipeline.result == 'success' || needs.api_governance_pipeline.result == 'skipped') &&
       (needs.code_security_pipeline.result == 'success' || needs.code_security_pipeline.result == 'skipped') &&
       (needs.frontend_pipeline.result == 'success' || needs.frontend_pipeline.result == 'skipped') &&
       (needs.backend_pipeline.result == 'success' || needs.backend_pipeline.result == 'skipped') &&
       (needs.container_security_pipeline.result == 'success' || needs.container_security_pipeline.result == 'skipped') &&
-      (needs.dast_scan.result == 'success' || needs.dast_scan.result == 'skipped')
-
-    # The E2E job's services and steps go here, identical to your original definition
-    services:
-      postgres:
-        image: postgres:18.1-alpine
-        env:
-          POSTGRES_DB: demo
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U demo -d demo"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # --- BACKEND SETUP/START ---
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ vars.JAVA_VERSION }}
-          cache: maven
-
-      - name: Build backend (skip tests, they already ran)
-        working-directory: backend
-        run: ./mvnw -B -Dmaven.test.skip=true -Djacoco.skip=true package
-
-      - name: Start backend
-        working-directory: backend
-        run: |
-          nohup java -jar target/demo-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
-          echo $! > backend.pid
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/demo
-          SPRING_DATASOURCE_USERNAME: demo
-          SPRING_DATASOURCE_PASSWORD: demo
-          SPRING_SERVER_PORT: 8080
-          SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-      - name: Wait for backend readiness
-        run: |
-          for i in {1..30}; do
-            if curl -s http://localhost:8081/management/health | grep -q "UP"; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Backend did not become ready" >&2
-          exit 1
-
-      # --- FRONTEND SETUP/BUILD/TEST ---
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ vars.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: "frontend/package-lock.json"
-
-      - name: Install frontend deps
-        working-directory: frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
-
-      # Cache Playwright browsers
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: frontend
-        run: npx playwright install
-
-      # --- E2E ---
-      - name: Run Playwright E2E tests
-        working-directory: frontend
-        run: npm run test:e2e:ci
-        env:
-          BASE_URL: http://localhost:4173
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-test-results
-          path: frontend/playwright-report
-          if-no-files-found: ignore
-
-      # --- CLEANUP ---
-      - name: Stop backend
-        if: always()
-        run: kill $(cat backend/backend.pid) 2>/dev/null || true
+      (needs.dast_scan_pipeline.result == 'success' || needs.dast_scan_pipeline.result == 'skipped')
+    uses: ./.github/workflows/e2e-test.yml
+    secrets: inherit
+    with:
+      NODE_VERSION: ${{ vars.NODE_VERSION }}
+      JAVA_VERSION: ${{ vars.JAVA_VERSION }}

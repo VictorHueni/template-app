@@ -21,8 +21,7 @@ RUN npm exec docusaurus build
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Create a non-root user and group
-RUN addgroup -S nginx && adduser -S nginx -G nginx
+# Note: nginx:alpine already has nginx user/group, no need to create them
 
 # Copy built files and change ownership
 COPY --from=builder /app/build /usr/share/nginx/html

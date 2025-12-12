@@ -36,11 +36,13 @@ jobs:
         id: meta
         run: echo "IMAGE_TAG=demo-backend:${{ github.sha }}" >> $GITHUB_ENV
 
-      - name: Build Backend Image
+      - name: Build Backend Image (CI-optimized)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./backend/Dockerfile
+          target: ci  # Use CI stage (skips compilation, uses pre-built JAR)
+          platforms: linux/amd64
           tags: ${{ env.IMAGE_TAG }}
           load: true
           cache-from: type=gha,scope=backend-build
