@@ -21,7 +21,7 @@ Chosen option: "**Spring Modulith's Eventing with Transactional Outbox**", becau
 ### Consequences
 
 *   **Good**:
-    *   **Solves the Dual-Write Problem Natively**: Spring Modulith's built-in [Transactional Outbox pattern](functional-auditing-options-analysis.md#2-the-core-challenge-data-consistency-in-distributed-systems) guarantees atomic persistence of business events with transactional data, ensuring data consistency even in distributed contexts.
+    *   **Solves the Dual-Write Problem Natively**: Spring Modulith's built-in [Transactional Outbox pattern](../04-solution-strategy/functional-auditing-options-analysis.md#2-the-core-challenge-data-consistency-in-distributed-systems) guarantees atomic persistence of business events with transactional data, ensuring data consistency even in distributed contexts.
     *   **Clear Path to Microservices**: Establishes reliable asynchronous communication patterns essential for future microservice extraction. Modules can be transitioned to independent services with minimal refactoring of event-based interactions.
     *   **Cloud-Native & Resilient**: Provides robust event delivery guarantees, crucial for cloud-native architectures where transient failures are expected.
     *   **Encourages Modular Design**: Promotes and helps enforce a modular structure within the monolith, leading to a cleaner codebase.
