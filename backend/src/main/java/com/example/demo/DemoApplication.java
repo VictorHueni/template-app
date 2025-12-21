@@ -8,10 +8,6 @@ import org.springframework.retry.annotation.EnableRetry;
 @EnableRetry
 public class DemoApplication {
 
-    private DemoApplication() {
-        throw new AssertionError("No instances.");
-    }
-
     public static void main(String[] args) {
         SpringApplication.run(DemoApplication.class, args);
     }

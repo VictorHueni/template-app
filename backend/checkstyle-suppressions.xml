@@ -6,4 +6,5 @@
 <suppressions>
     <!-- suppress FinalClass rule for the Spring Boot main class -->
     <suppress files=".*DemoApplication\.java" checks="FinalClass"/>
+    <suppress files=".*DemoApplication\.java" checks="HideUtilityClassConstructor"/>
 </suppressions>
