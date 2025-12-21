@@ -1,14 +1,15 @@
 package com.example.demo.greeting.service;
 
-import com.example.demo.common.audit.CustomRevisionEntity;
-import com.example.demo.common.repository.FunctionalIdGenerator;
-import com.example.demo.greeting.dto.GreetingRevisionDTO;
-import com.example.demo.greeting.model.Greeting;
-import com.example.demo.greeting.repository.GreetingRepository;
+import java.lang.reflect.Field;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -17,15 +18,18 @@ import org.springframework.data.history.Revision;
 import org.springframework.data.history.RevisionMetadata;
 import org.springframework.data.history.Revisions;
 
-import java.lang.reflect.Field;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-
-import org.springframework.context.ApplicationEventPublisher;
+import com.example.demo.common.audit.CustomRevisionEntity;
+import com.example.demo.common.repository.FunctionalIdGenerator;
+import com.example.demo.greeting.dto.GreetingRevisionDTO;
+import com.example.demo.greeting.model.Greeting;
+import com.example.demo.greeting.repository.GreetingRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for GreetingService.

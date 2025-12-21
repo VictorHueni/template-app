@@ -1,12 +1,13 @@
 package com.example.demo.common.repository;
 
+import java.time.Year;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Year;
 
 /**
  * Utility to generate business-readable IDs (Functional IDs).

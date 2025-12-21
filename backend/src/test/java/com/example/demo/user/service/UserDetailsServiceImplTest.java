@@ -1,8 +1,7 @@
 package com.example.demo.user.service;
 
-import com.example.demo.user.domain.UserDetailsImpl;
-import com.example.demo.user.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,7 +12,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
-import java.util.Optional;
+import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

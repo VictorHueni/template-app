@@ -1,6 +1,9 @@
 package com.example.demo.audit;
 
-import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,9 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;

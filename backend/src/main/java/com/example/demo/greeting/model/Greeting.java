@@ -1,12 +1,15 @@
 package com.example.demo.greeting.model;
 
-import com.example.demo.common.domain.AbstractBaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+
+import org.hibernate.envers.Audited;
+
+import com.example.demo.common.domain.AbstractBaseEntity;
+
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.envers.Audited;
 
 /**
  * Greeting entity with dual identity strategy:

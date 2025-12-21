@@ -1,32 +1,34 @@
 package com.example.demo.greeting.repository;
 
-import com.example.demo.common.audit.CustomRevisionEntity;
-import com.example.demo.greeting.model.Greeting;
-import com.example.demo.testsupport.AbstractIntegrationTest;
-import com.example.demo.user.domain.UserDetailsImpl;
-import com.example.demo.user.repository.UserRepository;
+import java.time.Instant;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 import jakarta.persistence.EntityManager;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.history.Revision;
 import org.springframework.data.history.RevisionMetadata;
 import org.springframework.data.history.Revisions;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Instant;
-import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import com.example.demo.common.audit.CustomRevisionEntity;
+import com.example.demo.greeting.model.Greeting;
+import com.example.demo.testsupport.AbstractIntegrationTest;
+import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

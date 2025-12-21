@@ -1,9 +1,10 @@
 package com.example.demo.architecture;
 
-import com.example.demo.DemoApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 import org.springframework.modulith.docs.Documenter;
+
+import com.example.demo.DemoApplication;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

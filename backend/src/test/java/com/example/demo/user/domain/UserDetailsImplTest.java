@@ -1,11 +1,11 @@
 package com.example.demo.user.domain;
 
+import java.util.Collection;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
-
-import java.util.Collection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

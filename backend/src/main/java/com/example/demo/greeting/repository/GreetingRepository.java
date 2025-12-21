@@ -1,9 +1,10 @@
 package com.example.demo.greeting.repository;
 
-import com.example.demo.greeting.model.Greeting;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.history.RevisionRepository;
 import org.springframework.stereotype.Repository;
+
+import com.example.demo.greeting.model.Greeting;
 
 /**
  * Repository for Greeting entities with audit history support.

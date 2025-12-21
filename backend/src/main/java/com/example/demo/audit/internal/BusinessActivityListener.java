@@ -1,17 +1,19 @@
 package com.example.demo.audit.internal;
 
-import com.example.demo.audit.BusinessActivityLog;
-import com.example.demo.audit.BusinessActivityLogRepository;
-import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.tracing.Tracer;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import com.example.demo.audit.BusinessActivityLog;
+import com.example.demo.audit.BusinessActivityLogRepository;
+import com.example.demo.greeting.event.GreetingCreatedEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.micrometer.tracing.Tracer;
 
 /**
  * Event listener that records business activities in the audit log.
@@ -100,7 +102,8 @@ class BusinessActivityListener {
     private Map<String, Object> serializeEventData(Object event) {
         try {
             return objectMapper.convertValue(event, Map.class);
-        } catch (IllegalArgumentException e) {
+        }
+        catch (IllegalArgumentException e) {
             LOG.warn("Failed to serialize event data for {}: {}", event.getClass().getSimpleName(), e.getMessage());
             return Map.of("error", "serialization_failed", "eventType", event.getClass().getSimpleName());
         }

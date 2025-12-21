@@ -1,11 +1,8 @@
 package com.example.demo.greeting.service;
 
-import com.example.demo.common.audit.CustomRevisionEntity;
-import com.example.demo.common.repository.FunctionalIdGenerator;
-import com.example.demo.greeting.dto.GreetingRevisionDTO;
-import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.example.demo.greeting.model.Greeting;
-import com.example.demo.greeting.repository.GreetingRepository;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,8 +13,12 @@ import org.springframework.data.history.Revisions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
+import com.example.demo.common.audit.CustomRevisionEntity;
+import com.example.demo.common.repository.FunctionalIdGenerator;
+import com.example.demo.greeting.dto.GreetingRevisionDTO;
+import com.example.demo.greeting.event.GreetingCreatedEvent;
+import com.example.demo.greeting.model.Greeting;
+import com.example.demo.greeting.repository.GreetingRepository;
 
 @Service
 public class GreetingService {

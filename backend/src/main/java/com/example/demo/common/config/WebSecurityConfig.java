@@ -1,6 +1,10 @@
 package com.example.demo.common.config;
 
+import java.util.Arrays;
+import java.util.List;
+
 import jakarta.servlet.DispatcherType;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
@@ -18,9 +22,6 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Production security configuration.
@@ -70,20 +71,20 @@ public class WebSecurityConfig {
                 .logout(LogoutConfigurer::permitAll)
                 // Security headers configuration (fixes ZAP DAST scan warnings)
                 .headers(headers -> {
-                        // Content-Security-Policy for API-only backend (fixes ZAP 10038)
-                        headers.contentSecurityPolicy(csp -> csp
-                                .policyDirectives("default-src 'none'; frame-ancestors 'none'")
-                        );
-                        // Permissions-Policy (fixes ZAP 10063)
-                        headers.permissionsPolicyHeader(permissions -> permissions
-                                .policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()")
-                        );
-                        // Cache-Control to prevent caching sensitive responses (fixes ZAP 10049)
-                        headers.cacheControl(Customizer.withDefaults());
-                        // X-Frame-Options: DENY
-                        headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny);
-                        // X-Content-Type-Options: nosniff
-                        headers.contentTypeOptions(Customizer.withDefaults());
+                    // Content-Security-Policy for API-only backend (fixes ZAP 10038)
+                    headers.contentSecurityPolicy(csp -> csp
+                            .policyDirectives("default-src 'none'; frame-ancestors 'none'")
+                    );
+                    // Permissions-Policy (fixes ZAP 10063)
+                    headers.permissionsPolicyHeader(permissions -> permissions
+                            .policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+                    );
+                    // Cache-Control to prevent caching sensitive responses (fixes ZAP 10049)
+                    headers.cacheControl(Customizer.withDefaults());
+                    // X-Frame-Options: DENY
+                    headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny);
+                    // X-Content-Type-Options: nosniff
+                    headers.contentTypeOptions(Customizer.withDefaults());
                 });
 
         return http.build();

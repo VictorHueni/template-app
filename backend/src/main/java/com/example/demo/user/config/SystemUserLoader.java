@@ -1,13 +1,14 @@
 package com.example.demo.user.config;
 
-import com.example.demo.user.domain.UserDetailsImpl;
-import com.example.demo.user.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.repository.UserRepository;
 
 @Configuration
 @Profile({"test", "dev"}) // WARNING: Do not enable in production environments

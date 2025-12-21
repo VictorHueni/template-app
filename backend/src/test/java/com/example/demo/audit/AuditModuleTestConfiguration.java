@@ -1,10 +1,12 @@
 package com.example.demo.audit;
 
-import com.example.demo.common.config.AuditorAwareImpl;
-import io.micrometer.tracing.Tracer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.AuditorAware;
+
+import com.example.demo.common.config.AuditorAwareImpl;
+
+import io.micrometer.tracing.Tracer;
 
 /**
  * Test configuration for the Audit module tests.

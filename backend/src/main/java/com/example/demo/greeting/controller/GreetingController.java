@@ -1,22 +1,23 @@
 package com.example.demo.greeting.controller;
 
-import com.example.demo.api.v1.controller.GreetingsApi;
-import com.example.demo.api.v1.model.GreetingResponse;
-import com.example.demo.api.v1.model.CreateGreetingRequest;
-import com.example.demo.api.v1.model.GreetingPage;
-import com.example.demo.api.v1.model.PatchGreetingRequest;
-import com.example.demo.api.v1.model.UpdateGreetingRequest;
-import com.example.demo.api.v1.model.PageMeta;
-import com.example.demo.common.exception.ResourceNotFoundException;
-import com.example.demo.greeting.model.Greeting;
-import com.example.demo.greeting.service.GreetingService;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
+import com.example.demo.api.v1.controller.GreetingsApi;
+import com.example.demo.api.v1.model.CreateGreetingRequest;
+import com.example.demo.api.v1.model.GreetingPage;
+import com.example.demo.api.v1.model.GreetingResponse;
+import com.example.demo.api.v1.model.PageMeta;
+import com.example.demo.api.v1.model.PatchGreetingRequest;
+import com.example.demo.api.v1.model.UpdateGreetingRequest;
+import com.example.demo.common.exception.ResourceNotFoundException;
+import com.example.demo.greeting.model.Greeting;
+import com.example.demo.greeting.service.GreetingService;
 
 @RestController
 public class GreetingController implements GreetingsApi {
@@ -85,7 +86,8 @@ public class GreetingController implements GreetingsApi {
         Long idLong = Long.parseLong(id);
         if (service.deleteGreeting(idLong)) {
             return ResponseEntity.noContent().build();
-        } else {
+        }
+        else {
             throw new ResourceNotFoundException("Greeting", idLong);
         }
     }
@@ -102,7 +104,9 @@ public class GreetingController implements GreetingsApi {
     @Override
     public ResponseEntity<GreetingResponse> patchGreeting(String id, PatchGreetingRequest patchGreetingRequest) {
         Long idLong = Long.parseLong(id);
-        Greeting greeting = service.patchGreeting(idLong, patchGreetingRequest.getMessage(), patchGreetingRequest.getRecipient())
+        Greeting greeting = service.patchGreeting(idLong,
+                        patchGreetingRequest.getMessage(),
+                        patchGreetingRequest.getRecipient())
                 .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
         return ResponseEntity.ok(toGreetingResponse(greeting));
     }
@@ -110,7 +114,9 @@ public class GreetingController implements GreetingsApi {
     @Override
     public ResponseEntity<GreetingResponse> updateGreeting(String id, UpdateGreetingRequest updateGreetingRequest) {
         Long idLong = Long.parseLong(id);
-        Greeting greeting = service.updateGreeting(idLong, updateGreetingRequest.getMessage(), updateGreetingRequest.getRecipient())
+        Greeting greeting = service.updateGreeting(idLong,
+                        updateGreetingRequest.getMessage(),
+                        updateGreetingRequest.getRecipient())
                 .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
         return ResponseEntity.ok(toGreetingResponse(greeting));
     }

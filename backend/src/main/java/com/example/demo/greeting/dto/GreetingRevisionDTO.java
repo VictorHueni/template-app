@@ -29,4 +29,6 @@ public record GreetingRevisionDTO(
         String reference,
         String recipient,
         String message
-) {}
+) {
+
+}

@@ -321,6 +321,9 @@
 					<configLocation>checkstyle.xml</configLocation>
 					<failOnViolation>true</failOnViolation>
 					<excludes>**/target/generated-sources/**/*.java</excludes>
+
+                    <suppressionsLocation>checkstyle-suppressions.xml</suppressionsLocation>
+                    <suppressionsFileExpression>checkstyle.suppressions.file</suppressionsFileExpression>
 				</configuration>
 				<!-- Executions moved to quality-check profile -->
 			</plugin>

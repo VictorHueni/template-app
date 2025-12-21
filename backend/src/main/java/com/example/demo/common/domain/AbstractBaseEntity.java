@@ -1,8 +1,15 @@
 package com.example.demo.common.domain;
 
-import io.hypersistence.utils.hibernate.id.Tsid;
-import jakarta.persistence.*;
-import lombok.Getter;
+import java.io.Serializable;
+import java.time.Instant;
+import java.util.Objects;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Version;
+
 import org.hibernate.envers.NotAudited;
 import org.hibernate.proxy.HibernateProxy;
 import org.springframework.data.annotation.CreatedBy;
@@ -11,9 +18,8 @@ import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.io.Serializable;
-import java.time.Instant;
-import java.util.Objects;
+import io.hypersistence.utils.hibernate.id.Tsid;
+import lombok.Getter;
 
 /**
  * Base Entity for all persistent domain objects.
@@ -95,6 +101,7 @@ public abstract class AbstractBaseEntity implements Serializable {
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy ?
-                ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+                ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() :
+                getClass().hashCode();
     }
 }
