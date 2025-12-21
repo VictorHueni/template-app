@@ -1,9 +1,10 @@
 package com.example.demo.testsupport;
 
-import io.restassured.RestAssured;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.web.server.LocalServerPort;
+
+import io.restassured.RestAssured;
 
 /**
  * Base class for REST API integration tests using RestAssured.

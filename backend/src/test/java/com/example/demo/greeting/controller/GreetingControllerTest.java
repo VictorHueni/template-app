@@ -1,9 +1,8 @@
 package com.example.demo.greeting.controller;
 
-import com.example.demo.api.v1.model.*;
-import com.example.demo.common.exception.ResourceNotFoundException;
-import com.example.demo.greeting.model.Greeting;
-import com.example.demo.greeting.service.GreetingService;
+import java.time.Instant;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -11,12 +10,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.time.Instant;
-import java.util.Optional;
+import com.example.demo.api.v1.model.GreetingResponse;
+import com.example.demo.api.v1.model.PatchGreetingRequest;
+import com.example.demo.api.v1.model.UpdateGreetingRequest;
+import com.example.demo.common.exception.ResourceNotFoundException;
+import com.example.demo.greeting.model.Greeting;
+import com.example.demo.greeting.service.GreetingService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for GreetingController.

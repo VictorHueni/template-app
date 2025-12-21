@@ -1,8 +1,5 @@
 package com.example.demo.greeting.controller;
 
-import com.example.demo.contract.OpenApiValidator;
-import com.example.demo.greeting.service.GreetingService;
-import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -13,9 +10,17 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 
+import com.example.demo.greeting.service.GreetingService;
+import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
+
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
 /**

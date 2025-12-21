@@ -1,12 +1,15 @@
 package com.example.demo.common.exception.handler;
 
-import com.example.demo.common.exception.BusinessValidationException;
-import com.example.demo.common.exception.ConflictException;
-import com.example.demo.common.exception.ProblemType;
-import com.example.demo.common.exception.ResourceNotFoundException;
+import java.net.URI;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -21,11 +24,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import com.example.demo.common.exception.BusinessValidationException;
+import com.example.demo.common.exception.ConflictException;
+import com.example.demo.common.exception.ProblemType;
+import com.example.demo.common.exception.ResourceNotFoundException;
 
 /**
  * Global exception handler for the application.
@@ -43,7 +45,7 @@ import java.util.UUID;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * Handles ResourceNotFoundException (HTTP 404)
@@ -54,7 +56,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Resource not found [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Resource not found [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
@@ -83,7 +85,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Business validation failed [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Business validation failed [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
@@ -111,7 +113,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Conflict [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Conflict [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
@@ -139,7 +141,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Validation failed [traceId={}]: {} error(s)", traceId, ex.getErrorCount());
+        LOGGER.warn("Validation failed [traceId={}]: {} error(s)", traceId, ex.getErrorCount());
 
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
@@ -173,7 +175,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Constraint violation [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Constraint violation [traceId={}]: {}", traceId, ex.getMessage());
 
         Map<String, String> errors = new HashMap<>();
         for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
@@ -204,7 +206,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Illegal argument [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Illegal argument [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
@@ -228,7 +230,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Type mismatch [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Type mismatch [traceId={}]: {}", traceId, ex.getMessage());
 
         String detail = String.format(
                 "Parameter '%s' should be of type '%s'",
@@ -260,7 +262,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("No resource found [traceId={}]: {}", traceId, request.getRequestURI());
+        LOGGER.warn("No resource found [traceId={}]: {}", traceId, request.getRequestURI());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
@@ -284,7 +286,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Authentication failed [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Authentication failed [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.UNAUTHORIZED,
@@ -308,7 +310,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.warn("Access denied [traceId={}]: {}", traceId, ex.getMessage());
+        LOGGER.warn("Access denied [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.FORBIDDEN,
@@ -332,7 +334,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        log.error("Internal server error [traceId={}]: {}", traceId, ex.getMessage(), ex);
+        LOGGER.error("Internal server error [traceId={}]: {}", traceId, ex.getMessage(), ex);
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,

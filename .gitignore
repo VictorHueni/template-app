@@ -106,7 +106,6 @@ bck/
 claude.md
 # gemini-cli settings
 .gemini/
-gemini.md
 
 # GitHub App credentials
 gha-creds-*.json

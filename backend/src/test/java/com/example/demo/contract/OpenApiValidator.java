@@ -4,6 +4,7 @@ import com.atlassian.oai.validator.OpenApiInteractionValidator;
 import com.atlassian.oai.validator.restassured.OpenApiValidationFilter;
 import com.atlassian.oai.validator.whitelist.ValidationErrorsWhitelist;
 import com.atlassian.oai.validator.whitelist.rule.WhitelistRules;
+
 import io.restassured.filter.Filter;
 
 /**

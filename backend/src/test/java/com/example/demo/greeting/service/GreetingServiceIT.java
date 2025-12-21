@@ -1,13 +1,14 @@
 package com.example.demo.greeting.service;
 
 
-import com.example.demo.greeting.model.Greeting;
-import com.example.demo.testsupport.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.example.demo.greeting.model.Greeting;
+import com.example.demo.testsupport.AbstractIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

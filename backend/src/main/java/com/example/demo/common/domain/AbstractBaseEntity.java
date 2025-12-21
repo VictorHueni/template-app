@@ -1,23 +1,43 @@
 package com.example.demo.common.domain;
 
-import io.hypersistence.utils.hibernate.id.Tsid;
-import jakarta.persistence.*;
-import lombok.Getter;
+import java.io.Serializable;
+import java.time.Instant;
+import java.util.Objects;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Version;
+
+import org.hibernate.envers.NotAudited;
 import org.hibernate.proxy.HibernateProxy;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-import java.time.Instant;
-import java.io.Serializable;
-import java.util.Objects;
+
+import io.hypersistence.utils.hibernate.id.Tsid;
+import lombok.Getter;
 
 /**
  * Base Entity for all persistent domain objects.
- * * STRATEGY: TSID (Time-Sorted Unique Identifier)
- * * Benefits:
- * 1. Fits in a Long (64-bit) -> 50% storage saving over UUID (128-bit).
- * 2. k-sortable -> Indexes like an auto-increment integer (fast inserts).
- * 3. Collision-free -> Safe for distributed systems/microservices.
+ *
+ * <p>Features:</p>
+ * <ul>
+ *   <li>TSID (Time-Sorted Unique Identifier) - 50% storage saving over UUID, k-sortable</li>
+ *   <li>JPA Auditing (@CreatedDate, @LastModifiedDate, @CreatedBy, @LastModifiedBy)</li>
+ *   <li>Hibernate Envers ready - add @Audited to subclasses that need audit history</li>
+ *   <li>Optimistic locking via @Version</li>
+ * </ul>
+ *
+ * <p>To enable Envers audit history for an entity, add {@code @Audited} to the subclass:</p>
+ * <pre>
+ * {@code @Entity}
+ * {@code @Audited}
+ * public class MyEntity extends AbstractBaseEntity { ... }
+ * </pre>
  */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
@@ -44,6 +64,18 @@ public abstract class AbstractBaseEntity implements Serializable {
     @Getter
     private Instant updatedAt;
 
+    @CreatedBy
+    @Column(name = "created_by_id", nullable = false, updatable = false)
+    @NotAudited
+    @Getter
+    private String createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by_id")
+    @NotAudited
+    @Getter
+    private String updatedBy;
+
 
     /**
      * Effective Java equality pattern for Hibernate entities.
@@ -69,6 +101,7 @@ public abstract class AbstractBaseEntity implements Serializable {
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy ?
-                ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+                ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() :
+                getClass().hashCode();
     }
 }

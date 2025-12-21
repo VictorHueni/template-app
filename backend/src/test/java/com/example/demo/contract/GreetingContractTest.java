@@ -1,16 +1,26 @@
 package com.example.demo.contract;
 
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.repository.UserRepository;
+
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.matchesRegex;
+import static org.hamcrest.Matchers.notNullValue;
+
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
 
 /**
  * Contract tests that validate API responses match the OpenAPI specification.
@@ -50,10 +60,27 @@ class GreetingContractTest {
     @LocalServerPort
     private int port;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Value("${admin.username:admin}")
+    private String adminUsername;
+
+    @Value("${admin.password:devpassword}")
+    private String adminPassword;
+
+
+
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
         RestAssured.baseURI = "http://localhost";
+
+        // Ensure system user exists for JPA auditing
+        if (userRepository.findByUsername(adminUsername).isEmpty()) {
+            UserDetailsImpl systemUser = new UserDetailsImpl(adminUsername, adminPassword);
+            userRepository.saveAndFlush(systemUser);
+        }
     }
 
     /**

@@ -30,10 +30,24 @@
 		<java.version>25</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<hypersistence-utils.version>3.13.2</hypersistence-utils.version>
+		<archunit.version>1.4.1</archunit.version>
+		<spring-modulith.version>1.4.5</spring-modulith.version>
 		<!-- default: do NOT skip unit tests -->
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
 	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.modulith</groupId>
+				<artifactId>spring-modulith-bom</artifactId>
+				<version>${spring-modulith.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<!-- Spring Boot Actuator -->
 		<dependency>
@@ -82,6 +96,18 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+
+		<!-- Hibernate Envers for audit history tables -->
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-envers</artifactId>
+		</dependency>
+
+		<!-- Spring Data Envers for RevisionRepository support -->
+		<dependency>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-envers</artifactId>
 		</dependency>
 
 		<dependency>
@@ -167,6 +193,38 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<!-- ArchUnit for architectural testing -->
+		<dependency>
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit-junit5-api</artifactId>
+			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Spring Modulith: JPA event store (transactional outbox pattern) -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-jpa</artifactId>
+		</dependency>
+
+		<!-- Spring Modulith: Observability (Micrometer tracing for trace_id propagation) -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-insight</artifactId>
+		</dependency>
+
+		<!-- Micrometer Tracing with OpenTelemetry bridge -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-tracing-bridge-otel</artifactId>
+		</dependency>
+
+		<!-- Spring Modulith: Testing support (@ApplicationModuleTest, Scenario) -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-test</artifactId>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
@@ -260,9 +318,12 @@
 				<version>3.6.0</version>
 				<configuration>
 					<!-- use builtin google_checks.xml to start with -->
-					<configLocation>google_checks.xml</configLocation>
+					<configLocation>checkstyle.xml</configLocation>
 					<failOnViolation>true</failOnViolation>
 					<excludes>**/target/generated-sources/**/*.java</excludes>
+
+                    <suppressionsLocation>checkstyle-suppressions.xml</suppressionsLocation>
+                    <suppressionsFileExpression>checkstyle.suppressions.file</suppressionsFileExpression>
 				</configuration>
 				<!-- Executions moved to quality-check profile -->
 			</plugin>
