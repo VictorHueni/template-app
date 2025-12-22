@@ -1,17 +1,19 @@
 package com.example.demo.audit;
 
-import java.time.Instant;
-
+import com.example.demo.greeting.event.GreetingCreatedEvent;
+import com.example.demo.testsupport.GlobalTestConfiguration;
+import com.example.demo.testsupport.TestcontainersConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.example.demo.testsupport.TestcontainersConfiguration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,11 +28,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ApplicationModuleTest(mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES)
 @ContextConfiguration(classes = TestcontainersConfiguration.class)
-@Import(AuditModuleTestConfiguration.class)
+@Import(GlobalTestConfiguration.class)
 class AuditModuleTest {
 
     @Autowired
     private BusinessActivityLogRepository repository;
+
+    @MockitoBean
+    private org.springframework.data.domain.AuditorAware<String> auditorAware;
 
     @Test
     @DisplayName("records GreetingCreatedEvent in business activity log")

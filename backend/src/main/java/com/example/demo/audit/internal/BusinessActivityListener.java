@@ -2,8 +2,11 @@ package com.example.demo.audit.internal;
 
 import java.util.Map;
 
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
@@ -36,13 +39,14 @@ class BusinessActivityListener {
 
     BusinessActivityListener(
             BusinessActivityLogRepository repository,
-            ObjectMapper objectMapper,
+            @Lazy ObjectMapper objectMapper,
             AuditorAware<String> auditorAware,
-            Tracer tracer) {
+            ObjectProvider<Tracer> tracerProvider) {
+
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.auditorAware = auditorAware;
-        this.tracer = tracer;
+        this.tracer = tracerProvider.getIfAvailable();
     }
 
     /**

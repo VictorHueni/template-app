@@ -94,12 +94,11 @@ class GreetingControllerTest {
             String idStr = String.valueOf(id);
             when(service.getGreeting(id)).thenReturn(Optional.empty());
 
-            // Act
-            ResponseEntity<GreetingResponse> response = controller.getGreeting(idStr);
-
-            // Assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-            assertThat(response.getBody()).isNull();
+            // Act & Assert
+            assertThatThrownBy(() -> controller.getGreeting(idStr))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Greeting") // Optional: Check message content
+                    .hasMessageContaining(idStr);
 
             verify(service).getGreeting(id);
         }

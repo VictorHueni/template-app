@@ -18,7 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -27,6 +30,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -48,10 +53,13 @@ class GlobalExceptionHandlerTest {
     @Mock
     private HttpServletRequest request;
 
+    private WebRequest webRequest;
+
     @BeforeEach
     void setUp() {
         handler = new GlobalExceptionHandler();
         when(request.getRequestURI()).thenReturn("/api/v1/test");
+        webRequest = new ServletWebRequest(request);
     }
 
     @Nested
@@ -514,7 +522,7 @@ class GlobalExceptionHandlerTest {
         @DisplayName("should return 404 for unmapped URLs")
         void shouldReturn404ForUnmappedUrls() {
             // Arrange
-            var exception = new NoResourceFoundException(null, "/static/missing.js");
+            var exception = new NoResourceFoundException(HttpMethod.GET, null, "/static/missing.js");
 
             // Act
             ResponseEntity<ProblemDetail> response = handler.handleNoResourceFound(exception, request);
@@ -532,7 +540,7 @@ class GlobalExceptionHandlerTest {
         @DisplayName("should include trace ID and timestamp")
         void shouldIncludeTraceIdAndTimestamp() {
             // Arrange
-            var exception = new NoResourceFoundException(null, "/favicon.ico");
+            var exception = new NoResourceFoundException(HttpMethod.GET, null, "/favicon.ico");
 
             // Act
             ResponseEntity<ProblemDetail> response = handler.handleNoResourceFound(exception, request);

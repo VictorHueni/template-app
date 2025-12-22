@@ -1,11 +1,14 @@
 package com.example.demo.contract;
 
+import com.example.demo.testsupport.GlobalTestConfiguration;
+import com.example.demo.testsupport.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.example.demo.user.domain.UserDetailsImpl;
@@ -54,6 +57,7 @@ import io.restassured.http.ContentType;
  * @see OpenApiValidator
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import({TestcontainersConfiguration.class, GlobalTestConfiguration.class})
 @ActiveProfiles("test")
 class GreetingContractTest {
 
@@ -287,6 +291,7 @@ class GreetingContractTest {
                 .when()
                 .post("/api/v1/greetings")
                 .then()
+                .log().all()  // Log the full response for debugging
                 .statusCode(400)
                 .body("type", is(notNullValue()))
                 .body("title", is(notNullValue()))

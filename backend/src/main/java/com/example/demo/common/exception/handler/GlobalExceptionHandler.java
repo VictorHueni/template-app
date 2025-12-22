@@ -1,33 +1,35 @@
 package com.example.demo.common.exception.handler;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
+import com.example.demo.common.exception.BusinessValidationException;
+import com.example.demo.common.exception.ConflictException;
+import com.example.demo.common.exception.ProblemType;
+import com.example.demo.common.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import com.example.demo.common.exception.BusinessValidationException;
-import com.example.demo.common.exception.ConflictException;
-import com.example.demo.common.exception.ProblemType;
-import com.example.demo.common.exception.ResourceNotFoundException;
+import java.net.URI;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Global exception handler for the application.
@@ -347,6 +349,110 @@ public class GlobalExceptionHandler {
         enrichProblemDetail(problemDetail, traceId);
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problemDetail);
+    }
+
+    /**
+     * Handles HttpMessageNotReadableException - malformed JSON or invalid request body (HTTP 400)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request) {
+
+        String traceId = generateTraceId();
+        LOGGER.warn("Message not readable [traceId={}]: {}", traceId, ex.getMessage());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Invalid request content"
+        );
+        problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
+        problemDetail.setTitle("Bad Request");
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
+
+        enrichProblemDetail(problemDetail, traceId);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    /**
+     * Handles MissingServletRequestParameterException (HTTP 400)
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ProblemDetail> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex,
+            HttpServletRequest request) {
+
+        String traceId = generateTraceId();
+        LOGGER.warn("Missing parameter [traceId={}]: {}", traceId, ex.getMessage());
+
+        String detail = String.format("Required parameter '%s' of type '%s' is missing",
+                ex.getParameterName(), ex.getParameterType());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                detail
+        );
+        problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
+        problemDetail.setTitle("Bad Request");
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
+
+        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("parameter", ex.getParameterName());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    /**
+     * Handles HttpRequestMethodNotSupportedException (HTTP 405)
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ProblemDetail> handleHttpRequestMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request) {
+
+        String traceId = generateTraceId();
+        LOGGER.warn("Method not supported [traceId={}]: {}", traceId, ex.getMessage());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                String.format("Method '%s' is not supported for this endpoint", ex.getMethod())
+        );
+        problemDetail.setType(URI.create(ProblemType.METHOD_NOT_ALLOWED));
+        problemDetail.setTitle("Method Not Allowed");
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
+
+        enrichProblemDetail(problemDetail, traceId);
+
+        if (ex.getSupportedMethods() != null) {
+            problemDetail.setProperty("supportedMethods", ex.getSupportedMethods());
+        }
+
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(problemDetail);
+    }
+
+    /**
+     * Handles HttpMediaTypeNotSupportedException (HTTP 415)
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ProblemDetail> handleHttpMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request) {
+
+        String traceId = generateTraceId();
+        LOGGER.warn("Media type not supported [traceId={}]: {}", traceId, ex.getMessage());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                String.format("Content type '%s' is not supported", ex.getContentType())
+        );
+        problemDetail.setType(URI.create(ProblemType.UNSUPPORTED_MEDIA_TYPE));
+        problemDetail.setTitle("Unsupported Media Type");
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
+
+        enrichProblemDetail(problemDetail, traceId);
+
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(problemDetail);
     }
 
     /**
