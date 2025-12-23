@@ -9,6 +9,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -368,9 +370,7 @@ public class GlobalExceptionHandler {
         );
         problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
         problemDetail.setTitle("Bad Request");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        enrichProblemDetail(problemDetail, traceId, request);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
@@ -420,9 +420,8 @@ public class GlobalExceptionHandler {
         );
         problemDetail.setType(URI.create(ProblemType.METHOD_NOT_ALLOWED));
         problemDetail.setTitle("Method Not Allowed");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
 
-        enrichProblemDetail(problemDetail, traceId);
+        enrichProblemDetail(problemDetail, traceId, request);
 
         if (ex.getSupportedMethods() != null) {
             problemDetail.setProperty("supportedMethods", ex.getSupportedMethods());
@@ -459,6 +458,12 @@ public class GlobalExceptionHandler {
      * Adds common custom properties to all problem details
      */
     private void enrichProblemDetail(ProblemDetail problemDetail, String traceId) {
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("traceId", traceId);
+    }
+
+    private void enrichProblemDetail(ProblemDetail problemDetail, String traceId, HttpServletRequest request) {
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
         problemDetail.setProperty("timestamp", Instant.now());
         problemDetail.setProperty("traceId", traceId);
     }
