@@ -98,7 +98,7 @@ public class GreetingController implements GreetingsApi {
         return service.getGreeting(idLong)
                 .map(this::toGreetingResponse)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
     }
 
     @Override

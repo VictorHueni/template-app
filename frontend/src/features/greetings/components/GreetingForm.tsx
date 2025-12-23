@@ -61,7 +61,7 @@ export function GreetingForm({
 
         onSubmit({
             message: message.trim(),
-            recipient: recipient.trim() || undefined,
+            recipient: recipient.trim(),
         });
     };
 

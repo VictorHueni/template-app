@@ -5,15 +5,17 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.example.demo.greeting.event.GreetingCreatedEvent;
 import com.example.demo.testsupport.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Module test for the Audit module.
@@ -26,11 +28,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ApplicationModuleTest(mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES)
 @ContextConfiguration(classes = TestcontainersConfiguration.class)
-@Import(AuditModuleTestConfiguration.class)
 class AuditModuleTest {
 
     @Autowired
     private BusinessActivityLogRepository repository;
+
+    @MockitoBean
+    private org.springframework.data.domain.AuditorAware<String> auditorAware;
+
+    @Autowired
+    private JsonMapper jsonMapper;
 
     @Test
     @DisplayName("records GreetingCreatedEvent in business activity log")

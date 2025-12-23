@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
@@ -11,9 +12,11 @@ import org.springframework.stereotype.Component;
 import com.example.demo.audit.BusinessActivityLog;
 import com.example.demo.audit.BusinessActivityLogRepository;
 import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micrometer.tracing.Tracer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Event listener that records business activities in the audit log.
@@ -30,19 +33,20 @@ class BusinessActivityListener {
     private static final Logger LOG = LoggerFactory.getLogger(BusinessActivityListener.class);
 
     private final BusinessActivityLogRepository repository;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final AuditorAware<String> auditorAware;
     private final Tracer tracer;
 
     BusinessActivityListener(
             BusinessActivityLogRepository repository,
-            ObjectMapper objectMapper,
+            JsonMapper jsonMapper,
             AuditorAware<String> auditorAware,
-            Tracer tracer) {
+            ObjectProvider<Tracer> tracerProvider) {
+
         this.repository = repository;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.auditorAware = auditorAware;
-        this.tracer = tracer;
+        this.tracer = tracerProvider.getIfAvailable();
     }
 
     /**
@@ -98,13 +102,12 @@ class BusinessActivityListener {
     /**
      * Serializes the event to a Map for JSONB storage.
      */
-    @SuppressWarnings("unchecked")
     private Map<String, Object> serializeEventData(Object event) {
         try {
-            return objectMapper.convertValue(event, Map.class);
+            return jsonMapper.convertValue(event, new TypeReference<Map<String, Object>>() {});
         }
-        catch (IllegalArgumentException e) {
-            LOG.warn("Failed to serialize event data for {}: {}", event.getClass().getSimpleName(), e.getMessage());
+        catch (JacksonException e) {
+            LOG.warn("Failed to serialize event data for {}:{}", event.getClass().getSimpleName(), e.getMessage());
             return Map.of("error", "serialization_failed", "eventType", event.getClass().getSimpleName());
         }
     }

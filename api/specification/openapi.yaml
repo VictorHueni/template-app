@@ -110,6 +110,7 @@ paths:
                 summary: Create greeting without recipient (optional field)
                 value:
                   message: "Good morning!"
+                  recipient: "Everyone"
       responses:
         '201':
           description: Created
@@ -483,7 +484,7 @@ components:
           type: string
           description: Who the greeting is for
           example: "Universe"
-      required: [message]
+      required: [message, recipient]
 
     UpdateGreetingRequest:
       type: object
