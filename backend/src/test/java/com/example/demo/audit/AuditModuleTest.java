@@ -1,20 +1,21 @@
 package com.example.demo.audit;
 
-import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.example.demo.testsupport.TestcontainersConfiguration;
+import java.time.Instant;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Instant;
+import com.example.demo.greeting.event.GreetingCreatedEvent;
+import com.example.demo.testsupport.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Module test for the Audit module.

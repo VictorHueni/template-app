@@ -2,7 +2,6 @@ package com.example.demo.testsupport;
 
 import java.util.List;
 
-
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

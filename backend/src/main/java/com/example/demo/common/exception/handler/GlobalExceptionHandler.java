@@ -1,16 +1,17 @@
 package com.example.demo.common.exception.handler;
 
-import com.example.demo.common.exception.BusinessValidationException;
-import com.example.demo.common.exception.ConflictException;
-import com.example.demo.common.exception.ProblemType;
-import com.example.demo.common.exception.ResourceNotFoundException;
+import java.net.URI;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -27,11 +28,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import com.example.demo.common.exception.BusinessValidationException;
+import com.example.demo.common.exception.ConflictException;
+import com.example.demo.common.exception.ProblemType;
+import com.example.demo.common.exception.ResourceNotFoundException;
 
 /**
  * Global exception handler for the application.

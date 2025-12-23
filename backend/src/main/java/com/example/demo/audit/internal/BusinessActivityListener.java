@@ -5,7 +5,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
@@ -13,10 +12,10 @@ import org.springframework.stereotype.Component;
 import com.example.demo.audit.BusinessActivityLog;
 import com.example.demo.audit.BusinessActivityLogRepository;
 import com.example.demo.greeting.event.GreetingCreatedEvent;
-import tools.jackson.core.JacksonException;
-import tools.jackson.core.type.TypeReference;
 
 import io.micrometer.tracing.Tracer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -108,7 +107,7 @@ class BusinessActivityListener {
             return jsonMapper.convertValue(event, new TypeReference<Map<String, Object>>() {});
         }
         catch (JacksonException e) {
-            LOG.warn("Failed to serialize event data for {}: {}", event.getClass().getSimpleName(), e.getMessage());
+            LOG.warn("Failed to serialize event data for {}:{}", event.getClass().getSimpleName(), e.getMessage());
             return Map.of("error", "serialization_failed", "eventType", event.getClass().getSimpleName());
         }
     }
