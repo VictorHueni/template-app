@@ -33,7 +33,7 @@ import static org.hamcrest.Matchers.notNullValue;
  * </ol>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "integration"})
 @Execution(ExecutionMode.SAME_THREAD)
 class BusinessActivityIT extends AbstractRestAssuredIntegrationTest {
 

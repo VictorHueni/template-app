@@ -2,13 +2,11 @@ package com.example.demo.greeting.controller;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestExecutionListeners;
 
 import com.example.demo.greeting.service.GreetingService;
 import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
@@ -21,7 +19,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 /**
  * API-level integration tests for Greeting HTTP endpoints.
@@ -37,12 +35,8 @@ import static org.springframework.test.context.TestExecutionListeners.MergeMode.
  * Instead, we clean up test data manually in @BeforeEach.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-@Execution(ExecutionMode.SAME_THREAD)
-@TestExecutionListeners(
-    listeners = {},
-    mergeMode = MERGE_WITH_DEFAULTS
-)
+@ActiveProfiles({"test", "integration"})
+@ResourceLock(value = "DB", mode = READ_WRITE)
 class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
     @Autowired
@@ -58,7 +52,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
      */
     @BeforeEach
     void cleanupDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE greeting CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE greeting RESTART IDENTITY CASCADE");
     }
 
     @Test
@@ -76,6 +70,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("recipient", equalTo("Charlie"))
                 .body("message", equalTo("Hello, World!"))
                 .body("id", notNullValue())
+                .body("reference", matchesPattern("^GRE-\\d{4}-\\d{6}$"))
                 .body("createdAt", notNullValue());
     }
 
@@ -99,7 +94,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("data", hasSize(greaterThanOrEqualTo(2)))
                 .body("data[0].id", notNullValue())
                 .body("data[0].message", notNullValue())
-                .body("data[0].reference", notNullValue())
+                .body("data[0].reference", matchesPattern("^GRE-\\d{4}-\\d{6}$"))
                 // Validate Page Metadata
                 .body("meta.pageNumber", equalTo(0))
                 .body("meta.pageSize", equalTo(10))
@@ -125,6 +120,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .statusCode(200)
                 .body("id", equalTo(String.valueOf(created.getId())))
                 .body("reference", equalTo(created.getReference()))
+                .body("reference", matchesPattern("^GRE-\\d{4}-\\d{6}$"))
                 .body("message", equalTo("Hello GET"))
                 .body("recipient", equalTo("GetTest"))
                 .body("createdAt", notNullValue());
@@ -138,7 +134,12 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .when()
                 .get("/api/v1/greetings/{id}", 999999999L)
                 .then()
-                .statusCode(404);
+                .statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("https://api.example.com/problems/resource-not-found"))
+                .body("title", equalTo("Resource Not Found"))
+                .body("status", equalTo(404))
+                .body("traceId", notNullValue());
     }
 
     @Test
@@ -308,5 +309,28 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("id", equalTo(String.valueOf(created.getId())))
                 // Verify it's a numeric string (digits only)
                 .body("id", matchesPattern("^\\d+$"));
+    }
+
+    // ============================================================
+    // Validation Error Tests (RFC 7807 Problem Detail format)
+    // ============================================================
+
+    @Test
+    void returns400WhenCreatingGreetingWithMissingRequiredField() {
+        // Missing 'message' field which is required
+        given()
+                .filter(validationFilter())
+                .contentType("application/json")
+                .body("""
+                       {"recipient": "Test"}
+                       """)
+                .when()
+                .post("/api/v1/greetings")
+                .then()
+                .statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", notNullValue())
+                .body("title", notNullValue())
+                .body("status", equalTo(400));
     }
 }

@@ -221,6 +221,16 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Flyway for Database Migrations -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -431,10 +441,13 @@
 				<version>3.5.4</version>
 				<configuration>
 					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
-				<includes>
-					<include>**/*IT.java</include>
-					<include>**/*ITCase.java</include>
-				</includes>
+					<forkCount>1C</forkCount>
+					<reuseForks>true</reuseForks>
+					<includes>
+						<include>**/*IT.java</include>
+						<include>**/*ITCase.java</include>
+					</includes>
+
 
 				<!--
 					JUnit 5 Parallel Execution Configuration:

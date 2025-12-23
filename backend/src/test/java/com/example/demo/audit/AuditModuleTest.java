@@ -7,11 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
-import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.example.demo.testsupport.TestcontainersConfiguration;
+import com.example.demo.testsupport.AbstractIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,8 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
  * the resulting state changes.</p>
  */
 @ApplicationModuleTest(mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES)
-@ContextConfiguration(classes = TestcontainersConfiguration.class)
-class AuditModuleTest {
+@ActiveProfiles({"test", "integration"})
+class AuditModuleTest extends AbstractIntegrationTest {
 
     @Autowired
     private BusinessActivityLogRepository repository;

@@ -9,6 +9,7 @@ import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,6 +32,7 @@ import com.example.demo.user.domain.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ;
 
 /**
  * Integration test for GreetingRepository with real PostgreSQL database.
@@ -38,7 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @Transactional
-@ActiveProfiles("test")
+@ActiveProfiles({"integration"})
+@ResourceLock(value = "DB", mode = READ)
 class GreetingRepositoryIT extends AbstractIntegrationTest {
 
 
@@ -254,7 +257,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldCreateAuditRevisionOnSave() {
-        String uniqueRef = "GRE-ENVERS-" + System.currentTimeMillis();
+        String uniqueRef = String.format("GRE-1001-%06d", System.currentTimeMillis() % 1000000);
         AtomicLong greetingId = new AtomicLong();
 
         // Transaction 1: Create and save greeting
@@ -283,7 +286,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldTrackMultipleRevisions() {
-        String uniqueRef = "GRE-MULTI-" + System.currentTimeMillis();
+        String uniqueRef = String.format("GRE-1002-%06d", System.currentTimeMillis() % 1000000);
         AtomicLong greetingId = new AtomicLong();
 
         // Transaction 1: Create greeting
@@ -327,7 +330,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldCaptureUsernameInRevision() {
-        String uniqueRef = "GRE-USER-" + System.currentTimeMillis();
+        String uniqueRef = String.format("GRE-1003-%06d", System.currentTimeMillis() % 1000000);
         AtomicLong greetingId = new AtomicLong();
 
         // Transaction 1: Create greeting
@@ -376,7 +379,7 @@ class GreetingRepositoryIT extends AbstractIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldFindSpecificRevision() {
-        String uniqueRef = "GRE-SPECIFIC-" + System.currentTimeMillis();
+        String uniqueRef = String.format("GRE-1004-%06d", System.currentTimeMillis() % 1000000);
         AtomicLong greetingId = new AtomicLong();
         AtomicInteger firstRevNumber = new AtomicInteger();
 

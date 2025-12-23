@@ -82,23 +82,29 @@ java -jar target/demo-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
 ### Testing
 
 ```powershell
-# Run all tests
+# Run all tests (Unit + Integration)
 ./mvnw clean verify
 
 # Run only unit tests
 ./mvnw test
 
-# Run only integration tests
-./mvnw verify -DskipUTs=true
+# Run only integration tests (Profile)
+./mvnw verify -Pintegration-tests
 
-# Run with coverage
-./mvnw clean test jacoco:report
+# Run integration tests in parallel (Profile)
+./mvnw verify -Pparallel-its
+
+# Run fast CI build (Unit tests only, skips quality checks & ITs)
+./mvnw clean test -Pci-fast
+
+# Run full build (Unit + IT + Quality + Coverage)
+./mvnw clean verify -Pfull-build
+
+# Verify Coverage Compliance (Fails if < 80%)
+./mvnw verify -Pcoverage-enforce
 
 # Skip all tests
 ./mvnw clean package -DskipTests
-
-# Skip specific test types
-./mvnw package -DskipUTs=true -DskipITs=true
 ```
 
 ### Code Quality & Static Analysis
@@ -113,8 +119,8 @@ java -jar target/demo-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
 # Run SpotBugs + FindSecBugs
 ./mvnw spotbugs:check
 
-# Run all static analysis (Checkstyle + PMD + SpotBugs)
-./mvnw verify -DskipUTs=true -DskipITs=true
+# Run all static analysis (Fast - Uses quality-check profile)
+./mvnw clean compile -Pquality-check
 
 # Generate PMD report
 ./mvnw pmd:pmd
@@ -405,6 +411,7 @@ curl http://localhost:4173
 ### Backend Reports Location
 
 - **JaCoCo Coverage**: `backend/target/site/jacoco/index.html`
+- **Spring Modulith Docs**: `backend/target/spring-modulith-docs/`
 - **Surefire (Unit Tests)**: `backend/target/surefire-reports/`
 - **Failsafe (Integration Tests)**: `backend/target/failsafe-reports/`
 - **Checkstyle**: `backend/target/checkstyle-result.xml`
@@ -432,7 +439,7 @@ curl http://localhost:4173
 | Frontend tests   | `cd frontend && npm test`                                                            |
 | Backend run      | `cd backend && ./mvnw spring-boot:run`                                               |
 | Frontend run     | `cd frontend && npm run dev`                                                         |
-| Lint backend     | `cd backend && ./mvnw verify -DskipUTs=true -DskipITs=true`                          |
+| Lint backend     | `cd backend && ./mvnw clean compile -Pquality-check`                                 |
 | Lint frontend    | `cd frontend && npm run lint`                                                        |
 | Security scan    | `docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep --config "p/default" /src` |
 | Generate SBOM    | `cd backend && ./mvnw package -DskipTests`                                           |
