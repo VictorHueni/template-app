@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 import org.hibernate.envers.RevisionEntity;
@@ -38,7 +39,8 @@ import lombok.Setter;
 public class CustomRevisionEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @SequenceGenerator(name = "seq_revinfo_id", sequenceName = "seq_revinfo_id", allocationSize = 50)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_revinfo_id")
     @RevisionNumber
     @Column(name = "rev")
     private int id;

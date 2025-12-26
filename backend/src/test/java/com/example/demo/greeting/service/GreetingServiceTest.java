@@ -91,7 +91,7 @@ class GreetingServiceTest {
         @Test
         @DisplayName("creates greeting with message, recipient and reference")
         void createsGreetingWithMessageAndTimestamp() {
-            when(idGenerator.generate("greeting_sequence", "GRE")).thenReturn("GRE-2025-000042");
+            when(idGenerator.generate("seq_greeting_reference", "GRE")).thenReturn("GRE-2025-000042");
             when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             Greeting result = service.createGreeting("Hello, World!", "Alice");
@@ -101,7 +101,7 @@ class GreetingServiceTest {
             assertThat(result.getReference()).isEqualTo("GRE-2025-000042");
             // Note: createdAt is populated by JPA Auditing, not available in unit tests
 
-            verify(idGenerator).generate("greeting_sequence", "GRE");
+            verify(idGenerator).generate("seq_greeting_reference", "GRE");
             verify(repo).save(any(Greeting.class));
         }
     }

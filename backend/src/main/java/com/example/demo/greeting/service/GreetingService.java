@@ -42,8 +42,9 @@ public class GreetingService {
         Greeting entity = new Greeting(recipient, message);
 
         // Generate human-readable functional ID (e.g., GRE-2025-000042)
+        // Uses seq_greeting_reference sequence per naming convention: seq_{table}_{column}
         // This runs in its own transaction to ensure sequence integrity
-        String reference = idGenerator.generate("greeting_sequence", "GRE");
+        String reference = idGenerator.generate("seq_greeting_reference", "GRE");
         entity.setReference(reference);
 
         // Save: Both TSID and functional ID are now set
