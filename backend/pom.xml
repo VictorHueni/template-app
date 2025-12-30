@@ -447,43 +447,6 @@
 						<include>**/*IT.java</include>
 						<include>**/*ITCase.java</include>
 					</includes>
-
-
-				<!--
-					JUnit 5 Parallel Execution Configuration:
-					Source: https://maven.apache.org/surefire/maven-failsafe-plugin/examples/junit-platform.html
-
-					Note: JUnit 5 does NOT support parallel execution via Maven's <parallel> parameter.
-					Instead, use JUnit Jupiter's configurationParameters.
-
-					Configuration:
-					- junit.jupiter.execution.parallel.enabled=true: Enable parallel execution
-					- junit.jupiter.execution.parallel.mode.default=same_thread: Methods within a class run sequentially
-					- junit.jupiter.execution.parallel.mode.classes.default=concurrent: Test classes run in parallel
-					- junit.jupiter.execution.parallel.config.strategy=fixed: Use fixed thread pool
-					- junit.jupiter.execution.parallel.config.fixed.parallelism=2: 2 concurrent test classes
-
-					Thread-Safety:
-					- PostgreSQL container handles concurrent connections (max_connections=100)
-					- @Transactional ensures data isolation (each test gets its own transaction)
-					- Spring TestContext is thread-safe
-					- RestAssured configuration is reset per test (@BeforeEach/@AfterEach)
-
-					Performance:
-					- Sequential: 3 test classes × 40s = ~120s
-					- Parallel (2 threads): ~60s wall time (50% improvement)
-					- Combined with Testcontainers reuse: ~45s subsequent runs
-				-->
-				<properties>
-					<configurationParameters>
-						junit.jupiter.execution.parallel.enabled = true
-						junit.jupiter.execution.parallel.mode.default = same_thread
-						junit.jupiter.execution.parallel.mode.classes.default = concurrent
-						junit.jupiter.execution.parallel.config.strategy = fixed
-						junit.jupiter.execution.parallel.config.fixed.parallelism = 2
-					</configurationParameters>
-				</properties>
-
 				<!--
 					JVM arguments for integration test execution:
 					- -Xmx512m: Sets maximum heap memory to 512MB (integration tests with Testcontainers need more memory)

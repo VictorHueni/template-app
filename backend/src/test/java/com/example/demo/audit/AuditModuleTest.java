@@ -13,9 +13,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.example.demo.greeting.event.GreetingCreatedEvent;
 import com.example.demo.testsupport.AbstractIntegrationTest;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import tools.jackson.databind.json.JsonMapper;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Module test for the Audit module.

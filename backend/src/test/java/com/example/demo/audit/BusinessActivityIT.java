@@ -2,23 +2,17 @@ package com.example.demo.audit;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.AuditorAware;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
 import com.example.demo.testsupport.DatabaseCleanupHelper;
@@ -28,7 +22,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
-import static org.mockito.Mockito.when;
 
 /**
  * End-to-end integration test for the Business Activity Audit system.
