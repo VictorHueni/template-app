@@ -1,4 +1,4 @@
-package com.example.demo.common;
+package com.example.demo.testsupport;
 
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
@@ -16,7 +16,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
  * - ✅ Each test should use @Transactional to ensure data isolation
  * - ✅ Spring TestContext framework is thread-safe
  * - ✅ No shared mutable state between test classes
- * - ⚠️ Use consistent @ActiveProfiles across tests to maximize context caching
+ * - ⚠️ ️ REQUIRED: Use @ActiveProfiles({"test", "integration"}) for all integration tests
  * <p>
  * Subclasses should add:
  * - @SpringBootTest with appropriate webEnvironment
