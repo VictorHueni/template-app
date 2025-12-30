@@ -1,4 +1,4 @@
-package com.example.demo.testsupport;
+package com.example.demo.common;
 
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
