@@ -167,5 +167,49 @@ public class GreetingController {
 -   **`@Data`**: **FORBIDDEN** on `@Entity` classes.
 -   **`@EqualsAndHashCode`**: **FORBIDDEN** on `@Entity` classes. Use the implementation from `AbstractBaseEntity`.
 
+## 7. Database Naming Conventions
+
+### 7.1. Core Principles
+1.  **snake_case Everywhere**: All database objects (tables, columns, indexes, constraints) use `lower_snake_case`.
+2.  **No Redundancy**: Do not repeat the table name in the column name (e.g., use `email`, not `user_email`).
+3.  **Full Words**: Avoid cryptic abbreviations. Use `account`, not `acct`.
+4.  **Explicit Constraints**: All constraints (PK, FK, UK) must have meaningful, deterministic names.
+5.  **Module Scoping**: Tables are namespaced by their functional module (e.g., `auth_user`).
+
+### 7.2. Tables & Columns
+-   **Tables**: `{module}_{entity}` in singular form (e.g., `auth_user`, `sales_order`).
+-   **Columns**: `snake_case` attribute names (e.g., `first_name`, `is_active`, `created_at`).
+-   **Primary Keys**: Always named `id` (TSID).
+-   **Foreign Keys**: `{target_entity}_id` (e.g., `user_id`, `parent_id`).
+
+### 7.3. Constraint Naming
+Constraint names must be explicit to ensure readability.
+
+| Object | Prefix | Pattern | Example |
+|--------|:------:|---------|---------|
+| **Primary Key** | `pk_` | `pk_{table}` | `pk_auth_user` |
+| **Foreign Key** | `fk_` | `fk_{source}_{source_column}_{target}` | `fk_sales_order_user_id_auth_user` |
+| **Unique Key** | `uk_` | `uk_{table}_{column}` | `uk_auth_user_email` |
+| **Check** | `chk_` | `chk_{table}_{condition}` | `chk_sales_order_positive_total` |
+| **Index** | `ix_` | `ix_{table}_{column}` | `ix_sales_order_user_id` |
+
+> **Note:** FK names must include the source column name to prevent collisions when multiple FKs reference the same target table.
+
+### 7.4. Sequences
+-   **Pattern**: `seq_{table}_{column}`
+-   **Usage**: Must be explicitly defined using `@SequenceGenerator`.
+    ```java
+    @SequenceGenerator(name = "seq_auth_user_id", sequenceName = "seq_auth_user_id", allocationSize = 50)
+    ```
+
+### 7.5. Reserved Words & Anti-Patterns
+-   **Reserved Words**: NEVER use Postgres reserved words (e.g., `user`, `order`, `limit`). Use `app_user`, `sales_order` instead.
+-   **Anti-Patterns**: Avoid `tbl_` prefixes, generic names (`data`, `info`), or mixedCase.
+
+### 7.6. Hibernate Envers
+-   **Suffix**: `_aud` (e.g., `greeting_aud`).
+-   **Columns**: `rev`, `revtype`, `revend`.
+-   **Constraint Collision**: FKs to `revinfo` must be distinct (`fk_{table}_rev_revinfo` and `fk_{table}_revend_revinfo`).
+
 ---
 This guide establishes a strict, modern, and enforceable standard for our backend code.
