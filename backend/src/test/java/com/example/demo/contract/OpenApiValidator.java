@@ -45,7 +45,7 @@ import io.restassured.filter.Filter;
  *
  * @see <a href="https://bitbucket.org/atlassian/swagger-request-validator">Swagger Request Validator</a>
  */
-public class OpenApiValidator {
+public final class OpenApiValidator {
 
     /**
      * Path to the OpenAPI specification file relative to the project root.

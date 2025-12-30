@@ -42,7 +42,9 @@ public class AppImplicitNamingStrategy extends SpringImplicitNamingStrategy {
         }
         catch (ClassNotFoundException | LinkageError e) {
             // Class not found or cannot be loaded, fallback to default naming
-            LOGGER.debug("Failed to load entity class for implicit naming strategy, using default naming convention", e);
+            LOGGER.debug(
+                    "Failed to load entity class for implicit naming strategy, using default naming convention", e
+            );
         }
         
         return toIdentifier(tableName, source.getBuildingContext());
