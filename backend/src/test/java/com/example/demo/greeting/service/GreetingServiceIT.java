@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 @SpringBootTest
-@ActiveProfiles({"integration"})
+@ActiveProfiles({"test", "integration"})
 @Transactional
 @ResourceLock(value = "DB", mode = READ_WRITE)
 class GreetingServiceIT extends AbstractIntegrationTest {

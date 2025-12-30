@@ -26,7 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Uses Spring Modulith's {@link Scenario} API to publish events and verify
  * the resulting state changes.</p>
  */
-@ApplicationModuleTest(mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES)
+@ApplicationModuleTest
 @ActiveProfiles({"test", "integration"})
 class AuditModuleTest extends AbstractIntegrationTest {
 

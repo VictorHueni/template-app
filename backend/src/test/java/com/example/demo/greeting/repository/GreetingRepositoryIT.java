@@ -32,7 +32,7 @@ import com.example.demo.user.domain.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 /**
  * Integration test for GreetingRepository with real PostgreSQL database.
@@ -40,8 +40,8 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ;
  */
 @SpringBootTest
 @Transactional
-@ActiveProfiles({"integration"})
-@ResourceLock(value = "DB", mode = READ)
+@ActiveProfiles({"test", "integration"})
+@ResourceLock(value = "DB", mode = READ_WRITE)
 class GreetingRepositoryIT extends AbstractIntegrationTest {
 
 
