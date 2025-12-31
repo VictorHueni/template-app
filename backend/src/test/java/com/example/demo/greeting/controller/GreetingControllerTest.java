@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 import com.example.demo.api.v1.model.GreetingResponse;
 import com.example.demo.api.v1.model.PatchGreetingRequest;
 import com.example.demo.api.v1.model.UpdateGreetingRequest;
-import com.example.demo.common.exception.ResourceNotFoundException;
+import com.example.demo.greeting.exception.GreetingNotFoundException;
 import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.mapper.GreetingMapperImpl;
 import com.example.demo.greeting.model.Greeting;
@@ -100,7 +100,7 @@ class GreetingControllerTest {
 
             // Act & Assert
             assertThatThrownBy(() -> controller.getGreeting(idStr))
-                    .isInstanceOf(ResourceNotFoundException.class)
+                    .isInstanceOf(GreetingNotFoundException.class)
                     .hasMessageContaining("Greeting") // Optional: Check message content
                     .hasMessageContaining(idStr);
 
@@ -140,7 +140,7 @@ class GreetingControllerTest {
 
             // Act & Assert
             assertThatThrownBy(() -> controller.deleteGreeting(idStr))
-                    .isInstanceOf(ResourceNotFoundException.class)
+                    .isInstanceOf(GreetingNotFoundException.class)
                     .hasMessageContaining("Greeting")
                     .hasMessageContaining("999");
 
@@ -186,7 +186,7 @@ class GreetingControllerTest {
 
             // Act & Assert
             assertThatThrownBy(() -> controller.updateGreeting(idStr, request))
-                    .isInstanceOf(ResourceNotFoundException.class)
+                    .isInstanceOf(GreetingNotFoundException.class)
                     .hasMessageContaining("Greeting")
                     .hasMessageContaining("999");
 
@@ -285,7 +285,7 @@ class GreetingControllerTest {
 
             // Act & Assert
             assertThatThrownBy(() -> controller.patchGreeting(idStr, request))
-                    .isInstanceOf(ResourceNotFoundException.class)
+                    .isInstanceOf(GreetingNotFoundException.class)
                     .hasMessageContaining("Greeting")
                     .hasMessageContaining("999");
 

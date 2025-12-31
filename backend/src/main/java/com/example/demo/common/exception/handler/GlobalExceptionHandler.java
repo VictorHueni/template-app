@@ -28,14 +28,28 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.example.demo.common.exception.BusinessValidationException;
 import com.example.demo.common.exception.ConflictException;
+import com.example.demo.common.exception.DomainException;
+import com.example.demo.common.exception.ProblemDetailFactory;
 import com.example.demo.common.exception.ProblemType;
 import com.example.demo.common.exception.ResourceNotFoundException;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Global exception handler for the application.
  * Converts exceptions to RFC 7807 Problem Details responses.
+ *
+ * <p><strong>Responsibilities:</strong></p>
+ * <ul>
+ *   <li>Framework exceptions (Spring, Bean Validation, Security)</li>
+ *   <li>Infrastructure exceptions (HTTP, method not allowed, media type)</li>
+ *   <li>Fallback handler for unhandled DomainExceptions</li>
+ *   <li>Common domain exceptions (ResourceNotFoundException, BusinessValidationException, ConflictException)</li>
+ * </ul>
+ *
+ * <p><strong>Module-specific exceptions</strong> are handled by module-specific
+ * {@code @RestControllerAdvice} handlers (e.g., GreetingExceptionHandler).</p>
  *
  * All responses include:
  * - type: URI identifying the problem type
@@ -45,10 +59,45 @@ import lombok.extern.slf4j.Slf4j;
  * - instance: URI identifying the specific occurrence
  * - timestamp: When the error occurred (ISO-8601)
  * - traceId: Unique identifier for debugging
+ *
+ * @since 1.0.0
  */
 @RestControllerAdvice
+@RequiredArgsConstructor
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private final ProblemDetailFactory problemDetailFactory;
+
+    /**
+     * Handles any DomainException not caught by module-specific handlers.
+     *
+     * <p>This handler acts as a fallback for domain exceptions that are not
+     * handled by module-specific {@code @RestControllerAdvice} handlers. It provides
+     * consistent RFC 7807 Problem Details responses for all domain exceptions.</p>
+     *
+     * <p>Module-specific handlers have higher precedence due to their
+     * {@code basePackages} restriction, so they will be invoked first.</p>
+     *
+     * @param ex the domain exception
+     * @param request the HTTP request that triggered the exception
+     * @return RFC 7807 Problem Detail response
+     * @since 1.1.0
+     */
+    @ExceptionHandler(DomainException.class)
+    public ResponseEntity<ProblemDetail> handleDomainException(
+            DomainException ex,
+            HttpServletRequest request) {
+
+        log.warn("Domain exception [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
+
+        ProblemDetail problemDetail = problemDetailFactory.createFromDomainException(
+                ex,
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(ex.getHttpStatus()).body(problemDetail);
+    }
 
     /**
      * Handles ResourceNotFoundException (HTTP 404)
