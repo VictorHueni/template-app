@@ -15,16 +15,14 @@ import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;
 
+import lombok.RequiredArgsConstructor;
+
 @RestController
+@RequiredArgsConstructor
 public class GreetingController implements GreetingsApi {
 
     private final GreetingService service;
     private final GreetingMapper mapper;
-
-    public GreetingController(GreetingService service, GreetingMapper mapper) {
-        this.service = service;
-        this.mapper = mapper;
-    }
 
     @Override
     public ResponseEntity<GreetingResponse> createGreeting(CreateGreetingRequest request) {

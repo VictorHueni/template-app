@@ -20,24 +20,16 @@ import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.repository.GreetingRepository;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class GreetingService {
 
     private final FunctionalIdGenerator idGenerator;
     private final GreetingRepository repository;
     private final ApplicationEventPublisher eventPublisher;
     private final GreetingMapper mapper;
-
-    public GreetingService(
-            FunctionalIdGenerator idGenerator,
-            GreetingRepository repository,
-            ApplicationEventPublisher eventPublisher,
-            GreetingMapper mapper) {
-        this.idGenerator = idGenerator;
-        this.repository = repository;
-        this.eventPublisher = eventPublisher;
-        this.mapper = mapper;
-    }
 
     @Transactional
     public Greeting createGreeting(String message, String recipient) {

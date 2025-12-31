@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.model.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;
 
 @Configuration

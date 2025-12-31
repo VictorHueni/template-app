@@ -28,7 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.example.demo.common.audit.CustomRevisionEntity;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.testsupport.AbstractIntegrationTest;
-import com.example.demo.user.domain.UserDetailsImpl;
+import com.example.demo.user.model.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;

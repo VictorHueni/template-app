@@ -1,4 +1,4 @@
-package com.example.demo.user.domain;
+package com.example.demo.user.model;
 
 import java.util.ArrayList;
 import java.util.Collection;
