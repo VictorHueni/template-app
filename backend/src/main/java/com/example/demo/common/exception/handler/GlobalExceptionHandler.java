@@ -44,21 +44,36 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>Framework exceptions (Spring, Bean Validation, Security)</li>
  *   <li>Infrastructure exceptions (HTTP, method not allowed, media type)</li>
- *   <li>Fallback handler for unhandled DomainExceptions</li>
- *   <li>Common domain exceptions (ResourceNotFoundException, BusinessValidationException, ConflictException)</li>
+ *   <li>Fallback handler for unhandled module-specific {@link DomainException}s</li>
+ *   <li>Common domain exceptions (Pattern 1): {@link ResourceNotFoundException},
+ *       {@link BusinessValidationException}, {@link ConflictException}</li>
  * </ul>
  *
- * <p><strong>Module-specific exceptions</strong> are handled by module-specific
- * {@code @RestControllerAdvice} handlers (e.g., GreetingExceptionHandler).</p>
+ * <p><strong>Exception Handling Patterns:</strong></p>
+ * <p>This application supports two complementary exception handling approaches:</p>
+ * <ul>
+ *   <li><strong>Pattern 1 (Simple):</strong> Use common exceptions (ResourceNotFoundException, etc.)
+ *       handled by this global handler for straightforward CRUD operations</li>
+ *   <li><strong>Pattern 2 (Domain-specific):</strong> Create module-specific exceptions extending
+ *       {@link DomainException} with dedicated {@code @RestControllerAdvice} handlers
+ *       (e.g., {@code GreetingExceptionHandler}). Module handlers take precedence due to
+ *       {@code basePackages} scoping.</li>
+ * </ul>
  *
- * All responses include:
- * - type: URI identifying the problem type
- * - title: Short, human-readable summary
- * - status: HTTP status code
- * - detail: Human-readable explanation
- * - instance: URI identifying the specific occurrence
- * - timestamp: When the error occurred (ISO-8601)
- * - traceId: Unique identifier for debugging
+ * <p>Both patterns are valid and respect Spring Modulith principles. Choose based on your module's needs.
+ * See {@code common.exception} package documentation for detailed guidance.</p>
+ *
+ * <p><strong>RFC 7807 Response Format:</strong></p>
+ * <p>All responses include:</p>
+ * <ul>
+ *   <li><code>type</code>: URI identifying the problem type</li>
+ *   <li><code>title</code>: Short, human-readable summary</li>
+ *   <li><code>status</code>: HTTP status code</li>
+ *   <li><code>detail</code>: Human-readable explanation</li>
+ *   <li><code>instance</code>: URI identifying the specific occurrence</li>
+ *   <li><code>timestamp</code>: When the error occurred (ISO-8601)</li>
+ *   <li><code>traceId</code>: Unique identifier for debugging</li>
+ * </ul>
  *
  * @since 1.0.0
  */

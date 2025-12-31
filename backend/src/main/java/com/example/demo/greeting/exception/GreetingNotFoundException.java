@@ -9,21 +9,41 @@ import com.example.demo.common.exception.ProblemType;
 /**
  * Exception thrown when a requested greeting cannot be found.
  *
- * <p>This is a greeting module-specific exception that replaces the generic
- * {@code ResourceNotFoundException} from the common package. It provides
- * greeting-specific error properties and problem type URIs.</p>
+ * <p><strong>This is an example of Pattern 2: Module-Specific Exceptions.</strong></p>
+ *
+ * <p>This module-specific exception demonstrates how to extend {@link DomainException}
+ * to provide domain-specific error context. It includes:</p>
+ * <ul>
+ *   <li>Custom properties: {@code greetingId}, {@code greetingReference}</li>
+ *   <li>Module-specific problem type URI: {@code /problems/greeting/not-found}</li>
+ *   <li>Domain-specific error title: "Greeting Not Found"</li>
+ *   <li>Dedicated exception handler: {@link GreetingExceptionHandler}</li>
+ * </ul>
+ *
+ * <p><strong>When to use this pattern:</strong></p>
+ * <p>Use module-specific exceptions like this when your domain has:</p>
+ * <ul>
+ *   <li>Special error properties (like functional references)</li>
+ *   <li>Domain-specific error scenarios</li>
+ *   <li>Need for specialized error handling or logging</li>
+ * </ul>
+ *
+ * <p><strong>Alternative:</strong> For simple not-found scenarios, you could also use
+ * {@code ResourceNotFoundException("Greeting", id)} from the common package.
+ * Both approaches are valid Spring Modulith patterns.</p>
  *
  * <p>Example usage:</p>
- * <pre>
- * {@code
+ * <pre>{@code
  * // By ID
  * throw new GreetingNotFoundException(123L);
  *
- * // By reference
- * throw new GreetingNotFoundException("GR-2025-001");
- * }
- * </pre>
+ * // By reference (greeting-specific feature)
+ * throw new GreetingNotFoundException("GRE-2025-000042");
+ * }</pre>
  *
+ * @see com.example.demo.common.exception.DomainException
+ * @see com.example.demo.greeting.exception.GreetingExceptionHandler
+ * @see com.example.demo.common.exception.ResourceNotFoundException
  * @since 1.1.0
  */
 public class GreetingNotFoundException extends DomainException {
