@@ -10,7 +10,7 @@ import com.example.demo.api.v1.model.GreetingPage;
 import com.example.demo.api.v1.model.GreetingResponse;
 import com.example.demo.api.v1.model.PatchGreetingRequest;
 import com.example.demo.api.v1.model.UpdateGreetingRequest;
-import com.example.demo.common.exception.ResourceNotFoundException;
+import com.example.demo.greeting.exception.GreetingNotFoundException;
 import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;
@@ -58,7 +58,7 @@ public class GreetingController implements GreetingsApi {
             return ResponseEntity.noContent().build();
         }
         else {
-            throw new ResourceNotFoundException("Greeting", idLong);
+            throw new GreetingNotFoundException(idLong);
         }
     }
 
@@ -68,7 +68,7 @@ public class GreetingController implements GreetingsApi {
         return service.getGreeting(idLong)
                 .map(mapper::toGreetingResponse)
                 .map(ResponseEntity::ok)
-                .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
+                .orElseThrow(() -> new GreetingNotFoundException(idLong));
     }
 
     @Override
@@ -77,7 +77,7 @@ public class GreetingController implements GreetingsApi {
         Greeting greeting = service.patchGreeting(idLong,
                         patchGreetingRequest.getMessage(),
                         patchGreetingRequest.getRecipient())
-                .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
+                .orElseThrow(() -> new GreetingNotFoundException(idLong));
         return ResponseEntity.ok(mapper.toGreetingResponse(greeting));
     }
 
@@ -87,7 +87,7 @@ public class GreetingController implements GreetingsApi {
         Greeting greeting = service.updateGreeting(idLong,
                         updateGreetingRequest.getMessage(),
                         updateGreetingRequest.getRecipient())
-                .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
+                .orElseThrow(() -> new GreetingNotFoundException(idLong));
         return ResponseEntity.ok(mapper.toGreetingResponse(greeting));
     }
 }

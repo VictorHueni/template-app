@@ -205,8 +205,8 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .then()
                 .statusCode(404)
                 .contentType("application/problem+json")
-                .body("type", equalTo("https://api.example.com/problems/resource-not-found"))
-                .body("title", equalTo("Resource Not Found"))
+                .body("type", equalTo("https://api.example.com/problems/greetings/resource-not-found"))
+                .body("title", equalTo("Greeting Not Found"))
                 .body("status", equalTo(404))
                 .body("traceId", notNullValue());
     }
@@ -335,8 +335,8 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .then()
                 .statusCode(404)
                 .contentType("application/problem+json")
-                .body("type", equalTo("https://api.example.com/problems/resource-not-found"))
-                .body("title", equalTo("Resource Not Found"))
+                .body("type", equalTo("https://api.example.com/problems/greetings/resource-not-found"))
+                .body("title", equalTo("Greeting Not Found"))
                 .body("status", equalTo(404))
                 .body("traceId", notNullValue());
     }

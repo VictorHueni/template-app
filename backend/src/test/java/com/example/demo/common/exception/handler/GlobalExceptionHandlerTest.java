@@ -35,6 +35,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.example.demo.common.exception.BusinessValidationException;
 import com.example.demo.common.exception.ConflictException;
+import com.example.demo.common.exception.ProblemDetailFactory;
 import com.example.demo.common.exception.ProblemType;
 import com.example.demo.common.exception.ResourceNotFoundException;
 
@@ -49,13 +50,16 @@ class GlobalExceptionHandlerTest {
     private GlobalExceptionHandler handler;
 
     @Mock
+    private ProblemDetailFactory problemDetailFactory;
+
+    @Mock
     private HttpServletRequest request;
 
     private WebRequest webRequest;
 
     @BeforeEach
     void setUp() {
-        handler = new GlobalExceptionHandler();
+        handler = new GlobalExceptionHandler(problemDetailFactory);
         when(request.getRequestURI()).thenReturn("/api/v1/test");
         webRequest = new ServletWebRequest(request);
     }
