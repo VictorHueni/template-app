@@ -7,15 +7,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
-import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.example.demo.greeting.event.GreetingCreatedEvent;
-import com.example.demo.testsupport.TestcontainersConfiguration;
+import com.example.demo.testsupport.AbstractIntegrationTest;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import io.hypersistence.tsid.TSID;
 import tools.jackson.databind.json.JsonMapper;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Module test for the Audit module.
@@ -26,9 +26,9 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Uses Spring Modulith's {@link Scenario} API to publish events and verify
  * the resulting state changes.</p>
  */
-@ApplicationModuleTest(mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES)
-@ContextConfiguration(classes = TestcontainersConfiguration.class)
-class AuditModuleTest {
+@ApplicationModuleTest
+@ActiveProfiles({"test", "integration"})
+class AuditModuleTest extends AbstractIntegrationTest {
 
     @Autowired
     private BusinessActivityLogRepository repository;
@@ -42,10 +42,13 @@ class AuditModuleTest {
     @Test
     @DisplayName("records GreetingCreatedEvent in business activity log")
     void recordsGreetingCreatedEventInBusinessActivityLog(Scenario scenario) {
-        // Given: a GreetingCreatedEvent
+        // Given: a GreetingCreatedEvent with dynamic IDs to avoid collisions in shared DB
+        long greetingId = TSID.Factory.getTsid().toLong();
+        String reference = "GRE-" + greetingId;
+
         var event = new GreetingCreatedEvent(
-                506979954615549952L,
-                "GRE-2025-000042",
+                greetingId,
+                reference,
                 "Alice",
                 "Hello, World!",
                 "testuser",
@@ -55,14 +58,14 @@ class AuditModuleTest {
         // When: the event is published
         // Then: a record appears in the business activity log
         scenario.publish(event)
-                .andWaitForStateChange(() -> repository.findByAggregateId("506979954615549952"))
+                .andWaitForStateChange(() -> repository.findByAggregateId(String.valueOf(greetingId)))
                 .andVerify(result -> {
                     assertThat(result).isPresent();
 
                     BusinessActivityLog log = result.get();
                     assertThat(log.getEventType()).isEqualTo("GreetingCreatedEvent");
                     assertThat(log.getAggregateType()).isEqualTo("Greeting");
-                    assertThat(log.getAggregateId()).isEqualTo("506979954615549952");
+                    assertThat(log.getAggregateId()).isEqualTo(String.valueOf(greetingId));
                     assertThat(log.getActorUserId()).isEqualTo("testuser");
                     assertThat(log.getOccurredAt()).isEqualTo(Instant.parse("2025-01-15T10:00:00Z"));
 
@@ -70,7 +73,7 @@ class AuditModuleTest {
                     assertThat(log.getData()).isNotNull();
                     assertThat(log.getData()).containsEntry("recipient", "Alice");
                     assertThat(log.getData()).containsEntry("message", "Hello, World!");
-                    assertThat(log.getData()).containsEntry("reference", "GRE-2025-000042");
+                    assertThat(log.getData()).containsEntry("reference", reference);
                 });
     }
 }

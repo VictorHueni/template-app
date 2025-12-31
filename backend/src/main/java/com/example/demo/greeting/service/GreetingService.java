@@ -8,33 +8,27 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.history.Revision;
 import org.springframework.data.history.Revisions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.demo.common.audit.CustomRevisionEntity;
 import com.example.demo.common.repository.FunctionalIdGenerator;
 import com.example.demo.greeting.dto.GreetingRevisionDTO;
 import com.example.demo.greeting.event.GreetingCreatedEvent;
+import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.repository.GreetingRepository;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class GreetingService {
 
     private final FunctionalIdGenerator idGenerator;
     private final GreetingRepository repository;
     private final ApplicationEventPublisher eventPublisher;
-
-    public GreetingService(
-            FunctionalIdGenerator idGenerator,
-            GreetingRepository repository,
-            ApplicationEventPublisher eventPublisher) {
-        this.idGenerator = idGenerator;
-        this.repository = repository;
-        this.eventPublisher = eventPublisher;
-    }
+    private final GreetingMapper mapper;
 
     @Transactional
     public Greeting createGreeting(String message, String recipient) {
@@ -42,8 +36,9 @@ public class GreetingService {
         Greeting entity = new Greeting(recipient, message);
 
         // Generate human-readable functional ID (e.g., GRE-2025-000042)
+        // Uses seq_greeting_reference sequence per naming convention: seq_{table}_{column}
         // This runs in its own transaction to ensure sequence integrity
-        String reference = idGenerator.generate("greeting_sequence", "GRE");
+        String reference = idGenerator.generate("seq_greeting_reference", "GRE");
         entity.setReference(reference);
 
         // Save: Both TSID and functional ID are now set
@@ -114,7 +109,7 @@ public class GreetingService {
     public List<GreetingRevisionDTO> getGreetingHistory(Long id) {
         Revisions<Integer, Greeting> revisions = repository.findRevisions(id);
         return revisions.stream()
-                .map(this::toRevisionDTO)
+                .map(mapper::toGreetingRevisionDTO)
                 .toList();
     }
 
@@ -127,7 +122,7 @@ public class GreetingService {
      */
     public Optional<GreetingRevisionDTO> getGreetingAtRevision(Long id, Integer revisionNumber) {
         return repository.findRevision(id, revisionNumber)
-                .map(this::toRevisionDTO);
+                .map(mapper::toGreetingRevisionDTO);
     }
 
     /**
@@ -138,30 +133,7 @@ public class GreetingService {
      */
     public Optional<GreetingRevisionDTO> getLastGreetingRevision(Long id) {
         return repository.findLastChangeRevision(id)
-                .map(this::toRevisionDTO);
+                .map(mapper::toGreetingRevisionDTO);
     }
 
-    /**
-     * Convert a Spring Data Revision to our DTO.
-     */
-    private GreetingRevisionDTO toRevisionDTO(Revision<Integer, Greeting> revision) {
-        Greeting entity = revision.getEntity();
-        var metadata = revision.getMetadata();
-
-        // Extract username from custom revision entity
-        String modifiedBy = metadata.getDelegate() instanceof CustomRevisionEntity cre
-                ? cre.getUsername()
-                : "unknown";
-
-        return new GreetingRevisionDTO(
-                metadata.getRequiredRevisionNumber(),
-                metadata.getRequiredRevisionInstant(),
-                metadata.getRevisionType().name(),
-                modifiedBy,
-                entity.getId(),
-                entity.getReference(),
-                entity.getRecipient(),
-                entity.getMessage()
-        );
-    }
 }

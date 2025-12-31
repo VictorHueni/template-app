@@ -2,16 +2,15 @@ package com.example.demo.greeting.controller;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestExecutionListeners;
 
 import com.example.demo.greeting.service.GreetingService;
 import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
+import com.example.demo.testsupport.DatabaseCleanupHelper;
 
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static io.restassured.RestAssured.given;
@@ -21,28 +20,47 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 /**
- * API-level integration tests for Greeting HTTP endpoints.
- * Hits the real Spring Boot app and real PostgreSQL (via Testcontainers singleton).
- * Uses the "test" profile for simplified security configuration.
+ * API-level integration tests for Greeting HTTP endpoints (REST CRUD operations).
  *
- * IMPORTANT: This test class uses @Execution(ExecutionMode.SAME_THREAD) to ensure
- * it runs in isolation from other parallel tests. This prevents transaction
- * management conflicts when running alongside @Transactional repository/service tests.
+ * <p><strong>Test Scope:</strong></p>
+ * <ul>
+ *   <li>Tests real Spring Boot application server (random port via Testcontainers)</li>
+ *   <li>Tests real PostgreSQL database (via Testcontainers singleton)</li>
+ *   <li>Tests full HTTP request/response cycle via RestAssured</li>
+ *   <li>Uses "test" profile for simplified security configuration</li>
+ * </ul>
  *
- * REST controller tests should NOT use @Transactional because the HTTP requests
- * execute in separate threads from the test thread, making transaction rollback ineffective.
- * Instead, we clean up test data manually in @BeforeEach.
+ * <p><strong>Test Isolation Strategy:</strong></p>
+ * <ul>
+ *   <li>@SpringBootTest(webEnvironment = RANDOM_PORT) - Real application instance</li>
+ *   <li>@ResourceLock(value = "DB", mode = READ_WRITE) - Exclusive database access</li>
+ *   <li>@BeforeEach cleanup - Prepares clean database state before test</li>
+ *   <li>NO @AfterEach cleanup - REST tests don't have transaction scope across HTTP calls</li>
+ * </ul>
+ *
+ * <p><strong>Why NO @Transactional and NO @AfterEach:</strong></p>
+ * <ul>
+ *   <li>REST controller tests use HTTP requests which execute in separate server threads</li>
+ *   <li>@Transactional only rolls back changes in the test thread, not HTTP handler threads</li>
+ *   <li>Each HTTP request commits data directly to database (outside test transaction)</li>
+ *   <li>@BeforeEach is sufficient: cleans state before test starts</li>
+ *   <li>@AfterEach cleanup would be redundant (data already committed by HTTP layer)</li>
+ * </ul>
+ *
+ * <p><strong>Contract Validation:</strong></p>
+ * <ul>
+ *   <li>Uses {@link #validationFilter()} to validate responses against OpenAPI spec</li>
+ *   <li>Ensures API responses conform to contract (important for client compatibility)</li>
+ * </ul>
+ *
+ * @see com.example.demo.contract.OpenApiValidator#validationFilter()
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-@Execution(ExecutionMode.SAME_THREAD)
-@TestExecutionListeners(
-    listeners = {},
-    mergeMode = MERGE_WITH_DEFAULTS
-)
+@ActiveProfiles({"test", "integration"})
+@ResourceLock(value = "DB", mode = READ_WRITE)
 class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
     @Autowired
@@ -51,15 +69,60 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Autowired
     GreetingService greetingService;
 
+    @Autowired
+    DatabaseCleanupHelper cleanupHelper;
+
     /**
-     * Clean up database before each test to ensure test isolation.
-     * REST controller tests cannot use @Transactional rollback because HTTP requests
-     * run in separate threads, so we manually clean up data instead.
+     * Prepare database before test by cleaning the greeting table.
+     *
+     * <p><strong>Purpose:</strong> Ensures each test starts with clean, isolated data.
+     * All previous test data is removed before test execution begins.</p>
+     *
+     * <p><strong>Why @BeforeEach is Sufficient for REST Tests:</strong></p>
+     * <ul>
+     *   <li>REST controller tests use HTTP requests with separate server threads</li>
+     *   <li>Each HTTP request commits directly to database (outside test transaction scope)</li>
+     *   <li>Data created by test A is permanent in database</li>
+     *   <li>Test B's @BeforeEach cleanup removes all of Test A's data</li>
+     *   <li>@AfterEach would be redundant (data already committed by HTTP layer)</li>
+     * </ul>
+     *
+     * <p><strong>Why NOT @AfterEach for this test:</strong></p>
+     * Unlike async event tests (BusinessActivityIT) which have pending background processing,
+     * REST controller tests have no async work that leaks to next test. The committed data
+     * is cleaned at the START of each test via @BeforeEach.
      */
     @BeforeEach
     void cleanupDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE greeting CASCADE");
+        cleanupHelper.truncateTables("greeting");
     }
+
+    /**
+     * INTENTIONALLY NOT IMPLEMENTED FOR REST CONTROLLER TESTS
+     *
+     * <p><strong>Why we don't use @AfterEach for this test class:</strong></p>
+     * <ul>
+     *   <li>REST tests don't have async work that needs cleanup after test completes</li>
+     *   <li>Data committed by HTTP requests is permanent and cleaned at START of next test</li>
+     *   <li>@BeforeEach cleanup is sufficient and more efficient (one cleanup per test)</li>
+     *   <li>@AfterEach would add unnecessary cleanup overhead</li>
+     * </ul>
+     *
+     * <p><strong>CONTRAST: BusinessActivityIT uses @AfterEach because:</strong></p>
+     * <ul>
+     *   <li>Spring Modulith event listeners run @Async in background thread pool</li>
+     *   <li>Test completes but async event processing continues in background</li>
+     *   <li>Pending events in event_publication table leak to next test without @AfterEach</li>
+     *   <li>@AfterEach cleanup is CRITICAL to prevent flaky tests with async events</li>
+     * </ul>
+     *
+     * <p>If you observe tests interfering with each other (failing only when run in parallel),
+     * you can uncomment @AfterEach below as an extra safety measure.</p>
+     */
+    // @AfterEach
+    // void cleanupAfterTest() {
+    //     cleanupHelper.truncateTables("greeting");
+    // }
 
     @Test
     void createsGreetingAndReturnsContract() {
@@ -76,6 +139,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("recipient", equalTo("Charlie"))
                 .body("message", equalTo("Hello, World!"))
                 .body("id", notNullValue())
+                .body("reference", matchesPattern("^GRE-\\d{4}-\\d{6}$"))
                 .body("createdAt", notNullValue());
     }
 
@@ -99,7 +163,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("data", hasSize(greaterThanOrEqualTo(2)))
                 .body("data[0].id", notNullValue())
                 .body("data[0].message", notNullValue())
-                .body("data[0].reference", notNullValue())
+                .body("data[0].reference", matchesPattern("^GRE-\\d{4}-\\d{6}$"))
                 // Validate Page Metadata
                 .body("meta.pageNumber", equalTo(0))
                 .body("meta.pageSize", equalTo(10))
@@ -125,6 +189,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .statusCode(200)
                 .body("id", equalTo(String.valueOf(created.getId())))
                 .body("reference", equalTo(created.getReference()))
+                .body("reference", matchesPattern("^GRE-\\d{4}-\\d{6}$"))
                 .body("message", equalTo("Hello GET"))
                 .body("recipient", equalTo("GetTest"))
                 .body("createdAt", notNullValue());
@@ -138,7 +203,12 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .when()
                 .get("/api/v1/greetings/{id}", 999999999L)
                 .then()
-                .statusCode(404);
+                .statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("https://api.example.com/problems/resource-not-found"))
+                .body("title", equalTo("Resource Not Found"))
+                .body("status", equalTo(404))
+                .body("traceId", notNullValue());
     }
 
     @Test
@@ -308,5 +378,28 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .body("id", equalTo(String.valueOf(created.getId())))
                 // Verify it's a numeric string (digits only)
                 .body("id", matchesPattern("^\\d+$"));
+    }
+
+    // ============================================================
+    // Validation Error Tests (RFC 7807 Problem Detail format)
+    // ============================================================
+
+    @Test
+    void returns400WhenCreatingGreetingWithMissingRequiredField() {
+        // Missing 'message' field which is required
+        given()
+                .filter(validationFilter())
+                .contentType("application/json")
+                .body("""
+                       {"recipient": "Test"}
+                       """)
+                .when()
+                .post("/api/v1/greetings")
+                .then()
+                .statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", notNullValue())
+                .body("title", notNullValue())
+                .body("status", equalTo(400));
     }
 }

@@ -104,6 +104,7 @@ bck/
 # ===== LLM =====
 .claude/
 claude.md
+NUL
 # gemini-cli settings
 .gemini/
 

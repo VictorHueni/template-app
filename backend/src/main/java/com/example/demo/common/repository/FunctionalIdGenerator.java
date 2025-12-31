@@ -3,11 +3,12 @@ package com.example.demo.common.repository;
 import java.time.Year;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Utility to generate business-readable IDs (Functional IDs).
@@ -17,10 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
  * - Non-Blocking: We use REQUIRES_NEW to ensure ID generation doesn't lock the main transaction.
  */
 @Component
+@RequiredArgsConstructor
 public class FunctionalIdGenerator {
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final EntityManager entityManager;
 
     /**
      * Generates a formatted ID: PREFIX-YEAR-SEQUENCE

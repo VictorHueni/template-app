@@ -21,6 +21,8 @@ import org.springframework.data.history.Revisions;
 import com.example.demo.common.audit.CustomRevisionEntity;
 import com.example.demo.common.repository.FunctionalIdGenerator;
 import com.example.demo.greeting.dto.GreetingRevisionDTO;
+import com.example.demo.greeting.mapper.GreetingMapper;
+import com.example.demo.greeting.mapper.GreetingMapperImpl;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.repository.GreetingRepository;
 
@@ -40,6 +42,7 @@ class GreetingServiceTest {
     private FunctionalIdGenerator idGenerator;
     private GreetingRepository repo;
     private ApplicationEventPublisher eventPublisher;
+    private GreetingMapper mapper;
     private GreetingService service;
 
     @BeforeEach
@@ -47,7 +50,8 @@ class GreetingServiceTest {
         idGenerator = mock(FunctionalIdGenerator.class);
         repo = mock(GreetingRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        service = new GreetingService(idGenerator, repo, eventPublisher);
+        mapper = new GreetingMapperImpl(); // Use real mapper implementation
+        service = new GreetingService(idGenerator, repo, eventPublisher, mapper);
     }
 
     /**
@@ -91,7 +95,7 @@ class GreetingServiceTest {
         @Test
         @DisplayName("creates greeting with message, recipient and reference")
         void createsGreetingWithMessageAndTimestamp() {
-            when(idGenerator.generate("greeting_sequence", "GRE")).thenReturn("GRE-2025-000042");
+            when(idGenerator.generate("seq_greeting_reference", "GRE")).thenReturn("GRE-2025-000042");
             when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             Greeting result = service.createGreeting("Hello, World!", "Alice");
@@ -101,7 +105,7 @@ class GreetingServiceTest {
             assertThat(result.getReference()).isEqualTo("GRE-2025-000042");
             // Note: createdAt is populated by JPA Auditing, not available in unit tests
 
-            verify(idGenerator).generate("greeting_sequence", "GRE");
+            verify(idGenerator).generate("seq_greeting_reference", "GRE");
             verify(repo).save(any(Greeting.class));
         }
     }

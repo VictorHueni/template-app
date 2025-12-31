@@ -8,7 +8,10 @@ import org.springframework.stereotype.Service;
 
 import com.example.demo.user.repository.UserRepository;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Value("${admin.username:user}")
@@ -18,10 +21,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private String adminPassword;
 
     private final UserRepository userRepository;
-
-    public UserDetailsServiceImpl(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

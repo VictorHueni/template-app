@@ -14,6 +14,8 @@ import com.example.demo.api.v1.model.GreetingResponse;
 import com.example.demo.api.v1.model.PatchGreetingRequest;
 import com.example.demo.api.v1.model.UpdateGreetingRequest;
 import com.example.demo.common.exception.ResourceNotFoundException;
+import com.example.demo.greeting.mapper.GreetingMapper;
+import com.example.demo.greeting.mapper.GreetingMapperImpl;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;
 
@@ -36,12 +38,14 @@ import static org.mockito.Mockito.when;
 class GreetingControllerTest {
 
     private GreetingService service;
+    private GreetingMapper mapper;
     private GreetingController controller;
 
     @BeforeEach
     void setUp() {
         service = mock(GreetingService.class);
-        controller = new GreetingController(service);
+        mapper = new GreetingMapperImpl(); // Use real mapper implementation
+        controller = new GreetingController(service, mapper);
     }
 
     /**

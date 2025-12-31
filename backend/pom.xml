@@ -32,7 +32,6 @@
 		<hypersistence-utils.version>3.14.1</hypersistence-utils.version>
 		<archunit.version>1.4.1</archunit.version>
 		<spring-modulith.version>2.0.1</spring-modulith.version>
-		<!-- default: do NOT skip unit tests -->
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
 	</properties>
@@ -221,6 +220,23 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Flyway for Database Migrations -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.mapstruct</groupId>
+			<artifactId>mapstruct</artifactId>
+			<version>1.6.3</version>
+			<scope>provided</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -232,11 +248,30 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.14.1</version>
 				<configuration>
+					<compilerArgs>
+						<arg>-Amapstruct.defaultComponentModel=spring</arg>
+						<arg>-Amapstruct.unmappedTargetPolicy=ERROR</arg>
+						<arg>-Amapstruct.defaultInjectionStrategy=constructor</arg>
+					</compilerArgs>
 					<!-- Spring Boot parent already sets release=25 via <java.version> -->
 					<annotationProcessorPaths>
+						<!-- Lombok MUST come first -->
 						<path>
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+						<!-- MapStruct processor -->
+						<path>
+							<groupId>org.mapstruct</groupId>
+							<artifactId>mapstruct-processor</artifactId>
+							<version>1.6.3</version>
+						</path>
+						<!-- Lombok-MapStruct binding -->
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok-mapstruct-binding</artifactId>
+							<version>0.2.0</version>
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
@@ -431,46 +466,12 @@
 				<version>3.5.4</version>
 				<configuration>
 					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
-				<includes>
-					<include>**/*IT.java</include>
-					<include>**/*ITCase.java</include>
-				</includes>
-
-				<!--
-					JUnit 5 Parallel Execution Configuration:
-					Source: https://maven.apache.org/surefire/maven-failsafe-plugin/examples/junit-platform.html
-
-					Note: JUnit 5 does NOT support parallel execution via Maven's <parallel> parameter.
-					Instead, use JUnit Jupiter's configurationParameters.
-
-					Configuration:
-					- junit.jupiter.execution.parallel.enabled=true: Enable parallel execution
-					- junit.jupiter.execution.parallel.mode.default=same_thread: Methods within a class run sequentially
-					- junit.jupiter.execution.parallel.mode.classes.default=concurrent: Test classes run in parallel
-					- junit.jupiter.execution.parallel.config.strategy=fixed: Use fixed thread pool
-					- junit.jupiter.execution.parallel.config.fixed.parallelism=2: 2 concurrent test classes
-
-					Thread-Safety:
-					- PostgreSQL container handles concurrent connections (max_connections=100)
-					- @Transactional ensures data isolation (each test gets its own transaction)
-					- Spring TestContext is thread-safe
-					- RestAssured configuration is reset per test (@BeforeEach/@AfterEach)
-
-					Performance:
-					- Sequential: 3 test classes × 40s = ~120s
-					- Parallel (2 threads): ~60s wall time (50% improvement)
-					- Combined with Testcontainers reuse: ~45s subsequent runs
-				-->
-				<properties>
-					<configurationParameters>
-						junit.jupiter.execution.parallel.enabled = true
-						junit.jupiter.execution.parallel.mode.default = same_thread
-						junit.jupiter.execution.parallel.mode.classes.default = concurrent
-						junit.jupiter.execution.parallel.config.strategy = fixed
-						junit.jupiter.execution.parallel.config.fixed.parallelism = 2
-					</configurationParameters>
-				</properties>
-
+					<forkCount>1C</forkCount>
+					<reuseForks>true</reuseForks>
+					<includes>
+						<include>**/*IT.java</include>
+						<include>**/*ITCase.java</include>
+					</includes>
 				<!--
 					JVM arguments for integration test execution:
 					- -Xmx512m: Sets maximum heap memory to 512MB (integration tests with Testcontainers need more memory)
