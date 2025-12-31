@@ -80,7 +80,7 @@ public class GreetingNotFoundException extends DomainException {
 
     @Override
     public String getProblemTypeUri() {
-        return ProblemType.buildModuleProblemType("greeting", "not-found");
+        return ProblemType.buildModuleProblemType("greetings", "resource-not-found");
     }
 
     @Override
