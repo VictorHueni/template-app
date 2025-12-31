@@ -2,8 +2,6 @@ package com.example.demo.audit.internal;
 
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.modulith.events.ApplicationModuleListener;

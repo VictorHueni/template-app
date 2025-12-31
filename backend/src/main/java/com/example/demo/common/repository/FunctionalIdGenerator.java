@@ -3,7 +3,6 @@ package com.example.demo.common.repository;
 import java.time.Year;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
