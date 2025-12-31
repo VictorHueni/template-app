@@ -1,9 +1,5 @@
 package com.example.demo.greeting.controller;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,10 +8,10 @@ import com.example.demo.api.v1.controller.GreetingsApi;
 import com.example.demo.api.v1.model.CreateGreetingRequest;
 import com.example.demo.api.v1.model.GreetingPage;
 import com.example.demo.api.v1.model.GreetingResponse;
-import com.example.demo.api.v1.model.PageMeta;
 import com.example.demo.api.v1.model.PatchGreetingRequest;
 import com.example.demo.api.v1.model.UpdateGreetingRequest;
 import com.example.demo.common.exception.ResourceNotFoundException;
+import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.service.GreetingService;
 
@@ -23,9 +19,11 @@ import com.example.demo.greeting.service.GreetingService;
 public class GreetingController implements GreetingsApi {
 
     private final GreetingService service;
+    private final GreetingMapper mapper;
 
-    public GreetingController(GreetingService service) {
+    public GreetingController(GreetingService service, GreetingMapper mapper) {
         this.service = service;
+        this.mapper = mapper;
     }
 
     @Override
@@ -40,8 +38,8 @@ public class GreetingController implements GreetingsApi {
                 request.getRecipient()
         );
 
-        // Map JPA entity to OpenAPI DTO
-        GreetingResponse response = toGreetingResponse(entity);
+        // Map JPA entity to OpenAPI DTO using MapStruct
+        GreetingResponse response = mapper.toGreetingResponse(entity);
 
         return ResponseEntity.status(201).body(response);
     }
@@ -51,34 +49,8 @@ public class GreetingController implements GreetingsApi {
         // Call service - returns Spring Data Page
         Page<Greeting> entityPage = service.getGreetings(page, size);
 
-        // Map JPA entities to OpenAPI DTOs
-        List<GreetingResponse> dtos = entityPage.getContent().stream()
-                .map(this::toGreetingResponse)
-                .toList();
-
-        // Construct API page metadata
-        PageMeta meta = new PageMeta(
-                entityPage.getNumber(),
-                entityPage.getSize(),
-                (int) entityPage.getTotalElements(),
-                entityPage.getTotalPages()
-        );
-
-        return ResponseEntity.ok(new GreetingPage(dtos, meta));
-    }
-
-    /**
-     * Maps JPA entity to OpenAPI DTO
-     */
-    private GreetingResponse toGreetingResponse(Greeting entity) {
-        GreetingResponse response = new GreetingResponse(
-                String.valueOf(entity.getId()),
-                entity.getReference(),
-                entity.getMessage()
-        );
-        response.setRecipient(entity.getRecipient());
-        response.setCreatedAt(OffsetDateTime.ofInstant(entity.getCreatedAt(), ZoneOffset.UTC));
-        return response;
+        // Map entire page using MapStruct (handles DTOs + metadata)
+        return ResponseEntity.ok(mapper.toGreetingPage(entityPage));
     }
 
     @Override
@@ -96,7 +68,7 @@ public class GreetingController implements GreetingsApi {
     public ResponseEntity<GreetingResponse> getGreeting(String id) {
         Long idLong = Long.parseLong(id);
         return service.getGreeting(idLong)
-                .map(this::toGreetingResponse)
+                .map(mapper::toGreetingResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
     }
@@ -108,7 +80,7 @@ public class GreetingController implements GreetingsApi {
                         patchGreetingRequest.getMessage(),
                         patchGreetingRequest.getRecipient())
                 .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
-        return ResponseEntity.ok(toGreetingResponse(greeting));
+        return ResponseEntity.ok(mapper.toGreetingResponse(greeting));
     }
 
     @Override
@@ -118,6 +90,6 @@ public class GreetingController implements GreetingsApi {
                         updateGreetingRequest.getMessage(),
                         updateGreetingRequest.getRecipient())
                 .orElseThrow(() -> new ResourceNotFoundException("Greeting", idLong));
-        return ResponseEntity.ok(toGreetingResponse(greeting));
+        return ResponseEntity.ok(mapper.toGreetingResponse(greeting));
     }
 }

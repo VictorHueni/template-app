@@ -13,10 +13,10 @@ import org.springframework.data.history.Revisions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.demo.common.audit.CustomRevisionEntity;
 import com.example.demo.common.repository.FunctionalIdGenerator;
 import com.example.demo.greeting.dto.GreetingRevisionDTO;
 import com.example.demo.greeting.event.GreetingCreatedEvent;
+import com.example.demo.greeting.mapper.GreetingMapper;
 import com.example.demo.greeting.model.Greeting;
 import com.example.demo.greeting.repository.GreetingRepository;
 
@@ -26,14 +26,17 @@ public class GreetingService {
     private final FunctionalIdGenerator idGenerator;
     private final GreetingRepository repository;
     private final ApplicationEventPublisher eventPublisher;
+    private final GreetingMapper mapper;
 
     public GreetingService(
             FunctionalIdGenerator idGenerator,
             GreetingRepository repository,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            GreetingMapper mapper) {
         this.idGenerator = idGenerator;
         this.repository = repository;
         this.eventPublisher = eventPublisher;
+        this.mapper = mapper;
     }
 
     @Transactional
@@ -115,7 +118,7 @@ public class GreetingService {
     public List<GreetingRevisionDTO> getGreetingHistory(Long id) {
         Revisions<Integer, Greeting> revisions = repository.findRevisions(id);
         return revisions.stream()
-                .map(this::toRevisionDTO)
+                .map(mapper::toGreetingRevisionDTO)
                 .toList();
     }
 
@@ -128,7 +131,7 @@ public class GreetingService {
      */
     public Optional<GreetingRevisionDTO> getGreetingAtRevision(Long id, Integer revisionNumber) {
         return repository.findRevision(id, revisionNumber)
-                .map(this::toRevisionDTO);
+                .map(mapper::toGreetingRevisionDTO);
     }
 
     /**
@@ -139,30 +142,7 @@ public class GreetingService {
      */
     public Optional<GreetingRevisionDTO> getLastGreetingRevision(Long id) {
         return repository.findLastChangeRevision(id)
-                .map(this::toRevisionDTO);
+                .map(mapper::toGreetingRevisionDTO);
     }
 
-    /**
-     * Convert a Spring Data Revision to our DTO.
-     */
-    private GreetingRevisionDTO toRevisionDTO(Revision<Integer, Greeting> revision) {
-        Greeting entity = revision.getEntity();
-        var metadata = revision.getMetadata();
-
-        // Extract username from custom revision entity
-        String modifiedBy = metadata.getDelegate() instanceof CustomRevisionEntity cre
-                ? cre.getUsername()
-                : "unknown";
-
-        return new GreetingRevisionDTO(
-                metadata.getRequiredRevisionNumber(),
-                metadata.getRequiredRevisionInstant(),
-                metadata.getRevisionType().name(),
-                modifiedBy,
-                entity.getId(),
-                entity.getReference(),
-                entity.getRecipient(),
-                entity.getMessage()
-        );
-    }
 }

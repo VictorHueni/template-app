@@ -32,7 +32,6 @@
 		<hypersistence-utils.version>3.14.1</hypersistence-utils.version>
 		<archunit.version>1.4.1</archunit.version>
 		<spring-modulith.version>2.0.1</spring-modulith.version>
-		<!-- default: do NOT skip unit tests -->
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
 	</properties>
@@ -231,6 +230,13 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>org.mapstruct</groupId>
+			<artifactId>mapstruct</artifactId>
+			<version>1.6.3</version>
+			<scope>provided</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -242,11 +248,30 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.14.1</version>
 				<configuration>
+					<compilerArgs>
+						<arg>-Amapstruct.defaultComponentModel=spring</arg>
+						<arg>-Amapstruct.unmappedTargetPolicy=ERROR</arg>
+						<arg>-Amapstruct.defaultInjectionStrategy=constructor</arg>
+					</compilerArgs>
 					<!-- Spring Boot parent already sets release=25 via <java.version> -->
 					<annotationProcessorPaths>
+						<!-- Lombok MUST come first -->
 						<path>
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+						<!-- MapStruct processor -->
+						<path>
+							<groupId>org.mapstruct</groupId>
+							<artifactId>mapstruct-processor</artifactId>
+							<version>1.6.3</version>
+						</path>
+						<!-- Lombok-MapStruct binding -->
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok-mapstruct-binding</artifactId>
+							<version>0.2.0</version>
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
