@@ -14,6 +14,7 @@ import com.example.demo.audit.BusinessActivityLogRepository;
 import com.example.demo.greeting.event.GreetingCreatedEvent;
 
 import io.micrometer.tracing.Tracer;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
@@ -28,9 +29,8 @@ import tools.jackson.databind.json.JsonMapper;
  * with at-least-once delivery semantics.</p>
  */
 @Component
+@Slf4j
 class BusinessActivityListener {
-
-    private static final Logger LOG = LoggerFactory.getLogger(BusinessActivityListener.class);
 
     private final BusinessActivityLogRepository repository;
     private final JsonMapper jsonMapper;
@@ -56,9 +56,9 @@ class BusinessActivityListener {
      */
     @ApplicationModuleListener
     void onGreetingCreated(GreetingCreatedEvent event) {
-        LOG.debug("Recording GreetingCreatedEvent for greeting {}", event.greetingId());
+        log.debug("Recording GreetingCreatedEvent for greeting {}", event.greetingId());
 
-        BusinessActivityLog log = new BusinessActivityLog(
+        BusinessActivityLog activityLog = new BusinessActivityLog(
                 event.createdAt(),
                 resolveActorUserId(event),
                 "GreetingCreatedEvent",
@@ -68,10 +68,10 @@ class BusinessActivityListener {
                 serializeEventData(event)
         );
 
-        repository.save(log);
+        repository.save(activityLog);
 
-        LOG.info("Recorded business activity: {} for {} {}",
-                log.getEventType(), log.getAggregateType(), log.getAggregateId());
+        log.info("Recorded business activity: {} for {} {}",
+                activityLog.getEventType(), activityLog.getAggregateType(), activityLog.getAggregateId());
     }
 
     /**
@@ -107,7 +107,7 @@ class BusinessActivityListener {
             return jsonMapper.convertValue(event, new TypeReference<Map<String, Object>>() {});
         }
         catch (JacksonException e) {
-            LOG.warn("Failed to serialize event data for {}:{}", event.getClass().getSimpleName(), e.getMessage());
+            log.warn("Failed to serialize event data for {}:{}", event.getClass().getSimpleName(), e.getMessage());
             return Map.of("error", "serialization_failed", "eventType", event.getClass().getSimpleName());
         }
     }

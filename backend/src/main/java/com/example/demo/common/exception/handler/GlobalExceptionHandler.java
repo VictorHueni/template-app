@@ -33,6 +33,8 @@ import com.example.demo.common.exception.ConflictException;
 import com.example.demo.common.exception.ProblemType;
 import com.example.demo.common.exception.ResourceNotFoundException;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Global exception handler for the application.
  * Converts exceptions to RFC 7807 Problem Details responses.
@@ -47,9 +49,8 @@ import com.example.demo.common.exception.ResourceNotFoundException;
  * - traceId: Unique identifier for debugging
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * Handles ResourceNotFoundException (HTTP 404)
@@ -60,7 +61,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Resource not found [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Resource not found [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
@@ -89,7 +90,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Business validation failed [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Business validation failed [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
@@ -117,7 +118,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Conflict [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Conflict [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
@@ -145,7 +146,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Validation failed [traceId={}]: {} error(s)", traceId, ex.getErrorCount());
+        log.warn("Validation failed [traceId={}]: {} error(s)", traceId, ex.getErrorCount());
 
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
@@ -179,7 +180,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Constraint violation [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Constraint violation [traceId={}]: {}", traceId, ex.getMessage());
 
         Map<String, String> errors = new HashMap<>();
         for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
@@ -210,7 +211,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Illegal argument [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Illegal argument [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
@@ -234,7 +235,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Type mismatch [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Type mismatch [traceId={}]: {}", traceId, ex.getMessage());
 
         String detail = String.format(
                 "Parameter '%s' should be of type '%s'",
@@ -266,7 +267,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("No resource found [traceId={}]: {}", traceId, request.getRequestURI());
+        log.warn("No resource found [traceId={}]: {}", traceId, request.getRequestURI());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
@@ -290,7 +291,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Authentication failed [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Authentication failed [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.UNAUTHORIZED,
@@ -314,7 +315,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Access denied [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Access denied [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.FORBIDDEN,
@@ -338,7 +339,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.error("Internal server error [traceId={}]: {}", traceId, ex.getMessage(), ex);
+        log.error("Internal server error [traceId={}]: {}", traceId, ex.getMessage(), ex);
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,
@@ -362,7 +363,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Message not readable [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Message not readable [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
@@ -384,7 +385,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Missing parameter [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Missing parameter [traceId={}]: {}", traceId, ex.getMessage());
 
         String detail = String.format("Required parameter '%s' of type '%s' is missing",
                 ex.getParameterName(), ex.getParameterType());
@@ -412,7 +413,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Method not supported [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Method not supported [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.METHOD_NOT_ALLOWED,
@@ -439,7 +440,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String traceId = generateTraceId();
-        LOGGER.warn("Media type not supported [traceId={}]: {}", traceId, ex.getMessage());
+        log.warn("Media type not supported [traceId={}]: {}", traceId, ex.getMessage());
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
