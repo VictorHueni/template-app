@@ -27,7 +27,7 @@ The critical challenges are:
 *   **Unified Backend (Monolith)**: Backend handles UI + Auth + Logic (Coupled, Stateful).
 *   **Gateway BFF (Backend for Frontend)**: A dedicated edge service handles Auth and proxies requests.
 
-(For a detailed analysis of these options, refer to `../04-solution-strategy/authentication-options-analysis.md`.)
+(For a detailed analysis of these options, refer to [Authentication options analysis](../04-solution-strategy/authentication-options-analysis.md))
 
 ## Decision Outcome
 
