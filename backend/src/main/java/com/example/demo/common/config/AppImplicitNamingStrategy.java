@@ -31,6 +31,10 @@ public class AppImplicitNamingStrategy extends SpringImplicitNamingStrategy {
         try {
             String className = source.getEntityNaming().getClassName();
             if (className != null) {
+
+                // Justification: className is from Hibernate's internal entity metadata (compile-time entities only),
+                // not user input. This is a safe ORM framework integration pattern with proper exception handling.
+                // nosemgrep: java.lang.security.audit.unsafe-reflection.unsafe-reflection
                 Class<?> entityClass = Class.forName(className);
                 Module moduleAnnotation = entityClass.getAnnotation(Module.class);
                 if (moduleAnnotation != null) {

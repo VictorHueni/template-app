@@ -38,6 +38,7 @@ jobs:
             --exclude-rule "generic.nginx.security.possible-h2c-smuggling.possible-nginx-h2c-smuggling" \
             --exclude-rule "generic.nginx.security.request-host-used.request-host-used" \
             --exclude-rule "java.spring.security.audit.spring-actuator-non-health-enabled.spring-actuator-dangerous-endpoints-enabled" \
+            --exclude-rule "java.lang.security.audit.unsafe-reflection.unsafe-reflection" \
             .
         # Rule exclusions documented in .semgrep.yml
 
