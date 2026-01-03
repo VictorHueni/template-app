@@ -396,6 +396,18 @@ Create this file with the following content:
 }
 ```
 
+#### ✅ Verification: Keycloak Setup
+1. **Start Keycloak:**
+   ```bash
+   docker-compose up -d keycloak
+   ```
+2. **Wait for startup:** Run `docker-compose logs -f keycloak` and wait for `Listening on: http://0.0.0.0:8080`.
+3. **Verify Realm Import:**
+   - Go to [http://localhost:9000](http://localhost:9000)
+   - Login with `admin` / `admin`
+   - Ensure the top-left dropdown says **template-realm** (not just master).
+   - Go to **Clients** and verify `template-gateway` exists.
+
 **Important Configuration Notes:**
 
 1. **`secret: "CHANGE_ME_GENERATE_IN_KEYCLOAK_UI"`** - After first startup:
@@ -442,6 +454,15 @@ unzip gateway.zip -d gateway
 rm gateway.zip
 ```
 
+#### ✅ Verification: Project Generation
+1. **Check Directory:** Ensure `gateway/src/main/java` and `gateway/pom.xml` exist.
+2. **Build:**
+   ```bash
+   cd gateway
+   ./mvnw clean package -DskipTests
+   ```
+   **Expected:** `BUILD SUCCESS`.
+
 **What this creates:**
 - New `gateway/` directory with Spring Cloud Gateway
 - OAuth2 Client dependencies (for OAuth2 login)
@@ -479,6 +500,14 @@ Add this dependency inside `<dependencies>`:
 ```
 
 **Note:** Spring Addons automatically pulls in `spring-boot-starter-oauth2-client` and `spring-boot-starter-oauth2-resource-server` as transitive dependencies.
+
+#### ✅ Verification: Dependencies
+1. **Check Dependency Tree:**
+   ```bash
+   cd gateway
+   ./mvnw dependency:tree | grep spring-addons
+   ```
+   **Expected:** Output should show `com.c4-soft.springaddons:spring-addons-starter-oidc:jar:9.1.0`.
 
 ---
 
@@ -607,6 +636,21 @@ logging:
     com.c4_soft.springaddons: DEBUG              # 👈 Debug Spring Addons
 ```
 
+#### ✅ Verification: Gateway Startup (Standalone)
+1. **Set Dummy Secret:** For testing startup, set a dummy secret.
+   ```bash
+   export KC_CLIENT_SECRET=dummy
+   # OR on Windows PowerShell
+   $env:KC_CLIENT_SECRET="dummy"
+   ```
+2. **Run Gateway:**
+   ```bash
+   cd gateway
+   ./mvnw spring-boot:run
+   ```
+3. **Check Health:** Open [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health).
+   **Expected:** `{"status":"UP",...}` (Note: It might be DOWN if Keycloak isn't reachable, but the app should start).
+
 **Configuration Explained:**
 
 #### Key Design Decisions
@@ -733,6 +777,17 @@ public class LoginOptionsController {
 }
 ```
 
+#### ✅ Verification: Endpoint Check
+1. **Ensure Gateway is Running.**
+2. **Call Endpoint:**
+   ```bash
+   curl http://localhost:8080/login-options
+   ```
+3. **Expected Output:**
+   ```json
+   [{"label":"keycloak","loginUri":"http://localhost:8080/oauth2/authorization/keycloak"}]
+   ```
+
 **How it works:**
 
 1. **Constructor:** Scans all configured OAuth2 providers (currently just Keycloak)
@@ -794,6 +849,13 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
+#### ✅ Verification: Docker Build
+1. **Build Image:**
+   ```bash
+   docker build -t gateway:latest gateway/
+   ```
+2. **Verify Success:** Check that the build completes without error.
+
 ---
 
 ## 6. Phase 3: Backend (Resource Server)
@@ -802,9 +864,7 @@ The backend validates JWTs sent by the Gateway and serves protected resources.
 
 ### Step 3.1: Add Dependencies
 
-**Location:** `backend/pom.xml`
-
-Add Spring Addons dependency:
+**Location:** `backend/pom.xml` 
 
 ```xml
 <dependency>
@@ -812,7 +872,16 @@ Add Spring Addons dependency:
     <artifactId>spring-addons-starter-oidc</artifactId>
     <version>9.1.0</version>
 </dependency>
-```
+```  
+
+#### ✅ Verification: Backend Dependencies
+1. **Check Dependency Tree:**
+   ```bash
+   cd backend
+   ./mvnw dependency:tree | grep spring-addons
+   ```
+   **Expected:** Output should show `com.c4-soft.springaddons:spring-addons-starter-oidc:jar:9.1.0`.
+
 
 **Note:** You can remove `spring-boot-starter-oauth2-resource-server` if you had it before, as Spring Addons includes it.
 
@@ -839,6 +908,16 @@ com.c4-soft.springaddons.oidc.ops[0].aud=
 # Resource Server Configuration - matches your OpenAPI spec security definitions
 com.c4-soft.springaddons.oidc.resourceserver.permit-all=/error,/api/v1/greetings,/api/v1/greetings/**,/actuator/health/**
 ```
+
+#### ✅ Verification: Backend Config
+1. **Run Backend:**
+   ```bash
+   cd backend
+   ./mvnw spring-boot:run
+   ```
+2. **Check Port:**
+   - Ensure it started on port 8081.
+   - Access `http://localhost:8081/actuator/health`.
 
 **Alternative: YAML equivalent** (for reference only - not recommended if you're already using .properties):
 
@@ -918,6 +997,18 @@ public class WebSecurityConfig {
     // See: com.c4-soft.springaddons.oidc.resourceserver config in application.properties
 }
 ```
+
+#### ✅ Verification: Security Config
+1. **Access Public Endpoint (Directly to Backend):**
+   ```bash
+   curl -I http://localhost:8081/api/v1/greetings
+   ```
+   **Expected:** HTTP 200 OK (since we permitted it).
+2. **Access Protected Endpoint (Directly to Backend):**
+   ```bash
+   curl -I http://localhost:8081/api/v1/me
+   ```
+   **Expected:** HTTP 401 Unauthorized (since it's protected and we sent no token).
 
 **What changed?**
 
@@ -1048,6 +1139,14 @@ public class UserController {
 }
 ```
 
+#### ✅ Verification: Compile
+1. **Compile Backend:**
+   ```bash
+   cd backend
+   ./mvnw clean compile
+   ```
+   **Expected:** Build success.
+
 **How it works:**
 
 1. **Gateway sends JWT:** Gateway extracts JWT from session and forwards in `Authorization: Bearer <token>` header
@@ -1170,6 +1269,18 @@ export default defineConfig(({ mode }) => ({
     },
 }));
 ```
+
+#### ✅ Verification: Frontend Proxy
+1. **Start Gateway:** Ensure `gateway` service is running (`mvn spring-boot:run` in gateway folder).
+2. **Start Frontend:**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+3. **Check Proxy:**
+   - Open `http://localhost:5173/api/v1/greetings` in browser.
+   - **Expected:** Should return JSON list of greetings (proxied through Gateway).
+   - If you see `Login Options` JSON when hitting `/login-options`, proxy works.
 
 **What changed?**
 - **Before:** `/api` → `http://localhost:8080` (backend direct, or Prism mock)
@@ -1917,6 +2028,15 @@ export const getMe = (options?: Options) => {
 };
 ```
 
+#### ✅ Verification: API Generation
+1. **Run Generation:**
+   ```bash
+   cd frontend
+   npm run api:generate
+   ```
+2. **Check File:**
+   - Verify `frontend/src/api/generated/sdk.gen.ts` contains `getMe`.
+
 ### Step 4.5.5: Update MSW Mock Handlers (Optional)
 
 **Location:** `frontend/src/test/mocks/handlers.ts`
@@ -1955,6 +2075,14 @@ export const authHandlers = [
     }),
 ];
 ```
+
+#### ✅ Verification: Mock Tests
+1. **Run Tests:**
+   ```bash
+   cd frontend
+   npm test
+   ```
+2. **Expected:** Tests using `getMe` (if any) should pass with mock data.
 
 ### API-First Summary
 
