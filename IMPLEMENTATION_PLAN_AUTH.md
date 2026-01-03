@@ -421,19 +421,21 @@ Create this file with the following content:
 
 **Why?** We need a new Spring Boot application to act as the BFF.
 
+> **Version Alignment:** Using Java 25, Spring Boot 4.0.x, and Spring Cloud 2025.1.x to match your backend stack.
+
 **Action:** Run this command from your project root:
 
 ```bash
 curl https://start.spring.io/starter.zip \
     -d type=maven-project \
     -d language=java \
-    -d bootVersion=3.4.1 \
+    -d bootVersion=4.0.0 \
     -d dependencies=cloud-gateway,oauth2-client,security,actuator \
     -d groupId=com.example \
     -d artifactId=gateway \
     -d name=gateway \
     -d packageName=com.example.gateway \
-    -d javaVersion=21 \
+    -d javaVersion=25 \
     -o gateway.zip
 
 unzip gateway.zip -d gateway
@@ -445,6 +447,7 @@ rm gateway.zip
 - OAuth2 Client dependencies (for OAuth2 login)
 - Spring Security (for authentication)
 - Actuator (for health checks)
+- Spring Cloud 2025.1.x (Oakwood) BOM automatically added for Boot 4.0.x
 
 ---
 
@@ -452,13 +455,15 @@ rm gateway.zip
 
 **Location:** `gateway/pom.xml`
 
+> **Version Note:** Using Spring Addons 9.1.0 which supports Spring Boot 4.x and Spring Framework 7.x.
+
 Add this dependency inside `<dependencies>`:
 
 ```xml
 <dependency>
     <groupId>com.c4-soft.springaddons</groupId>
     <artifactId>spring-addons-starter-oidc</artifactId>
-    <version>7.4.6</version>
+    <version>9.1.0</version>
 </dependency>
 ```
 
@@ -468,7 +473,7 @@ Add this dependency inside `<dependencies>`:
 <dependency>
     <groupId>com.c4-soft.springaddons</groupId>
     <artifactId>spring-addons-starter-oidc-test</artifactId>
-    <version>7.4.6</version>
+    <version>9.1.0</version>
     <scope>test</scope>
 </dependency>
 ```
@@ -756,8 +761,8 @@ window.location.href = options[0].loginUri;
 Create this file:
 
 ```dockerfile
-# Build stage
-FROM maven:3.9-eclipse-temurin-21-alpine AS build
+# Build stage - Java 25
+FROM maven:3.9-eclipse-temurin-25-alpine AS build
 WORKDIR /app
 
 # Copy pom.xml and download dependencies (cached layer)
@@ -768,8 +773,8 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+# Runtime stage - Java 25
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
 # Copy jar from build stage
@@ -805,7 +810,7 @@ Add Spring Addons dependency:
 <dependency>
     <groupId>com.c4-soft.springaddons</groupId>
     <artifactId>spring-addons-starter-oidc</artifactId>
-    <version>7.4.6</version>
+    <version>9.1.0</version>
 </dependency>
 ```
 
