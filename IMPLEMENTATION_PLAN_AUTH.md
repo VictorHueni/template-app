@@ -4,7 +4,7 @@
 1. [Understanding the BFF Pattern](#1-understanding-the-bff-pattern)
 2. [Why Spring Addons](#2-why-spring-addons)
 3. [Prerequisites & Configuration](#3-prerequisites--configuration)
-4. [Phase 1: Infrastructure Setup](#4-phase-1-infrastructure-setup)
+4. [Phase 1: Keycloak Setup](#4-phase-1-keycloak-setup)
 5. [Phase 2: Gateway (BFF) Implementation](#5-phase-2-gateway-bff-implementation)
 6. [Phase 3: Backend (Resource Server)](#6-phase-3-backend-resource-server)
 7. [Phase 4: Frontend Integration](#7-phase-4-frontend-integration)
@@ -185,31 +185,59 @@ GW_PORT=8080
 # --- Backend (Resource Server) Configuration ---
 # Backend moves to 8081 to free up 8080 for Gateway
 BCK_APP_PORT=8081
+# Management port moves to 8082 (was 8081)
+BCK_MGMT_PORT=8082
 ```
 
 **Why these variables?**
 - **KC_PORT:** Keycloak runs on a different port (9000) to avoid conflicts
 - **GW_PORT:** Gateway is now the main entry point (8080) - all traffic flows through it
 - **BCK_APP_PORT:** Backend moves to 8081 since Gateway takes 8080
+- **BCK_MGMT_PORT:** Management/actuator port moves to 8082 to avoid conflict with backend app port
 
 > **Design Decision:** All `/api/*` requests go through the Gateway (single entry point). This mirrors production deployment and simplifies routing - no `/bff` prefix needed.
 
 ---
 
-## 4. Phase 1: Infrastructure Setup
+## 4. Phase 1: Keycloak Setup
 
-### Step 1.1: Update `docker-compose.yml`
+This phase focuses solely on setting up Keycloak as the Identity Provider. The Gateway (BFF) will be added in Phase 2.
 
-**Why?** We need to add Keycloak (Identity Provider) and Gateway (BFF) services.
+### Step 1.1: Update `.env` File
+
+**Why?** Add environment variables for Keycloak and prepare for future Gateway integration.
+
+**Location:** `/.env` (root of project)
+
+Add these variables to your existing `.env` file:
+
+```env
+# --- Keycloak Configuration ---
+KC_PORT=9000
+KC_ADMIN=admin
+KC_ADMIN_PASSWORD=admin
+KC_REALM=template-realm
+KC_CLIENT_ID=template-gateway
+KC_CLIENT_SECRET=CHANGE_ME_GENERATE_IN_KEYCLOAK_UI
+```
+
+> **Note:** `KC_CLIENT_SECRET` will be updated after first Keycloak startup when you copy the generated secret from the Keycloak UI.
+
+---
+
+### Step 1.2: Update `docker-compose.yml` with Keycloak
+
+**Why?** We need to add Keycloak as the Identity Provider.
 
 **Location:** `/docker-compose.yml` (root of project)
 
-Add these services:
+Add the Keycloak service:
 
 ```yaml
 services:
   # ... existing db, backend, frontend services ...
 
+  # --- 5. KEYCLOAK IDENTITY PROVIDER ---
   keycloak:
     container_name: template-keycloak
     image: quay.io/keycloak/keycloak:26.0
@@ -235,33 +263,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-
-  gateway:
-    container_name: template-gateway
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    ports:
-      - "${GW_PORT}:8080"  # 👈 Gateway is now the main entry point
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      KC_CLIENT_SECRET: ${KC_CLIENT_SECRET}
-      SERVER_ADDRESS: 0.0.0.0
-    depends_on:
-      keycloak:
-        condition: service_healthy  # 👈 Wait for Keycloak to be ready
-      backend:
-        condition: service_started
-    networks:
-      - backend-network
 ```
 
 **Key Configuration Explained:**
 
 - **`--import-realm`:** Automatically imports Keycloak configuration from `/keycloak/import/` directory
-- **healthcheck:** Ensures Keycloak is fully started before Gateway tries to connect
-- **`condition: service_healthy`:** Gateway waits for Keycloak healthcheck to pass
-- **ports:** Gateway takes over port 8080 (the main entry point for your app)
+- **healthcheck:** Ensures Keycloak is fully started before dependent services try to connect
+- **ports:** Keycloak runs on port 9000 (externally) to avoid conflicts with other services
 
 ---
 
@@ -428,6 +436,27 @@ Create this file with the following content:
 ---
 
 ## 5. Phase 2: Gateway (BFF) Implementation
+
+### Step 2.0: Update `.env` for Gateway and Backend Ports
+
+**Why?** Gateway will take over port 8080, so backend needs to move to 8081, and management port to 8082.
+
+**Location:** `/.env` (root of project)
+
+Add/update these variables in your `.env` file:
+
+```env
+# --- Gateway Configuration ---
+GW_PORT=8080
+
+# --- Backend (Resource Server) Configuration ---
+# Backend moves to 8081 to free up 8080 for Gateway
+BCK_APP_PORT=8081
+# Management port moves to 8082 (was 8081)
+BCK_MGMT_PORT=8082
+```
+
+---
 
 ### Step 2.1: Generate Gateway Project
 
@@ -855,6 +884,70 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
    docker build -t gateway:latest gateway/
    ```
 2. **Verify Success:** Check that the build completes without error.
+
+---
+
+### Step 2.6: Add Gateway to `docker-compose.yml`
+
+**Why?** Now that the Gateway code exists, we can add it to docker-compose.
+
+**Location:** `/docker-compose.yml` (root of project)
+
+Add the Gateway service (after the keycloak service):
+
+```yaml
+services:
+  # ... existing db, backend, frontend, keycloak services ...
+
+  # --- 6. GATEWAY (BFF) SERVICE ---
+  gateway:
+    container_name: template-gateway
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "${GW_PORT}:8080"  # 👈 Gateway is now the main entry point
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KC_CLIENT_SECRET: ${KC_CLIENT_SECRET}
+      SERVER_ADDRESS: 0.0.0.0
+    depends_on:
+      keycloak:
+        condition: service_healthy  # 👈 Wait for Keycloak to be ready
+      backend:
+        condition: service_started
+    networks:
+      - backend-network
+```
+
+**Also update the backend service** to use the new ports:
+
+```yaml
+services:
+  backend:
+    # ... existing config ...
+    ports:
+      - "${BCK_APP_PORT}:8081"       # 👈 Changed: host port → container 8081
+      - "${BCK_MGMT_PORT}:8082"      # 👈 Changed: management port to 8082
+    environment:
+      # ... existing env vars ...
+      SPRING_SERVER_PORT: 8081       # 👈 Backend runs on 8081 internally
+```
+
+**Key Configuration Explained:**
+
+- **`condition: service_healthy`:** Gateway waits for Keycloak healthcheck to pass
+- **ports:** Gateway takes over port 8080 (the main entry point for your app)
+- **Backend ports:** Backend moves to 8081 (app) and 8082 (management)
+
+#### ✅ Verification: Full Stack
+1. **Start all services:**
+   ```bash
+   docker-compose up -d
+   ```
+2. **Check Gateway:** http://localhost:8080/actuator/health
+3. **Check Backend:** http://localhost:8081/actuator/health
+4. **Check Keycloak:** http://localhost:9000
 
 ---
 
