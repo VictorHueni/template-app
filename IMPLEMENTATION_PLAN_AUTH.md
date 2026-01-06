@@ -437,6 +437,64 @@ Create this file with the following content:
 
 ---
 
+### Step 1.3: Future Evolution - Path to Production
+
+**Why?** Our current "Phase 1" setup uses an embedded H2 database and a JSON import file. This is perfect for local development (speed, simplicity, reproducibility) but is **not production-ready**.
+
+This section outlines the roadmap to evolve this infrastructure for Staging and Production environments.
+
+#### Level 1: Persistent Database (Staging/Prod)
+**Goal:** Data durability and scalability.
+**Change:** Replace embedded H2 with an external PostgreSQL database.
+
+**Configuration Changes (`docker-compose.yml` or K8s):**
+```yaml
+keycloak:
+  environment:
+    KC_DB: postgres
+    KC_DB_URL: jdbc:postgresql://postgres-db:5432/keycloak
+    KC_DB_USERNAME: keycloak
+    KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+  depends_on:
+    - postgres-db
+```
+*   **Why:** H2 is not designed for concurrent load or clustering. PostgreSQL ensures user data is safe and allows Keycloak to run in a cluster (HA).
+
+#### Level 2: Immutable GitOps Configuration (Production)
+**Goal:** Zero manual configuration drift.
+**Current State:** We use `--import-realm` (Native Import). This is "all-or-nothing" at startup.
+**Future State:** Use **`keycloak-config-cli`**.
+
+**How it works:**
+1.  **Git:** Realm config (clients, roles) lives in Git (JSON/YAML).
+2.  **Tool:** A separate container (`keycloak-config-cli`) runs alongside Keycloak.
+3.  **Action:** It talks to the Keycloak API to apply changes *without* restarting the server.
+
+**Benefits:**
+*   **Granular Updates:** Can update a single client redirect URI without reloading the whole realm.
+*   **Variable Substitution:** Inject secrets (like Google Client ID) into the config at runtime.
+*   **Safety:** "Dry-run" capabilities to see what will change before applying.
+
+**Reference:** [Mastering Keycloak Configuration with GitOps](https://medium.com/@assahbismarkabah/mastering-keycloak-configuration-with-gitops-and-keycloak-config-cli-e0330c18d275)
+
+#### Level 3: High Availability (Clustering)
+**Goal:** No single point of failure.
+**Setup:**
+*   Run multiple Keycloak replicas (Pods).
+*   Use `ISPN` (Infinispan) for distributed caching (sessions).
+*   Load Balancer in front of the cluster.
+*   **Requirement:** Level 1 (PostgreSQL) is mandatory for this.
+
+**Summary of Evolution:**
+| Feature | Current (Dev) | Production Target |
+| :--- | :--- | :--- |
+| **Database** | Embedded H2 (File) | PostgreSQL / MySQL |
+| **Config** | Native Import (`--import-realm`) | `keycloak-config-cli` (GitOps) |
+| **Scaling** | Single Instance | Clustered (K8s/ECS) |
+| **Users** | Hardcoded Test Users | Dynamic (Self-registration) or LDAP/AD |
+
+---
+
 ## 5. Phase 2: Gateway (BFF) Implementation
 
 ### Step 2.0: Update `.env` for Gateway and Backend Ports
