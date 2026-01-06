@@ -425,13 +425,15 @@ Create this file with the following content:
    - Update `.env` file with `KC_CLIENT_SECRET=<copied-secret>`
    - Restart gateway service
 
-2. **Test Users:**
+2. **Test Users (Verification):**
    - **Regular User:** username=`user`, password=`password`, role=`USER`
    - **Admin User:** username=`admin`, password=`admin`, roles=`USER,ADMIN`
+   - **How to verify:** In Keycloak Admin Console, go to **Users** -> **View all users**. Select a user and check the **Role mapping** tab to confirm roles are correctly assigned from the realm import.
 
-3. **Back-channel Logout Configuration:**
-   - `backchannel.logout.session.required: true` - Enables multi-device logout
-   - When user logs out on one device, all sessions are terminated
+3. **Back-channel Logout Configuration (Verification):**
+   - `backchannel.logout.session.required: true` - Enables multi-device logout (SSO Logout).
+   - **How to verify:** Go to **Clients** -> **template-gateway** -> **Advanced settings**. Ensure **Backchannel logout session required** is toggled **ON**. 
+   - **Note:** While the configuration is visible now, the actual termination of sessions can only be tested once the Gateway is running and active user sessions exist.
 
 ---
 

@@ -1,0 +1,124 @@
+{
+    "realm": "template-realm",
+    "enabled": true,
+    "sslRequired": "none",
+    "registrationAllowed": false,
+    "loginWithEmailAllowed": true,
+    "duplicateEmailsAllowed": false,
+    "resetPasswordAllowed": false,
+    "editUsernameAllowed": false,
+    "bruteForceProtected": true,
+    "clients": [
+        {
+            "clientId": "template-gateway",
+            "name": "Template Gateway BFF",
+            "enabled": true,
+            "clientAuthenticatorType": "client-secret",
+            "secret": "CHANGE_ME_GENERATE_IN_KEYCLOAK_UI",
+            "redirectUris": [
+                "http://localhost:8080/*",
+                "http://localhost:8080/login/oauth2/code/keycloak"
+            ],
+            "webOrigins": [
+                "+"
+            ],
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "publicClient": false,
+            "protocol": "openid-connect",
+            "attributes": {
+                "post.logout.redirect.uris": "http://localhost:8080/*",
+                "backchannel.logout.session.required": "true",
+                "backchannel.logout.revoke.offline.tokens": "false"
+            },
+            "defaultClientScopes": [
+                "openid",
+                "profile",
+                "email",
+                "roles"
+            ],
+            "optionalClientScopes": [
+                "offline_access"
+            ]
+        }
+    ],
+    "roles": {
+        "realm": [
+            {
+                "name": "USER",
+                "description": "Standard user role"
+            },
+            {
+                "name": "ADMIN",
+                "description": "Administrator role"
+            }
+        ]
+    },
+    "users": [
+        {
+            "username": "user",
+            "enabled": true,
+            "emailVerified": true,
+            "email": "user@example.com",
+            "firstName": "Test",
+            "lastName": "User",
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "password",
+                    "temporary": false
+                }
+            ],
+            "realmRoles": [
+                "USER"
+            ]
+        },
+        {
+            "username": "admin",
+            "enabled": true,
+            "emailVerified": true,
+            "email": "admin@example.com",
+            "firstName": "Admin",
+            "lastName": "User",
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "admin",
+                    "temporary": false
+                }
+            ],
+            "realmRoles": [
+                "USER",
+                "ADMIN"
+            ]
+        }
+    ],
+    "clientScopes": [
+        {
+            "name": "roles",
+            "protocol": "openid-connect",
+            "attributes": {
+                "include.in.token.scope": "true",
+                "display.on.consent.screen": "false"
+            },
+            "protocolMappers": [
+                {
+                    "name": "realm roles",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "multivalued": "true",
+                        "userinfo.token.claim": "true",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "realm_access.roles",
+                        "jsonType.label": "String"
+                    }
+                }
+            ]
+        }
+    ]
+}
