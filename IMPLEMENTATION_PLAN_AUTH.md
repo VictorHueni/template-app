@@ -7,10 +7,11 @@
 4. [Phase 1: Keycloak Setup](#4-phase-1-keycloak-setup)
 5. [Phase 2: Gateway (BFF) Implementation](#5-phase-2-gateway-bff-implementation)
 6. [Phase 3: Backend (Resource Server)](#6-phase-3-backend-resource-server)
-7. [Phase 4: Frontend Integration](#7-phase-4-frontend-integration)
-8. [Phase 5: Advanced Features](#8-phase-5-advanced-features)
-9. [Testing & Verification](#9-testing--verification)
-10. [Architecture Diagrams](#10-architecture-diagrams)
+7. [Phase 4: Backend Testing](#7-phase-4-backend-testing)
+8. [Phase 5: Frontend Integration](#8-phase-5-frontend-integration)
+9. [Phase 6: Advanced Features](#9-phase-6-advanced-features)
+10. [Phase 7: End-to-End Testing & Verification](#10-phase-7-end-to-end-testing--verification)
+11. [Architecture Diagrams](#11-architecture-diagrams)
 
 ---
 
@@ -1711,107 +1712,195 @@ public ResponseEntity<GreetingResponse> updateGreeting(String id, UpdateGreeting
 
 ---
 
-### Step 3.4: Create User Info Endpoint
+### Step 3.4: Create User Info Endpoint (API-First)
 
-**Why?** The frontend needs to know who's logged in and when the session expires.
+**Why?** The frontend needs to know who's logged in to display user info and check authentication status.
 
-> **API-First Note:** This endpoint will be added to your OpenAPI spec in Phase 4.5. The backend implements what the spec defines.
+> **API-First Approach:** Following our project principles, we define the endpoint in OpenAPI spec first, then implement the generated interface.
 
-**Location:** `backend/src/main/java/com/example/demo/user/UserController.java`
+#### Schema Design Considerations
 
-Create this new file:
+The User Info endpoint abstracts over IdP-specific claims to avoid tight coupling:
+
+| Risk                                  | Mitigation                                                   |
+| ------------------------------------- | ------------------------------------------------------------ |
+| Claim name changes (Keycloak → Auth0) | Map raw claims to domain fields (`sub` → `id`)               |
+| Optional claims (email might be null) | Mark `email` as optional in schema                           |
+| Role format differences               | Map IdP roles to application-defined roles (`USER`, `ADMIN`) |
+| Token expiration leakage              | Don't expose `exp` - let Gateway handle refresh              |
+
+#### Step 3.4.1: Update OpenAPI Spec
+
+**Location:** `api/specification/openapi.yaml`
+
+Add a new `User` tag and `/v1/me` endpoint:
+
+```yaml
+tags:
+  - name: Greetings
+    description: Operations for managing greeting resources
+  - name: User
+    description: Current user information
+
+paths:
+  # ... existing paths ...
+
+  /v1/me:
+    get:
+      tags:
+        - User
+      summary: Get current user info
+      description: |
+        Returns information about the currently authenticated user.
+        Extracts claims from the JWT token provided by the Gateway.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfoResponse'
+              examples:
+                authenticated:
+                  summary: Authenticated user
+                  value:
+                    id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                    username: "johndoe"
+                    email: "john.doe@example.com"
+                    roles: ["USER"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  schemas:
+    # ... existing schemas ...
+
+    UserInfoResponse:
+      type: object
+      description: Information about the authenticated user (abstracted from JWT claims)
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Unique user identifier (mapped from 'sub' claim)
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        username:
+          type: string
+          description: Display username (mapped from 'preferred_username' claim)
+          example: "johndoe"
+        email:
+          type: string
+          format: email
+          description: User email (may be null if not provided by IdP)
+          example: "john.doe@example.com"
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [USER, ADMIN]
+          description: Application-level roles (mapped from IdP roles)
+          example: ["USER"]
+      required: [id, username, roles]
+```
+
+#### Step 3.4.2: Regenerate Backend Interfaces
+
+```bash
+cd backend
+./mvnw generate-sources
+```
+
+**Expected:** New `UserApi` interface generated in `target/generated-sources/openapi/`.
+
+#### Step 3.4.3: Implement UserController
+
+**Location:** `backend/src/main/java/com/example/demo/user/controller/UserController.java`
 
 ```java
-package com.example.demo.user;
+package com.example.demo.user.controller;
 
-import java.time.Instant;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.security.core.Authentication;
+import java.util.Set;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
-import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.api.v1.controller.UserApi;
+import com.example.demo.api.v1.model.UserInfoResponse;
 
 /**
  * REST endpoint that returns current user information.
- *
- * This is called by the frontend to:
- * 1. Display user info (name, email, roles)
- * 2. Schedule token refresh (using exp timestamp)
- * 3. Check authentication status
- *
- * @see api/specification/openapi.yaml - User tag endpoints
+ * Implements the generated UserApi interface from OpenAPI spec.
  */
 @RestController
-@RequestMapping("/api/v1/me")
-public class UserController {
+public class UserController implements UserApi {
 
-    /**
-     * GET /api/v1/me
-     *
-     * Returns current user info extracted from JWT token.
-     * Gateway forwards the JWT in the Authorization header.
-     */
-    @GetMapping
-    public UserInfoDto getMe(Authentication auth) {
-        if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            final var email = (String) jwtAuth.getTokenAttributes()
-                .getOrDefault(StandardClaimNames.EMAIL, "");
+    // Application-defined roles (mapped from IdP roles)
+    private static final Set<String> KNOWN_ROLES = Set.of("USER", "ADMIN");
 
-            final var roles = auth.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
+    @Override
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserInfoResponse> getCurrentUser() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
 
-            // Extract token expiration time
-            final var exp = Optional.ofNullable(jwtAuth.getTokenAttributes()
-                .get(JwtClaimNames.EXP))
-                .map(expClaim -> {
-                    if (expClaim instanceof Long lexp) {
-                        return lexp;
-                    }
-                    if (expClaim instanceof Instant iexp) {
-                        return iexp.getEpochSecond();
-                    }
-                    if (expClaim instanceof Date dexp) {
-                        return dexp.toInstant().getEpochSecond();
-                    }
-                    return Long.MAX_VALUE;
-                })
-                .orElse(Long.MAX_VALUE);
-
-            return new UserInfoDto(auth.getName(), email, roles, exp);
+        if (!(auth instanceof JwtAuthenticationToken jwtAuth)) {
+            // Should not happen with proper security config
+            return ResponseEntity.status(401).build();
         }
 
-        // Not authenticated (shouldn't happen on this endpoint)
-        return UserInfoDto.ANONYMOUS;
-    }
+        // Extract claims from JWT
+        final var claims = jwtAuth.getTokenAttributes();
+        
+        // Map 'sub' claim to id (IdP-agnostic identifier)
+        final var id = (String) claims.get("sub");
+        
+        // Map 'preferred_username' to username
+        final var username = (String) claims.getOrDefault(
+            StandardClaimNames.PREFERRED_USERNAME, 
+            auth.getName()
+        );
+        
+        // Email is optional (might not be provided by IdP)
+        final var email = (String) claims.get(StandardClaimNames.EMAIL);
+        
+        // Map IdP roles to application roles (filter to known roles only)
+        final var roles = auth.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .map(role -> role.replace("ROLE_", ""))  // Remove Spring Security prefix
+            .filter(KNOWN_ROLES::contains)           // Only known app roles
+            .map(UserInfoResponse.RolesEnum::fromValue)
+            .toList();
 
-    /**
-     * DTO representing user information.
-     *
-     * @param username  Username from JWT (preferred_username claim)
-     * @param email     Email from JWT (email claim)
-     * @param roles     List of roles (extracted from realm_access.roles)
-     * @param exp       Token expiration timestamp (seconds since epoch)
-     */
-    public record UserInfoDto(
-        String username,
-        String email,
-        List<String> roles,
-        Long exp
-    ) {
-        public static final UserInfoDto ANONYMOUS = new UserInfoDto("", "", List.of(), null);
+        var response = new UserInfoResponse()
+            .id(id)
+            .username(username)
+            .email(email)
+            .roles(roles);
+
+        return ResponseEntity.ok(response);
     }
 }
 ```
 
-#### ✅ Verification: Compile
+**Key Design Decisions:**
+- **Implements generated interface:** `UserApi` from OpenAPI spec (no `Authentication` parameter)
+- **Uses `SecurityContextHolder`:** Gets auth context since generated interface has no params
+- **Uses `@PreAuthorize`:** Consistent with other protected endpoints
+- **Maps claims to domain:** `sub` → `id`, `preferred_username` → `username`
+- **Filters roles:** Only exposes application-defined roles (`USER`, `ADMIN`)
+- **No `exp` field:** Token refresh is Gateway's responsibility
+
+#### ✅ Verification: User Info Endpoint
+
 1. **Compile Backend:**
    ```bash
    cd backend
@@ -1819,30 +1908,35 @@ public class UserController {
    ```
    **Expected:** Build success.
 
+2. **Rebuild Docker:**
+   ```bash
+   docker-compose up -d --build backend
+   ```
+
+3. **Test without authentication:**
+   ```powershell
+   Invoke-WebRequest -Uri "http://localhost:8081/api/v1/me" -Method GET
+   ```
+   **Expected:** HTTP 401 Unauthorized (protected endpoint).
+
+4. **Test with valid JWT (via Gateway):**
+   - Login via Gateway
+   - Call `GET /api/v1/me` through Gateway
+   - **Expected:** HTTP 200 with user info JSON
+
 **How it works:**
 
-1. **Gateway sends JWT:** Gateway extracts JWT from session and forwards in `Authorization: Bearer <token>` header
-2. **Spring Security validates:** Spring Addons validates JWT signature and expiration
-3. **Controller extracts claims:** Pulls username, email, roles, and expiration from JWT
-4. **Frontend uses it:** React app can display user info and schedule token refresh
-
-**Frontend usage example:**
-```javascript
-const response = await fetch('/api/v1/me', {
-  credentials: 'include'  // Send session cookie
-});
-const user = await response.json();
-// {
-//   username: "user",
-//   email: "user@example.com",
-//   roles: ["USER"],
-//   exp: 1734567890  // Unix timestamp
-// }
-
-// Schedule refresh 80% of the way to expiration
-const now = Date.now() / 1000;
-const refreshIn = (user.exp - now) * 0.8 * 1000;
-setTimeout(() => refreshUserInfo(), refreshIn);
+```
+Frontend                Gateway (BFF)              Backend
+   │                        │                         │
+   │ GET /api/v1/me         │                         │
+   │ Cookie: SESSION=xyz ──►│                         │
+   │                        │ Extract JWT from session│
+   │                        │ Authorization: Bearer ──►│
+   │                        │                         │ Validate JWT
+   │                        │                         │ Extract claims
+   │                        │◄── UserInfoResponse ────│
+   │◄── UserInfoResponse ───│                         │
 ```
 
 ---
@@ -1863,7 +1957,456 @@ services:
 
 ---
 
-## 7. Phase 4: Frontend Integration
+## 7. Phase 4: Backend Testing (✅ Completed)
+
+This phase implements comprehensive integration tests for the authentication-related backend components using real Keycloak JWT tokens.
+
+### Design Decision: Integration Test Strategy
+
+#### The Problem: Thread Boundary
+
+When testing secured endpoints with RestAssured (or any real HTTP client), there's a fundamental challenge:
+
+```
+┌─────────────────────────────────────┐     ┌─────────────────────────────────────┐
+│         TEST THREAD                 │     │       SERVER THREAD                 │
+│                                     │     │                                     │
+│  @WithJwt sets SecurityContext ─────┼──X──┼─► SecurityContext is EMPTY here    │
+│  (via ThreadLocal)                  │     │                                     │
+│                                     │     │   RestAssured HTTP request arrives  │
+│  RestAssured.given()                │     │   with NO Authorization header      │
+│    .get("/api/v1/me") ──────────────┼─────┼─►                                   │
+│                                     │     │   @PreAuthorize checks fail         │
+└─────────────────────────────────────┘     └─────────────────────────────────────┘
+```
+
+- `@WithJwt` uses `SecurityContextHolder` which stores auth in a `ThreadLocal`
+- RestAssured makes **real HTTP calls** to the embedded server running on `RANDOM_PORT`
+- The server processes requests in a **different thread** (Tomcat worker thread)
+- `ThreadLocal` doesn't propagate across threads
+- The server sees an unauthenticated request
+
+#### Options Evaluated
+
+| Option | Approach                    | Pros                      | Cons                                                         |
+| ------ | --------------------------- | ------------------------- | ------------------------------------------------------------ |
+| **A**  | MockMvc IT (no RestAssured) | Simple, `@WithJwt` works  | ❌ Loses OpenAPI validation, different pattern from other ITs |
+| **B**  | RestAssured + WireMock JWKS | Real HTTP, moderate setup | ❌ Can't test logout/refresh flows, mock issuer               |
+| **C**  | Testcontainers Keycloak     | Full E2E, real tokens     | ⚠️ ~15-30s startup (mitigated by singleton + reuse)           |
+
+#### Decision: Testcontainers Keycloak (Option C) ✅
+
+**Rationale:**
+1. **Template App Philosophy** - This is a template for multiple enterprise projects. One-time setup cost pays dividends across all derived projects.
+2. **API-First Alignment** - RestAssured + `swagger-request-validator` ensures OpenAPI contract compliance. No equivalent exists for other HTTP clients.
+3. **Future-Proof** - Infrastructure ready for testing logout flows, token refresh, and role-based access in later phases.
+4. **Real Security Testing** - No mocks means catching real misconfiguration issues (wrong issuer, role mapping bugs).
+5. **Consistency** - Same RestAssured pattern as existing `GreetingControllerIT`.
+
+---
+
+### Fit-Gap Analysis: Plan vs. Implementation
+
+#### What Matched the Plan ✅
+
+| Planned                             | Implemented                                                   | Notes                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Testcontainers Keycloak singleton   | ✅ `KeycloakTestcontainerConfiguration`                        | Uses `dasniko/testcontainers-keycloak:3.6.0`                                               |
+| Token Provider utility              | ✅ `KeycloakTokenProvider`                                     | Direct access grant with scope `openid profile email roles`                                |
+| Abstract base class                 | ✅ `AbstractSecuredRestAssuredIT`                              | Provides `givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()` |
+| Profile-based security toggle       | ✅ `@Profile("test & !keycloak-test")` on `TestSecurityConfig` | Correctly excludes permissive config                                                       |
+| keycloak-test properties file       | ✅ `application-keycloak-test.properties`                      | Comprehensive config with security model documentation                                     |
+| OpenAPI validation with RestAssured | ✅ `swagger-request-validator-restassured`                     | Used where applicable                                                                      |
+
+#### Key Differences from Plan 🔄
+
+| Planned                                      | Actual Implementation                       | Reason for Change                                                                                                      |
+| -------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `KeycloakTestcontainerConfig`                | `KeycloakTestcontainerConfiguration`        | Used Keycloak-specific Testcontainer library (`dasniko/testcontainers-keycloak`) instead of generic `GenericContainer` |
+| Profiles: `test, integration, keycloak-test` | Profiles: `test, keycloak-test`             | Simplified - `integration` profile not needed                                                                          |
+| Expected 401 for unauthenticated access      | Returns **403** for method-security denials | `@PreAuthorize` throws `AccessDeniedException` → 403, not 401                                                          |
+| OpenAPI validation on all tests              | **Skipped for 401/403 error responses**     | Spring Security returns `application/json`, not `application/problem+json`                                             |
+| Unit tests with `@WithJwt`                   | **Not implemented (deferred)**              | Focused on integration tests first; unit tests can be added later                                                      |
+| `@DynamicPropertySource` for issuer only     | Must include **all** related properties     | Setting `ops[0].iss` dynamically overwrites entire `ops[0]` entry                                                      |
+
+---
+
+### Critical Implementation Insights
+
+#### 1. @DynamicPropertySource Override Behavior ⚠️
+
+**Problem Discovered:** Setting `com.c4-soft.springaddons.oidc.ops[0].iss` via `@DynamicPropertySource` creates a new `ops[0]` entry that **overwrites** all properties defined in the properties file for that index.
+
+**Solution:** Include ALL related properties in `@DynamicPropertySource`:
+
+```java
+@DynamicPropertySource
+static void keycloakProperties(DynamicPropertyRegistry registry) {
+    registry.add("com.c4-soft.springaddons.oidc.ops[0].iss",
+            KeycloakTestcontainerConfiguration::getIssuerUrl);
+    // MUST also set these - properties file entries are overwritten by array index
+    registry.add("com.c4-soft.springaddons.oidc.ops[0].authorities[0].path",
+            () -> "$.roles");
+    registry.add("com.c4-soft.springaddons.oidc.ops[0].username-claim",
+            () -> "$.preferred_username");
+}
+```
+
+#### 2. Method Security Returns 403, Not 401 ⚠️
+
+**Planned Behavior:**
+```
+Anonymous request → 401 Unauthorized
+```
+
+**Actual Behavior with `permit-all` + `@PreAuthorize`:**
+```
+Anonymous request 
+  → Filter chain allows (permit-all)
+  → Controller method reached
+  → @PreAuthorize("isAuthenticated()") fails
+  → AccessDeniedException thrown
+  → 403 Forbidden returned
+```
+
+**Why This Happens:**
+- `permit-all` in Spring Addons allows requests through without authentication
+- Method-level security (`@PreAuthorize`) evaluates AFTER the filter chain
+- Spring Security treats anonymous users as "authenticated but with no roles"
+- `AccessDeniedException` → 403 (not `AuthenticationException` → 401)
+
+**Test Adjustment:**
+```java
+@Test
+@DisplayName("should return 403 without authentication")
+void shouldReturn401WithoutAuth() {
+    // Note: Returns 403 (not 401) because:
+    // 1. permit-all allows anonymous through filter chain
+    // 2. @PreAuthorize("isAuthenticated()") throws AccessDeniedException
+    // 3. Spring Security translates to 403 Forbidden
+    givenUnauthenticated()
+        .post("/api/v1/greetings")
+        .then()
+        .statusCode(403);  // NOT 401
+}
+```
+
+#### 3. OpenAPI Validation Limitations
+
+**Cannot validate 401/403 responses** against OpenAPI spec because:
+- Spring Security returns `Content-Type: application/json`
+- OpenAPI spec defines `application/problem+json` for error responses
+- `swagger-request-validator` fails on content-type mismatch
+
+**Solution:** Skip OpenAPI validation filter for security error tests:
+```java
+@Test
+void shouldReturn401WithoutToken() {
+    givenUnauthenticated()
+        // No .filter(validationFilter()) - Spring Security response format differs
+        .get("/api/v1/me")
+        .then()
+        .statusCode(401);
+}
+```
+
+#### 4. Keycloak Realm Role Mapping
+
+**Plan assumed:** Roles at `$.realm_access.roles`
+
+**Actual implementation:** Roles mapped to flat `$.roles` claim via custom protocol mapper in `template-realm.json`:
+
+```json
+{
+  "name": "realm roles",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-usermodel-realm-role-mapper",
+  "config": {
+    "claim.name": "roles",           // Flat claim, not nested
+    "multivalued": "true",
+    "id.token.claim": "true",
+    "access.token.claim": "true"
+  }
+}
+```
+
+---
+
+### Final Test Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    INTEGRATION TEST                             │
+├─────────────────────────────────────────────────────────────────┤
+│  @SpringBootTest(RANDOM_PORT)                                   │
+│  @ActiveProfiles({"test", "keycloak-test"})                    │
+│                                                                 │
+│  ┌─────────────┐    RestAssured     ┌─────────────────────┐    │
+│  │ Test Method │ ──────────────────►│  Backend (real)     │    │
+│  │             │  + Bearer token    │  - JWT validation   │    │
+│  │             │  + OpenAPI filter  │  - @PreAuthorize    │    │
+│  │             │    (where valid)   │  - Method Security  │    │
+│  └──────┬──────┘                    └──────────┬──────────┘    │
+│         │                                      │               │
+│         │ Get token                            │ Validate JWT  │
+│         ▼                                      ▼               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │      Keycloak Testcontainer (dasniko/3.6.0)             │   │
+│  │  - Real OIDC provider                                   │   │
+│  │  - Imports template-realm.json                          │   │
+│  │  - Test users: testuser(USER), adminuser(USER+ADMIN)    │   │
+│  │  - Roles mapped to $.roles (flat claim)                 │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Final Test Categories
+
+| Category                        | Tool                      | Profile                 | Security                          | HTTP Status for Unauth |
+| ------------------------------- | ------------------------- | ----------------------- | --------------------------------- | ---------------------- |
+| **Integration (no security)**   | RestAssured               | `test`                  | Bypassed via `TestSecurityConfig` | N/A (all permitted)    |
+| **Integration (with security)** | RestAssured + Keycloak TC | `test`, `keycloak-test` | Real JWT + Method Security        | **403** (not 401)      |
+
+> **Note:** Unit tests with `@WithJwt` were deferred. The integration tests provide comprehensive security coverage.
+
+---
+
+### Implementation Files Summary
+
+| File                                            | Purpose                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `KeycloakTestcontainerConfiguration.java`       | Singleton Keycloak container with realm import                   |
+| `KeycloakTokenProvider.java`                    | Obtains real JWT tokens via direct access grant                  |
+| `AbstractSecuredRestAssuredIT.java`             | Base class with `givenAuthenticatedUser/Admin/Unauthenticated()` |
+| `KeycloakTestSecurityConfig.java`               | Enables `@EnableMethodSecurity` for keycloak-test profile        |
+| `application-keycloak-test.properties`          | Full config including `permit-all` paths                         |
+| `keycloak/template-realm.json` (test resources) | Realm config with test users and role mapping                    |
+| `UserControllerSecuredIT.java`                  | Security tests for `/api/v1/me`                                  |
+| `GreetingControllerSecuredIT.java`              | Security tests for `/api/v1/greetings` CRUD                      |
+
+---
+
+### Step 4.1: Add Testcontainers Keycloak Dependency
+
+**Location:** `backend/pom.xml`
+
+```xml
+<!-- Keycloak Testcontainer for security integration tests -->
+<dependency>
+    <groupId>com.github.dasniko</groupId>
+    <artifactId>testcontainers-keycloak</artifactId>
+    <version>3.6.0</version>
+    <scope>test</scope>
+</dependency>
+```
+
+---
+
+### Step 4.2: Create Keycloak Testcontainer Configuration
+
+**Location:** `backend/src/test/java/com/example/demo/testsupport/KeycloakTestcontainerConfiguration.java`
+
+```java
+package com.example.demo.testsupport;
+
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+
+import dasniko.testcontainers.keycloak.KeycloakContainer;
+
+/**
+ * Testcontainers configuration for Keycloak.
+ * Uses dasniko/testcontainers-keycloak for simplified Keycloak container management.
+ */
+@TestConfiguration
+public class KeycloakTestcontainerConfiguration {
+
+    private static final KeycloakContainer KEYCLOAK;
+
+    static {
+        KEYCLOAK = new KeycloakContainer("quay.io/keycloak/keycloak:26.2.4")
+                .withRealmImportFile("keycloak/template-realm.json")
+                .withReuse(true);
+        KEYCLOAK.start();
+    }
+
+    @Bean
+    public KeycloakContainer keycloakContainer() {
+        return KEYCLOAK;
+    }
+
+    public static String getIssuerUrl() {
+        return KEYCLOAK.getAuthServerUrl() + "/realms/template-realm";
+    }
+
+    public static String getTokenEndpoint() {
+        return getIssuerUrl() + "/protocol/openid-connect/token";
+    }
+}
+```
+
+---
+
+### Step 4.3: Create Token Provider Utility
+
+**Location:** `backend/src/test/java/com/example/demo/testsupport/KeycloakTokenProvider.java`
+
+```java
+package com.example.demo.testsupport;
+
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+
+/**
+ * Utility to obtain OAuth2 access tokens from Keycloak Testcontainer.
+ * Uses Resource Owner Password Credentials grant (direct access grant).
+ */
+public final class KeycloakTokenProvider {
+
+    private static final String CLIENT_ID = "template-gateway";
+
+    private KeycloakTokenProvider() {}
+
+    public static String getUserToken() {
+        return getAccessToken("testuser", "test123");
+    }
+
+    public static String getAdminToken() {
+        return getAccessToken("adminuser", "admin123");
+    }
+
+    private static String getAccessToken(String username, String password) {
+        Response response = RestAssured.given()
+                .contentType("application/x-www-form-urlencoded")
+                .formParam("grant_type", "password")
+                .formParam("client_id", CLIENT_ID)
+                .formParam("username", username)
+                .formParam("password", password)
+                .formParam("scope", "openid profile email roles")
+                .post(KeycloakTestcontainerConfiguration.getTokenEndpoint());
+
+        if (response.getStatusCode() != 200) {
+            throw new RuntimeException("Failed to obtain token: " + response.getBody().asString());
+        }
+        return response.jsonPath().getString("access_token");
+    }
+}
+```
+
+---
+
+### Step 4.4: Create KeycloakTestSecurityConfig
+
+**Why?** `@EnableMethodSecurity` is on `WebSecurityConfig` which has `@Profile("!test")`. For keycloak-test profile, we need method security enabled.
+
+**Location:** `backend/src/test/java/com/example/demo/testsupport/KeycloakTestSecurityConfig.java`
+
+```java
+package com.example.demo.testsupport;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+
+/**
+ * Security configuration for Keycloak integration tests.
+ * Enables @PreAuthorize annotations which WebSecurityConfig provides in non-test profiles.
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@Profile("test & keycloak-test")
+public class KeycloakTestSecurityConfig {
+    // Spring Addons auto-configures SecurityFilterChain
+    // We only enable method security here
+}
+```
+
+---
+
+### Step 4.5: Update TestSecurityConfig Profile
+
+**Location:** `backend/src/test/java/com/example/demo/testsupport/TestSecurityConfig.java`
+
+Change the `@Profile` annotation to exclude keycloak-test:
+
+```java
+@Configuration
+@EnableWebSecurity
+@Profile("test & !keycloak-test")  // Exclude when keycloak-test is active
+public class TestSecurityConfig {
+    // ... existing permissive security config ...
+}
+```
+
+---
+
+### Step 4.6: Create keycloak-test Application Properties
+
+**Location:** `backend/src/test/resources/application-keycloak-test.properties`
+
+Key configuration:
+
+```properties
+# Re-enable Spring Addons OIDC (test profile excludes it)
+spring.autoconfigure.exclude=
+
+# Spring Addons OIDC - issuer set dynamically via @DynamicPropertySource
+com.c4-soft.springaddons.oidc.ops[0].username-claim=$.preferred_username
+com.c4-soft.springaddons.oidc.ops[0].authorities[0].path=$.roles
+com.c4-soft.springaddons.oidc.ops[0].aud=
+
+# permit-all paths - method security handles protection
+com.c4-soft.springaddons.oidc.resourceserver.permit-all=/error,/v1/greetings,/v1/greetings/**
+```
+
+---
+
+### Step 4.7: Create Abstract Secured Integration Test Base
+
+**Location:** `backend/src/test/java/com/example/demo/testsupport/AbstractSecuredRestAssuredIT.java`
+
+Provides helper methods and dynamic property injection. Key feature:
+
+```java
+@DynamicPropertySource
+static void keycloakProperties(DynamicPropertyRegistry registry) {
+    registry.add("com.c4-soft.springaddons.oidc.ops[0].iss", ...);
+    registry.add("com.c4-soft.springaddons.oidc.ops[0].authorities[0].path", () -> "$.roles");
+    registry.add("com.c4-soft.springaddons.oidc.ops[0].username-claim", () -> "$.preferred_username");
+}
+```
+
+---
+
+### Step 4.8: Update Keycloak Realm for Tests
+
+**Location:** `backend/src/test/resources/keycloak/template-realm.json`
+
+Key modifications from base realm:
+1. Added `openid`, `profile`, `email`, `roles` as `defaultDefaultClientScopes`
+2. Changed roles mapper to flat `$.roles` claim (not `$.realm_access.roles`)
+3. Ensured `template-gateway` client has direct access grant enabled
+
+---
+
+### Verification: Run All Secured Tests
+
+```bash
+cd backend
+./mvnw test -Dtest="*SecuredIT"
+```
+
+**Expected Results:**
+- `UserControllerSecuredIT`: 6 tests pass
+- `GreetingControllerSecuredIT`: 11 tests pass
+- Total: 17 secured integration tests
+
+---
+
+## 8. Phase 5: Frontend Integration
 
 > **Alignment with Your Setup:** This section adapts to your existing patterns:
 > - **API Client:** `@hey-api/client-fetch` (not axios)
@@ -2744,7 +3287,7 @@ export const authHandlers = [
 
 ---
 
-## 8. Phase 5: Advanced Features
+## 9. Phase 6: Advanced Features
 
 ### Feature 1: CSRF Token Handling
 
@@ -2830,7 +3373,7 @@ if (user && isTokenExpired(user)) {
 
 ---
 
-## 9. Testing & Verification
+## 10. Phase 7: End-to-End Testing & Verification
 
 ### Step 9.1: Start All Services
 
@@ -3001,7 +3544,7 @@ public class AdminController {
 
 ---
 
-## 10. Architecture Diagrams
+## 11. Architecture Diagrams
 
 ### System Architecture
 

@@ -19,8 +19,8 @@ import com.example.demo.common.config.WebSecurityConfig;
 /**
  * Minimal security configuration for integration tests.
  * <p>
- * This configuration is ONLY active when the "test" profile is active.
- * It provides a simple setup where:
+ * This configuration is ONLY active when the "test" profile is active
+ * AND the "keycloak-test" profile is NOT active.
  * <ul>
  *     <li>CSRF is disabled (simplifies REST API testing)</li>
  *     <li>All API endpoints are public (no authentication required)</li>
@@ -28,11 +28,17 @@ import com.example.demo.common.config.WebSecurityConfig;
  *     <li>CORS allows all localhost origins</li>
  * </ul>
  * <p>
+ * For secured integration tests with real JWT tokens, use "keycloak-test" profile
+ * which disables this configuration and uses production security.
+ * <p>
  * For production security configuration, see {@link WebSecurityConfig}.
+ *
+ * @see WebSecurityConfig
+ * @see AbstractSecuredRestAssuredIT
  */
 @Configuration
 @EnableWebSecurity
-@Profile("test")
+@Profile("test & !keycloak-test")
 public class TestSecurityConfig {
 
     @Bean

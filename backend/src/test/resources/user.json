@@ -1,0 +1,15 @@
+{
+    "sub": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "preferred_username": "testuser",
+    "email": "test@example.com",
+    "iss": "http://localhost:9000/realms/template-realm",
+    "exp": 2147483647,
+    "realm_access": {
+        "roles": [
+            "USER"
+        ]
+    },
+    "authorities": [
+        "ROLE_USER"
+    ]
+}

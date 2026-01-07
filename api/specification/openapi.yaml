@@ -34,6 +34,8 @@ servers:
 tags:
   - name: Greetings
     description: Operations for managing greeting resources
+  - name: User
+    description: Current user information and authentication status
 
 paths:
   /v1/greetings:
@@ -289,6 +291,53 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /v1/me:
+    get:
+      tags:
+        - User
+      summary: Get current user info
+      description: |
+        Returns information about the currently authenticated user.
+        Extracts and maps claims from the JWT token provided by the Gateway.
+        
+        This endpoint abstracts over IdP-specific claim formats to provide
+        a stable API contract regardless of the identity provider used.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfoResponse'
+              examples:
+                regularUser:
+                  summary: Regular authenticated user
+                  value:
+                    id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                    username: "johndoe"
+                    email: "john.doe@example.com"
+                    roles: ["USER"]
+                adminUser:
+                  summary: Admin user with multiple roles
+                  value:
+                    id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    username: "admin"
+                    email: "admin@example.com"
+                    roles: ["USER", "ADMIN"]
+                noEmail:
+                  summary: User without email (optional field)
+                  value:
+                    id: "98765432-1abc-def0-1234-567890abcdef"
+                    username: "external_user"
+                    roles: ["USER"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
 components:
   securitySchemes:
@@ -575,3 +624,33 @@ components:
           type: integer
           description: Total number of pages available
       required: [pageNumber, pageSize, totalElements, totalPages]
+
+    UserInfoResponse:
+      type: object
+      description: |
+        Information about the authenticated user.
+        This schema abstracts over IdP-specific claim formats to provide
+        a stable API contract regardless of the identity provider used.
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Unique user identifier (mapped from 'sub' claim)
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        username:
+          type: string
+          description: Display username (mapped from 'preferred_username' claim)
+          example: "johndoe"
+        email:
+          type: string
+          format: email
+          description: User email (may be null if not provided by IdP)
+          example: "john.doe@example.com"
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [USER, ADMIN]
+          description: Application-level roles (mapped from IdP roles)
+          example: ["USER"]
+      required: [id, username, roles]

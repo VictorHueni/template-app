@@ -170,6 +170,14 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Keycloak Testcontainer for OIDC integration tests with real JWT tokens -->
+		<dependency>
+			<groupId>com.github.dasniko</groupId>
+			<artifactId>testcontainers-keycloak</artifactId>
+			<version>3.6.0</version>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- Postgres JDBC driver, only for tests -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
@@ -487,7 +495,18 @@
 				<version>3.5.4</version>
 				<configuration>
 					<forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
-					<forkCount>1C</forkCount>
+					<!--
+						CRITICAL: forkCount=1 is required for @ResourceLock to work correctly.
+						With forkCount>1 (or 1C), tests run in multiple JVM processes, but
+						JUnit's @ResourceLock only synchronizes within a single JVM.
+						This causes race conditions when multiple JVMs access the shared
+						Testcontainer database concurrently.
+
+						Parallelism is still achieved via JUnit 5 parallel execution within
+						the single fork (see junit-platform.properties), while @ResourceLock
+						ensures proper serialization of database-dependent tests.
+					-->
+					<forkCount>1</forkCount>
 					<reuseForks>true</reuseForks>
 					<includes>
 						<include>**/*IT.java</include>

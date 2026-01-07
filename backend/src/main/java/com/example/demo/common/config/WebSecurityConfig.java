@@ -68,7 +68,8 @@ public class WebSecurityConfig {
                     headers.contentTypeOptions(Customizer.withDefaults());
                 });
                 return http;
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 throw new RuntimeException("Failed to configure security headers", e);
             }
         };
