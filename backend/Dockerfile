@@ -22,7 +22,7 @@ WORKDIR /app/backend
 
 # 4. Resolve dependencies
 # (We made sure mvnw is executable just in case permissions got lost)
-RUN chmod +x mvnw && ./mvnw dependency:go-offline
+RUN chmod +x mvnw && sed -i 's/\r$//' mvnw && ./mvnw dependency:go-offline
 
 # 5. Copy the source code
 COPY backend/src src

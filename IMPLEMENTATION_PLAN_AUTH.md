@@ -616,11 +616,13 @@ Replace the entire content with:
 ```yaml
 # Custom properties for easy configuration
 scheme: http
-hostname: localhost
+keycloak-host: localhost
+backend-host: localhost
+gateway-host: localhost
 gateway-port: 8080
 backend-port: 8081
 keycloak-port: 9000
-issuer: ${scheme}://${hostname}:${keycloak-port}/realms/template-realm
+issuer: ${scheme}://${keycloak-host}:${keycloak-port}/realms/template-realm
 client-id: template-gateway
 client-secret: ${KC_CLIENT_SECRET}
 
@@ -653,7 +655,7 @@ spring:
       routes:
         # Route 1: Forward /api/** to backend API (with TokenRelay)
         - id: backend-api-route
-          uri: ${scheme}://${hostname}:${backend-port}
+          uri: ${scheme}://${backend-host}:${backend-port}
           predicates:
             - Path=/api/**
           filters:
@@ -682,7 +684,7 @@ com:
 
         # Client configuration (oauth2Login filter chain)
         client:
-          client-uri: ${scheme}://${hostname}:${gateway-port}
+          client-uri: ${scheme}://${gateway-host}:${gateway-port}
           security-matchers:
             - /api/**
             - /oauth2/**
@@ -1159,52 +1161,73 @@ window.location.href = options[0].loginUri;
 
 ### Step 2.7: Create Gateway Dockerfile
 
-**Why?** To run the gateway in Docker alongside other services.
+**Why?** To run the gateway in Docker. We use a **Multi-Stage Build** with **Distroless** images to match the Backend's security standards (low CVE count, no shell).
 
 **Location:** `gateway/Dockerfile`
 
 Create this file:
 
 ```dockerfile
-# Build stage - Java 25
-FROM maven:3.9-eclipse-temurin-25-alpine AS build
+# Argument for JAR file version (defaults to snapshot)
+ARG JAR_FILENAME=gateway-0.0.1-SNAPSHOT.jar
+
+# === STAGE 1: BUILD (Builds from source) ===
+FROM eclipse-temurin:25-jdk-noble AS builder
 WORKDIR /app
-
-# Copy pom.xml and download dependencies (cached layer)
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy source and build
+# Copy Maven wrapper and configuration
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw dependency:go-offline
+# Copy source and build (skipping tests for speed)
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN ./mvnw package -DskipTests
 
-# Runtime stage - Java 25
-FROM eclipse-temurin:25-jre-alpine
+# === STAGE 2: CI RUNTIME (Optimized for CI/CD) ===
+# Expects a pre-built JAR from CI artifacts (matches backend-ci pattern)
+# Usage: docker build --target ci ...
+FROM gcr.io/distroless/java25-debian13:latest AS ci
 WORKDIR /app
-
-# Copy jar from build stage
-COPY --from=build /app/target/*.jar app.jar
-
-# Run as non-root user
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
-
-# Expose port
+ENV TZ=UTC LANG=C.UTF-8 \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
+    SPRING_PROFILES_ACTIVE=default
 EXPOSE 8080
+# Copy pre-built JAR (expects context to have target/)
+COPY target/*.jar /app/app.jar
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:8080/actuator/health || exit 1
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# === STAGE 3: PRODUCTION RUNTIME (Default) ===
+# Default stage for "docker compose up --build"
+FROM gcr.io/distroless/java25-debian13:latest AS production
+WORKDIR /app
+ENV TZ=UTC LANG=C.UTF-8 \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
+    SPRING_PROFILES_ACTIVE=default
+EXPOSE 8080
+# Copy JAR from builder stage
+COPY --from=builder /app/target/*.jar /app/app.jar
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```
 
-#### ✅ Verification: Docker Build
+#### ✅ Verification: Docker Build & Health Check
 1. **Build Image:**
    ```bash
    docker build -t gateway:latest gateway/
    ```
-2. **Verify Success:** Check that the build completes without error.
+2. **Run Container (Standalone for health check):**
+   > **Network Note:** We use `host.docker.internal` to allow the container to reach Keycloak running on the host machine. On Linux, use `--network host` instead.
+   ```bash
+   # Use a real or dummy secret. If Keycloak is unreachable, app may fail startup.
+   docker run --rm -p 8080:8080 \
+     -e KC_CLIENT_SECRET="change_me" \
+     -e HOSTNAME="host.docker.internal" \
+     gateway:latest
+   ```
+3. **Verify Actuator Health (New Terminal):**
+   ```bash
+   curl http://localhost:8080/actuator/health
+   ```
+   **Expected:** `{"status":"UP", ...}`.
+4. **Clean up:** Stop the container (Ctrl+C).
 
 ---
 
@@ -1232,13 +1255,56 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       KC_CLIENT_SECRET: ${KC_CLIENT_SECRET}
       SERVER_ADDRESS: 0.0.0.0
+      # 👇 Network overrides for Docker environment
+      KEYCLOAK_HOST: keycloak
+      KEYCLOAK_PORT: 8080
+      BACKEND_HOST: backend
+      BACKEND_PORT: 8081
     depends_on:
       keycloak:
-        condition: service_healthy  # 👈 Wait for Keycloak to be ready
+        condition: service_healthy
       backend:
         condition: service_started
     networks:
       - backend-network
+
+#### ✅ Verification: Full Stack Health Check
+Run these commands to verify that the entire stack is healthy and communicating correctly:
+
+1.  **Verify Infrastructure State:**
+    ```bash
+    docker-compose ps
+    ```
+    **Expected:** All 6 containers (gateway, backend, keycloak, db, frontend, docs) should be `Up` and `Healthy` (or `Started`).
+
+2.  **Verify Keycloak Readiness:**
+    ```bash
+    # Check Health
+    curl http://localhost:9000/health/ready
+    # Check Realm Configuration
+    curl http://localhost:9000/realms/template-realm/.well-known/openid-configuration
+    ```
+    **Expected:** HTTP 200 and a JSON response containing issuer URLs.
+
+3.  **Verify Gateway & Routing:**
+    ```bash
+    # Check Gateway Health
+    curl http://localhost:8080/actuator/health
+    # Test Login Options (Internal Logic)
+    curl http://localhost:8080/login-options
+    # Test Routing to Backend (Public Endpoint)
+    curl -I http://localhost:8080/api/v1/greetings
+    ```
+    **Expected:**
+    *   Health: `{"status":"UP",...}`
+    *   Login Options: JSON array with Keycloak URI.
+    *   Greetings: HTTP 200 OK (Proxied via Gateway).
+
+4.  **Verify Backend Direct Health:**
+    ```bash
+    curl http://localhost:8081/actuator/health
+    ```
+    **Expected:** `{"status":"UP",...}` from the backend's dedicated port.
 ```
 
 **Also update the backend service** to use the new ports:

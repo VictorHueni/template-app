@@ -1,10 +1,12 @@
 # Custom properties for easy configuration
 scheme: http
-hostname: localhost
+keycloak-host: localhost
+backend-host: localhost
+gateway-host: localhost
 gateway-port: 8080
 backend-port: 8081
 keycloak-port: 9000
-issuer: ${scheme}://${hostname}:${keycloak-port}/realms/template-realm
+issuer: ${scheme}://${keycloak-host}:${keycloak-port}/realms/template-realm
 client-id: template-gateway
 client-secret: ${KC_CLIENT_SECRET}
 
@@ -37,7 +39,7 @@ spring:
       routes:
         # Route 1: Forward /api/** to backend API (with TokenRelay)
         - id: backend-api-route
-          uri: ${scheme}://${hostname}:${backend-port}
+          uri: ${scheme}://${backend-host}:${backend-port}
           predicates:
             - Path=/api/**
           filters:
@@ -66,7 +68,7 @@ com:
 
         # Client configuration (oauth2Login filter chain)
         client:
-          client-uri: ${scheme}://${hostname}:${gateway-port}
+          client-uri: ${scheme}://${gateway-host}:${gateway-port}
           security-matchers:
             - /api/**
             - /oauth2/**

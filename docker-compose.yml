@@ -52,8 +52,8 @@ services:
       - backend-network
 
     ports:
-      - "${BCK_APP_PORT}:8080"
-      - "${BCK_MGMT_PORT}:8081"
+      - "${BCK_APP_PORT}:8081"
+      - "${BCK_MGMT_PORT}:8082"
 
     environment:
       SPRING_PROFILES_ACTIVE: local
@@ -61,7 +61,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_ADMIN_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_ADMIN_PW}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_SERVER_PORT: 8080
+      SPRING_SERVER_PORT: 8081
+      MANAGEMENT_SERVER_PORT: 8082
 
     # Map logs/files if necessary (optional)
     # volumes:
@@ -140,14 +141,40 @@ services:
       KC_HOSTNAME_ADMIN_URL: http://localhost:${KC_PORT}
       KC_HTTP_ENABLED: true
       KC_HEALTH_ENABLED: true
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
     networks:
       - backend-network
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          'exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e "GET /health/ready HTTP/1.1\r\nhost: 127.0.0.1:8080\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep -q "200 OK"',
+          'exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e "GET /health/ready HTTP/1.1\r\nhost: 127.0.0.1:9000\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep -q "200 OK"',
         ]
       interval: 5s
       timeout: 5s
       retries: 20
+
+  # --- 6. GATEWAY (BFF) SERVICE ---
+  gateway:
+    container_name: template-gateway
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "${GW_PORT}:8080"  # 👈 Gateway is now the main entry point
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KC_CLIENT_SECRET: ${KC_CLIENT_SECRET}
+      SERVER_ADDRESS: 0.0.0.0
+      KEYCLOAK_HOST: keycloak
+      KEYCLOAK_PORT: 8080
+      BACKEND_HOST: backend
+      BACKEND_PORT: 8081
+    depends_on:
+      keycloak:
+        condition: service_healthy  # 👈 Wait for Keycloak to be ready
+      backend:
+        condition: service_started
+    networks:
+      - backend-network
