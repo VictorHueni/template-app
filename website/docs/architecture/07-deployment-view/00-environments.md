@@ -11,7 +11,7 @@ The system is designed to run in multiple environments. This section documents t
 
 | Environment           | Description                                       | Status    | Link                                       |
 | :-------------------- | :------------------------------------------------ | :-------- | :----------------------------------------- |
-| **Local Development** | Docker Compose based setup for rapid development. | ✅ Active  | [View Deployment](./local-docker/overview) |
+| **Local Development** | Docker Compose based setup for rapid development. | ✅ Active | [View Deployment](./01-local-docker/01-overview.md) |
 | **Staging**           | Cloud-based pre-production environment.           | 🚧 Pending | -                                          |
 | **Production**        | Live environment serving end-users.               | 🚧 Pending | -                                          |
 

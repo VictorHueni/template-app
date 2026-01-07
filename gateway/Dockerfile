@@ -3,11 +3,15 @@ ARG JAR_FILENAME=gateway-0.0.1-SNAPSHOT.jar
 
 # === STAGE 1: BUILD (Builds from source) ===
 FROM eclipse-temurin:25-jdk-noble AS builder
+
+# Set the work directory to the final application root
 WORKDIR /app
+
 # Copy Maven wrapper and configuration
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 RUN chmod +x mvnw && ./mvnw dependency:go-offline
+
 # Copy source and build (skipping tests for speed)
 COPY src ./src
 RUN ./mvnw package -DskipTests
@@ -21,8 +25,11 @@ ENV TZ=UTC LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
     SPRING_PROFILES_ACTIVE=default
 EXPOSE 8080
+
 # Copy pre-built JAR (expects context to have target/)
 COPY target/*.jar /app/app.jar
+
+USER nonroot
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 
 # === STAGE 3: PRODUCTION RUNTIME (Default) ===
@@ -35,4 +42,5 @@ ENV TZ=UTC LANG=C.UTF-8 \
 EXPOSE 8080
 # Copy JAR from builder stage
 COPY --from=builder /app/target/*.jar /app/app.jar
+USER nonroot
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

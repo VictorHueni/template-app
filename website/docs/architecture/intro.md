@@ -75,7 +75,7 @@ rules.
 ![Crosscutting Concepts](images/08-concepts-overview.png)
 
 Key concepts:
-*   **[API-First Governance](./08-crosscutting-concepts/api-first-governance)**: The rigorous workflow for contract-driven development.
+*   **[API-First Governance](./08-crosscutting-concepts/api-first-governance.md)**: The rigorous workflow for contract-driven development.
 
 ## 9. Architecture Decisions
 

@@ -49,6 +49,7 @@ EXPOSE 8080 8081
 # Copy pre-built JAR from CI artifact (expects backend/target/*.jar to exist)
 COPY backend/target/*.jar /app/app.jar
 
+USER nonroot
 ENTRYPOINT ["java","-jar","/app/app.jar"]
 
 
@@ -79,4 +80,5 @@ EXPOSE 8080 8081
 COPY --from=builder /app/backend/target/*.jar /app/app.jar
 
 # Entrypoint: Run the application
+USER nonroot
 ENTRYPOINT ["java","-jar","/app/app.jar"]
