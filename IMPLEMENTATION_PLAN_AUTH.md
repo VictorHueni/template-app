@@ -486,12 +486,12 @@ keycloak:
 *   **Requirement:** Level 1 (PostgreSQL) is mandatory for this.
 
 **Summary of Evolution:**
-| Feature | Current (Dev) | Production Target |
-| :--- | :--- | :--- |
-| **Database** | Embedded H2 (File) | PostgreSQL / MySQL |
-| **Config** | Native Import (`--import-realm`) | `keycloak-config-cli` (GitOps) |
-| **Scaling** | Single Instance | Clustered (K8s/ECS) |
-| **Users** | Hardcoded Test Users | Dynamic (Self-registration) or LDAP/AD |
+| Feature      | Current (Dev)                    | Production Target                      |
+| :----------- | :------------------------------- | :------------------------------------- |
+| **Database** | Embedded H2 (File)               | PostgreSQL / MySQL                     |
+| **Config**   | Native Import (`--import-realm`) | `keycloak-config-cli` (GitOps)         |
+| **Scaling**  | Single Instance                  | Clustered (K8s/ECS)                    |
+| **Users**    | Hardcoded Test Users             | Dynamic (Self-registration) or LDAP/AD |
 
 ---
 
@@ -567,13 +567,18 @@ rm gateway.zip
 
 > **Version Note:** Using Spring Addons 9.1.0 which supports Spring Boot 4.x and Spring Framework 7.x.
 
-Add this dependency inside `<dependencies>`:
+Add these dependencies inside `<dependencies>`:
 
 ```xml
 <dependency>
     <groupId>com.c4-soft.springaddons</groupId>
     <artifactId>spring-addons-starter-oidc</artifactId>
     <version>9.1.0</version>
+</dependency>
+<!-- Explicitly required for Spring Boot 4 compatibility -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
 </dependency>
 ```
 
@@ -588,7 +593,7 @@ Add this dependency inside `<dependencies>`:
 </dependency>
 ```
 
-**Note:** Spring Addons automatically pulls in `spring-boot-starter-oauth2-client` and `spring-boot-starter-oauth2-resource-server` as transitive dependencies.
+**Note:** Spring Addons automatically pulls in `spring-boot-starter-oauth2-client`, but we add `spring-boot-starter-oauth2-resource-server` explicitly to ensure all auto-configuration classes are present.
 
 #### ✅ Verification: Dependencies
 1. **Check Dependency Tree:**
@@ -602,7 +607,9 @@ Add this dependency inside `<dependencies>`:
 
 ### Step 2.3: Configure Gateway Application
 
-**Location:** `gateway/src/main/resources/application.yml`
+**Location:** `gateway/src/main/resources/application.yaml`
+
+> ⚠️ **YAML Structure Warning:** Pay close attention to indentation! The `spring.security.oauth2.client` configuration must be nested under `spring:`, NOT under `server:`. A common mistake is placing the `security:` block under `server:` which causes Spring to fail with "No qualifying bean of type OAuth2ClientProperties" error.
 
 Replace the entire content with:
 
@@ -687,7 +694,8 @@ com:
             - /oauth2/**
             - /login/**
             - /logout/connect/back-channel/keycloak
-          post-logout-redirect-host: ${hostname}
+          # post-logout-redirect-host removed - uses client-uri by default
+          # post-logout-redirect-host: ${hostname}
           csrf: cookie-accessible-from-js        # 👈 SPA can read CSRF token
           oauth2-redirections:
             rp-initiated-logout: ACCEPTED         # 👈 Enable proper logout flow
@@ -791,30 +799,281 @@ resourceserver:
 
 ---
 
-### Step 2.4: Create Login Options Controller
+### Step 2.4: Configure Gateway Test Profile
+
+**Why?** The default `@SpringBootTest` tries to load the full context including OAuth2/OIDC configuration, which requires Keycloak to be running. We need a test profile configuration to avoid this. Set this up before adding controllers.
+
+> **File Naming Convention:** We use `application-test.yaml` (profile-specific) instead of `application.yaml` in test resources. This ensures test config is only loaded when `@ActiveProfiles("test")` is explicitly set, keeping production and test configurations cleanly separated.
+
+**Location:** `gateway/src/test/resources/application-test.yaml`
+
+Create this test profile configuration file:
+
+```yaml
+# Test profile configuration for Gateway
+# Activated via @ActiveProfiles("test") in test classes
+
+spring:
+  application:
+    name: gateway-test
+  cloud:
+    gateway:
+      enabled: false  # Disable gateway routing in unit tests
+
+# Minimal Spring Addons config for tests
+# Spring Addons test annotations handle security context
+com:
+  c4-soft:
+    springaddons:
+      oidc:
+        ops: []  # No real OIDC provider needed
+        client:
+          client-uri: http://localhost:8080
+          security-matchers:
+            - /**
+          permit-all:
+            - /**
+        resourceserver:
+          permit-all:
+            - /**
+```
+
+**Location:** `gateway/src/test/java/com/example/gateway/GatewayApplicationTests.java`
+
+Update the smoke test class:
+
+```java
+package com.example.gateway;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+/**
+ * Smoke test to verify the application context loads correctly.
+ * Uses the 'test' profile to disable OAuth2/OIDC requirements.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+class GatewayApplicationTests {
+
+    @Test
+    void contextLoads() {
+        // Verifies Spring context initializes without Keycloak
+    }
+}
+```
+
+#### ✅ Verification: Smoke Test Passes
+```bash
+cd gateway
+./mvnw test -Dtest=GatewayApplicationTests
+```
+**Expected:** `BUILD SUCCESS` - context loads without requiring Keycloak.
+
+---
+
+### Step 2.5: Create LoginOptionsController Tests
+
+**Why?** Proper controller tests ensure reliability and security. We use a layered testing approach:
+
+| Layer        | Scope                | Tools                  | Purpose                           |
+| ------------ | -------------------- | ---------------------- | --------------------------------- |
+| **Unit**     | `@WebMvcTest`        | MockMvc + Mocked beans | Fast feedback, endpoint contracts |
+| **Security** | `@WithAnonymousUser` | spring-addons-test     | Verify authorization rules        |
+
+**Location:** `gateway/src/test/java/com/example/gateway/auth/LoginOptionsControllerTest.java`
+
+Create this test class:
+
+```java
+package com.example.gateway.auth;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.net.URI;
+import java.util.Map;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.c4_soft.springaddons.security.oauth2.test.annotations.WithJwt;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.AutoConfigureAddonsWebmvcResourceServerSecurity;
+import com.c4_soft.springaddons.security.oidc.starter.properties.SpringAddonsOidcClientProperties;
+import com.c4_soft.springaddons.security.oidc.starter.properties.SpringAddonsOidcProperties;
+
+/**
+ * Unit tests for LoginOptionsController.
+ * 
+ * Tests verify:
+ * 1. Endpoint returns correct JSON structure
+ * 2. Endpoint is accessible without authentication (public)
+ * 3. Endpoint works for authenticated users too
+ */
+@WebMvcTest(controllers = LoginOptionsController.class)
+@AutoConfigureAddonsWebmvcResourceServerSecurity
+@Import(LoginOptionsControllerTest.TestConfig.class)
+@ActiveProfiles("test")
+class LoginOptionsControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Nested
+    @DisplayName("GET /login-options")
+    class GetLoginOptions {
+
+        @Test
+        @WithAnonymousUser
+        @DisplayName("should return login options for anonymous users")
+        void shouldReturnLoginOptionsForAnonymous() throws Exception {
+            mockMvc.perform(get("/login-options")
+                    .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].label").value("keycloak"))
+                .andExpect(jsonPath("$[0].loginUri").value("http://localhost:8080/oauth2/authorization/keycloak"));
+        }
+
+        @Test
+        @WithJwt("user.json")
+        @DisplayName("should return login options for authenticated users")
+        void shouldReturnLoginOptionsForAuthenticated() throws Exception {
+            mockMvc.perform(get("/login-options")
+                    .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray());
+        }
+    }
+
+    /**
+     * Test configuration providing mock beans for OAuth2 properties.
+     */
+    @TestConfiguration
+    static class TestConfig {
+
+        @Bean
+        OAuth2ClientProperties oauth2ClientProperties() {
+            var props = new OAuth2ClientProperties();
+            
+            // Configure a test provider
+            var provider = new OAuth2ClientProperties.Provider();
+            provider.setIssuerUri("http://localhost:9000/realms/test");
+            props.getProvider().put("keycloak", provider);
+            
+            // Configure a test registration
+            var registration = new OAuth2ClientProperties.Registration();
+            registration.setProvider("keycloak");
+            registration.setClientId("test-client");
+            registration.setClientSecret("test-secret");
+            registration.setAuthorizationGrantType("authorization_code");
+            props.getRegistration().put("keycloak", registration);
+            
+            return props;
+        }
+
+        @Bean
+        SpringAddonsOidcProperties springAddonsOidcProperties() {
+            var props = new SpringAddonsOidcProperties();
+            
+            // Configure client properties with client-uri
+            var clientProps = new SpringAddonsOidcClientProperties();
+            clientProps.setClientUri(Optional.of(URI.create("http://localhost:8080")));
+            clientProps.setSecurityMatchers(java.util.List.of("/**")); // Fix: Must have matchers
+            props.setClient(clientProps);
+            
+            return props;
+        }
+    }
+}
+```
+
+**Location:** `gateway/src/test/resources/user.json`
+
+Create this JWT claim fixture for `@WithJwt` annotation:
+
+```json
+{
+  "sub": "test-user-id",
+  "preferred_username": "testuser",
+  "email": "testuser@example.com",
+  "realm_access": {
+    "roles": ["USER"]
+  }
+}
+```
+
+#### Test Strategy Explained
+
+| Annotation                                         | Purpose                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------ |
+| `@WebMvcTest`                                      | Loads only web layer (controller + security), fast execution |
+| `@AutoConfigureAddonsWebmvcResourceServerSecurity` | Configures Spring Addons security for tests                  |
+| `@WithAnonymousUser`                               | Simulates unauthenticated request                            |
+| `@WithJwt("user.json")`                            | Simulates authenticated user with claims from JSON file      |
+| `@ActiveProfiles("test")`                          | Loads `application-test.yaml` config                         |
+
+#### ✅ Verification: Controller Tests Pass
+```bash
+cd gateway
+./mvnw test -Dtest=LoginOptionsControllerTest
+```
+**Expected:** `BUILD SUCCESS` - all controller tests pass.
+
+#### Run All Gateway Tests
+```bash
+cd gateway
+./mvnw test
+```
+**Expected:** `BUILD SUCCESS` - both smoke test and controller tests pass.
+
+---
+
+### Step 2.6: Create Login Options Controller
 
 **Why?** The frontend needs to discover available login providers dynamically.
 
-**Location:** `gateway/src/main/java/com/example/gateway/controller/LoginOptionsController.java`
+**Location:** `gateway/src/main/java/com/example/gateway/auth/LoginOptionsController.java`
+
+> **Package Structure:** Following the project's package-by-feature convention (like `com.example.demo.greeting` in backend), auth-related Gateway code goes in `com.example.gateway.auth`.
 
 Create this new file:
 
 ```java
-package com.example.gateway.controller;
+package com.example.gateway.auth;
 
+import java.net.URI;
 import java.util.List;
-import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties;
+
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 import com.c4_soft.springaddons.security.oidc.starter.properties.SpringAddonsOidcProperties;
-import reactor.core.publisher.Mono;
 
 /**
  * REST endpoint that returns available OAuth2 login providers.
  *
- * The frontend calls this to discover login URLs dynamically,
- * making it easy to add more providers (Google, GitHub, etc.) later.
+ * <p>The frontend calls this to discover login URLs dynamically,
+ * making it easy to add more providers (Google, GitHub, etc.) later.</p>
  */
 @RestController
 public class LoginOptionsController {
@@ -825,11 +1084,13 @@ public class LoginOptionsController {
             OAuth2ClientProperties clientProps,
             SpringAddonsOidcProperties addonsProperties) {
 
-        // Build the login options from configured OAuth2 providers
-        final var clientAuthority = addonsProperties.getClient()
+        // Get client URI from Spring Addons config (unwrap Optional)
+        final URI clientUri = addonsProperties.getClient()
             .getClientUri()
-            .getAuthority();
+            .orElseThrow(() -> new IllegalStateException(
+                "com.c4-soft.springaddons.oidc.client.client-uri must be configured"));
 
+        // Build the login options from configured OAuth2 providers
         this.loginOptions = clientProps.getRegistration()
             .entrySet()
             .stream()
@@ -838,7 +1099,7 @@ public class LoginOptionsController {
             .map(e -> {
                 final var label = e.getValue().getProvider();
                 final var loginUri = "%s/oauth2/authorization/%s".formatted(
-                    addonsProperties.getClient().getClientUri(),
+                    clientUri,
                     e.getKey()
                 );
                 return new LoginOptionDto(label, loginUri);
@@ -849,18 +1110,18 @@ public class LoginOptionsController {
     /**
      * GET /login-options
      *
-     * Returns: [{"label": "keycloak", "loginUri": "http://localhost:8080/oauth2/authorization/keycloak"}]
+     * @return List of available OAuth2 login providers with their login URIs
      */
     @GetMapping(path = "/login-options", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<List<LoginOptionDto>> getLoginOptions() {
-        return Mono.just(this.loginOptions);
+    public List<LoginOptionDto> getLoginOptions() {
+        return this.loginOptions;
     }
 
     /**
      * DTO representing a login option.
      *
-     * @param label      Display name (e.g., "keycloak", "google")
-     * @param loginUri   URL to redirect browser for login
+     * @param label    Display name (e.g., "keycloak", "google")
+     * @param loginUri URL to redirect browser for login
      */
     public record LoginOptionDto(String label, String loginUri) {}
 }
@@ -896,7 +1157,7 @@ window.location.href = options[0].loginUri;
 
 ---
 
-### Step 2.5: Create Gateway Dockerfile
+### Step 2.7: Create Gateway Dockerfile
 
 **Why?** To run the gateway in Docker alongside other services.
 
@@ -947,7 +1208,7 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 ---
 
-### Step 2.6: Add Gateway to `docker-compose.yml`
+### Step 2.8: Add Gateway to `docker-compose.yml`
 
 **Why?** Now that the Gateway code exists, we can add it to docker-compose.
 
@@ -1008,6 +1269,49 @@ services:
 2. **Check Gateway:** http://localhost:8080/actuator/health
 3. **Check Backend:** http://localhost:8081/actuator/health
 4. **Check Keycloak:** http://localhost:9000
+
+---
+
+### Step 2.9: Future Evolution - Path to Production Performance
+
+**Why?** Our current Gateway uses **Spring Cloud Gateway Server MVC** on a standard Servlet stack (Tomcat). This is robust, easy to debug, and uses the familiar "Thread-per-Request" model. However, standard threads are expensive resources (memory & context switching), limiting scalability under high load.
+
+This section outlines how to scale this Gateway for production.
+
+#### Level 1: Enable Virtual Threads (The "Golden Path")
+**Goal:** High concurrency with zero code changes.
+**Current State:** Standard Platform Threads (1 request = 1 OS thread). If 500 threads block waiting for the backend, the Gateway chokes.
+**Upgrade:** Enable Java 21+ Virtual Threads (Project Loom).
+
+**Configuration:**
+```yaml
+spring:
+  threads:
+    virtual:
+      enabled: true  # 👈 Add this to application.yaml
+```
+
+*   **Benefit:** Blocking becomes "cheap". When the Gateway waits for the Backend API, the JVM "unmounts" the Virtual Thread, freeing the OS thread to handle other requests.
+*   **Result:** You can handle thousands of concurrent requests with the *simplicity* of imperative code. **This is the recommended default for Java 25 applications.**
+
+#### Level 2: Reactive Stack (WebFlux)
+**Goal:** Advanced Streaming and Backpressure.
+**Trigger:** You need to handle "Fire Hose" scenarios (e.g., Backend produces data faster than Frontend can consume it).
+**Upgrade:** Switch from Servlet to Reactive (Netty).
+
+*   **Backpressure:** Reactive Streams allow the client to say "I can only handle 10 items right now," effectively slowing down the backend producer to match the client's speed. Virtual threads do not do this natively.
+*   **Trade-off:** High complexity. Requires rewriting code to Functional Reactive style (`Flux`, `Mono`, `flatMap`).
+*   **Migration:**
+    *   Swap `spring-cloud-starter-gateway-server-webmvc` for `spring-cloud-starter-gateway`.
+    *   Switch test tools to `WebTestClient`.
+
+**Summary of Evolution:**
+| Feature | Current (Standard) | Level 1 (Virtual Threads) | Level 2 (Reactive) |
+| :--- | :--- | :--- | :--- |
+| **Concurrency** | Limited (Thread Pool) | High (Virtual) | High (Event Loop) |
+| **I/O Model** | Blocking | Blocking (Cheap) | Non-Blocking |
+| **Backpressure** | No | No | **Yes** |
+| **Complexity** | Low | Low | High |
 
 ---
 

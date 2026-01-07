@@ -1,0 +1,10 @@
+{
+    "sub": "test-user-id",
+    "preferred_username": "testuser",
+    "email": "testuser@example.com",
+    "realm_access": {
+        "roles": [
+            "USER"
+        ]
+    }
+}

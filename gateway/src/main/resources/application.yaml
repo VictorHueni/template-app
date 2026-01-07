@@ -1,0 +1,117 @@
+# Custom properties for easy configuration
+scheme: http
+hostname: localhost
+gateway-port: 8080
+backend-port: 8081
+keycloak-port: 9000
+issuer: ${scheme}://${hostname}:${keycloak-port}/realms/template-realm
+client-id: template-gateway
+client-secret: ${KC_CLIENT_SECRET}
+
+server:
+  port: ${gateway-port}
+
+spring:
+  application:
+    name: gateway
+
+  # Standard Spring Security OAuth2 Client configuration
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: ${issuer}
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: ${client-id}
+            client-secret: ${client-secret}
+            authorization-grant-type: authorization_code
+            scope: openid,profile,email,offline_access
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+  # Spring Cloud Gateway routing configuration
+  cloud:
+    gateway:
+      routes:
+        # Route 1: Forward /api/** to backend API (with TokenRelay)
+        - id: backend-api-route
+          uri: ${scheme}://${hostname}:${backend-port}
+          predicates:
+            - Path=/api/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+            - TokenRelay=      # 👈 Automatically adds JWT to forwarded requests
+            - SaveSession      # 👈 Saves session after token relay
+            # No StripPrefix needed - /api/v1/greetings → /api/v1/greetings
+
+        # Route 2: Login options endpoint (handled by Gateway controller)
+        - id: login-options-route
+          uri: no://op  # Internal route - handled by Gateway controller
+          predicates:
+            - Path=/login-options
+
+# Spring Addons configuration - This is where the magic happens!
+com:
+  c4-soft:
+    springaddons:
+      oidc:
+        # OpenID Provider configuration
+        ops:
+          - iss: ${issuer}
+            username-claim: $.preferred_username  # 👈 Extract username from JWT
+            authorities:
+              - path: $.realm_access.roles        # 👈 Extract roles from JWT
+
+        # Client configuration (oauth2Login filter chain)
+        client:
+          client-uri: ${scheme}://${hostname}:${gateway-port}
+          security-matchers:
+            - /api/**
+            - /oauth2/**
+            - /login/**
+            - /logout/**
+          permit-all:
+            - /api/v1/greetings          # 👈 Public: list greetings
+            - /api/v1/greetings/*        # 👈 Public: get single greeting
+            - /oauth2/**
+            - /login/**
+            - /logout/connect/back-channel/keycloak
+          # post-logout-redirect-host removed - uses client-uri by default
+          # post-logout-redirect-host: ${hostname}
+          csrf: cookie-accessible-from-js        # 👈 SPA can read CSRF token
+          oauth2-redirections:
+            rp-initiated-logout: ACCEPTED         # 👈 Enable proper logout flow
+          back-channel-logout:
+            enabled: true                         # 👈 Multi-device logout support
+
+        # Resource Server configuration (oauth2ResourceServer filter chain)
+        resourceserver:
+          permit-all:
+            - /login-options                      # 👈 Public endpoint (Gateway)
+            - /error
+            - /actuator/health/**
+
+# Actuator configuration
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: DEBUG          # 👈 Enable security debugging
+    org.springframework.web: INFO
+    com.c4_soft.springaddons: DEBUG              # 👈 Debug Spring Addons
