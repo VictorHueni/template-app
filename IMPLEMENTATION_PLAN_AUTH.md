@@ -199,7 +199,7 @@ BCK_MGMT_PORT=8082
 
 ---
 
-## 4. Phase 1: Keycloak Setup
+## 4. Phase 1: Keycloak Setup (✅ Completed)
 
 This phase focuses solely on setting up Keycloak as the Identity Provider. The Gateway (BFF) will be added in Phase 2.
 
@@ -495,7 +495,7 @@ keycloak:
 
 ---
 
-## 5. Phase 2: Gateway (BFF) Implementation
+## 5. Phase 2: Gateway (BFF) Implementation (✅ Completed)
 
 ### Step 2.0: Update `.env` for Gateway and Backend Ports
 
@@ -1698,35 +1698,18 @@ setTimeout(() => refreshUserInfo(), refreshIn);
 
 ---
 
-### Step 3.5: Update Backend Port in docker-compose.yml
+### Step 3.5: Verify Backend Port in docker-compose.yml (✅ Verified)
 
 **Location:** `/docker-compose.yml`
 
-Update the backend service to use port 8081:
+**Action:** Verify that the backend service is already using port 8081. This was completed in Phase 2.
 
 ```yaml
 services:
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: demo-backend
-    restart: on-failure
-    networks:
-      - backend-network
+    # ...
     ports:
-      - "${BCK_APP_PORT}:8081"       # 👈 Changed from 8080 to 8081
-      - "${BCK_MGMT_PORT}:8082"      # Management port stays same
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-      SPRING_DATASOURCE_USERNAME: ${DB_ADMIN_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_ADMIN_PW}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_SERVER_PORT: 8081       # 👈 Backend runs on 8081 internally
-    depends_on:
-      db:
-        condition: service_healthy
+      - "${BCK_APP_PORT}:8081"       # 👈 Should be 8081
 ```
 
 ---
@@ -1739,13 +1722,13 @@ services:
 > - **Hooks Pattern:** Custom hooks like `useAuth`, `useUser`
 > - **OpenAPI Types:** Generated from spec via `@hey-api/openapi-ts`
 
-### Step 4.1: Update Vite Proxy Configuration
+### Step 4.1: Add Auth Routes to Vite Proxy
 
-**Why?** All requests now go through the Gateway (single entry point). Your existing `/api` proxy just needs to point to the Gateway.
+**Why?** The `/api` proxy is already correctly pointing to the Gateway (8080). We just need to **add** the authentication-related routes.
 
 **Location:** `frontend/vite.config.ts`
 
-Update the proxy configuration:
+**Action:** Add the `/oauth2`, `/login`, `/logout`, and `/login-options` proxies to the existing configuration:
 
 ```typescript
 import { defineConfig } from "vite";
@@ -1757,18 +1740,17 @@ export default defineConfig(({ mode }) => ({
         proxy:
             mode === "development"
                 ? {
-                      // All /api/* requests go through Gateway
+                      // ✅ Existing: /api requests already go to Gateway (8080)
                       "/api": {
                           target: process.env.VITE_PROXY_TARGET || "http://localhost:8080",
                           changeOrigin: true,
-                          // Remove Prism rewrite - Gateway handles routing
+                          // Remove Prism rewrite if present - Gateway handles routing
                       },
-                      // OAuth2 endpoints go through Gateway
+                      // 🆕 Add these Auth Routes:
                       "/oauth2": {
                           target: "http://localhost:8080",
                           changeOrigin: true,
                       },
-                      // Login/logout endpoints go through Gateway
                       "/login": {
                           target: "http://localhost:8080",
                           changeOrigin: true,
@@ -1777,7 +1759,6 @@ export default defineConfig(({ mode }) => ({
                           target: "http://localhost:8080",
                           changeOrigin: true,
                       },
-                      // Login options endpoint (Gateway controller)
                       "/login-options": {
                           target: "http://localhost:8080",
                           changeOrigin: true,
@@ -1785,12 +1766,7 @@ export default defineConfig(({ mode }) => ({
                   }
                 : undefined,
     },
-    build: { outDir: "dist" },
-    base: "/",
-    define: {
-        __API_URL__: JSON.stringify(process.env.VITE_API_URL || "/api"),
-    },
-}));
+    // ... rest of config
 ```
 
 #### ✅ Verification: Frontend Proxy
