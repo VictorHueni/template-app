@@ -10,16 +10,16 @@ This skill allows the agent to manage Git operations with professional rigor, en
 ## 1. Scope Detection Logic
 Analyze the `git status` output to determine the primary scope. If multiple areas are touched, try to split commits or use `root` if it's a global change.
 
-| Directory path | Scope Tag |
-| :--- | :--- |
-| `gateway/**` | `gateway` |
-| `api/specification/**` | `api-spec` |
-| `backend/**` | `backend` |
-| `frontend/**` | `frontend` |
-| `website/**` | `docs` |
-| `.github/**` | `ci` |
-| `docker-compose.yml`, `Dockerfile`, `k8s/**` | `ops` |
-| `pom.xml`, `package.json` (root) | `build` |
+| Directory path                               | Scope Tag  |
+| :------------------------------------------- | :--------- |
+| `gateway/**`                                 | `gateway`  |
+| `api/specification/**`                       | `api-spec` |
+| `backend/**`                                 | `backend`  |
+| `frontend/**`                                | `frontend` |
+| `website/**`                                 | `docs`     |
+| `.github/**`                                 | `ci`       |
+| `docker-compose.yml`, `Dockerfile`, `k8s/**` | `ops`      |
+| `pom.xml`, `package.json` (root)             | `build`    |
 
 ## 2. Commit Message Template (The Law)
 
