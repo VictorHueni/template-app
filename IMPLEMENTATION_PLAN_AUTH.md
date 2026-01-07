@@ -1372,12 +1372,12 @@ spring:
     *   Switch test tools to `WebTestClient`.
 
 **Summary of Evolution:**
-| Feature | Current (Standard) | Level 1 (Virtual Threads) | Level 2 (Reactive) |
-| :--- | :--- | :--- | :--- |
-| **Concurrency** | Limited (Thread Pool) | High (Virtual) | High (Event Loop) |
-| **I/O Model** | Blocking | Blocking (Cheap) | Non-Blocking |
-| **Backpressure** | No | No | **Yes** |
-| **Complexity** | Low | Low | High |
+| Feature          | Current (Standard)    | Level 1 (Virtual Threads) | Level 2 (Reactive) |
+| :--------------- | :-------------------- | :------------------------ | :----------------- |
+| **Concurrency**  | Limited (Thread Pool) | High (Virtual)            | High (Event Loop)  |
+| **I/O Model**    | Blocking              | Blocking (Cheap)          | Non-Blocking       |
+| **Backpressure** | No                    | No                        | **Yes**            |
+| **Complexity**   | Low                   | Low                       | High               |
 
 ---
 
@@ -1390,6 +1390,13 @@ The backend validates JWTs sent by the Gateway and serves protected resources.
 **Location:** `backend/pom.xml` 
 
 ```xml
+<!-- OAuth2 Resource Server - Required for JWT validation -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+</dependency>
+
+<!-- Spring Addons OIDC - Simplifies OAuth2 Resource Server Configuration -->
 <dependency>
     <groupId>com.c4-soft.springaddons</groupId>
     <artifactId>spring-addons-starter-oidc</artifactId>
@@ -1405,86 +1412,113 @@ The backend validates JWTs sent by the Gateway and serves protected resources.
    ```
    **Expected:** Output should show `com.c4-soft.springaddons:spring-addons-starter-oidc:jar:9.1.0`.
 
+2. **Verify OAuth2 Resource Server:**
+   ```bash
+   ./mvnw dependency:tree | grep oauth2-resource-server
+   ```
+   **Expected:** Output should show `spring-security-oauth2-resource-server` with `compile` scope.
 
-**Note:** You can remove `spring-boot-starter-oauth2-resource-server` if you had it before, as Spring Addons includes it.
+
+**Note:** `spring-boot-starter-oauth2-resource-server` is **required** because Spring Addons builds on top of the official Spring Security starters, it doesn't replace them.
 
 ---
 
 ### Step 3.2: Configure Backend Application
 
-**Location:** `backend/src/main/resources/application-*.properties`
+**Location:** `backend/src/main/resources/application-local.properties`
 
 > **Format Choice:** Since your backend already uses `.properties` files, stick with that format. No need to migrate to YAML - Spring supports both equally. The Gateway (new project) uses YAML because nested OAuth2 config is cleaner there.
 
-**Recommended: Add to your existing `.properties` files** (e.g., `application-local.properties`, `application-docker.properties`):
+> **Context Path Note:** The backend uses `server.servlet.context-path=/api`, so all endpoint paths in Spring Security are evaluated **without** the `/api` prefix. For example, `/api/v1/greetings` is internally `/v1/greetings`.
+
+> **Port Configuration (from docker-compose.yml):**
+> - Backend App: **8081** (internal), exposed via `${BCK_APP_PORT}`
+> - Backend Management: **8082** (internal), exposed via `${BCK_MGMT_PORT}`
+> - Gateway: **8080** (main entry point)
+> - Keycloak: **8080** internal, **9000** external via `${KC_PORT}`
+
+#### Step 3.2.1: Update `application-local.properties`
+
+**Location:** `backend/src/main/resources/application-local.properties`
+
+Add the following to your existing file (in the Security Configuration section):
 
 ```properties
-# Server Configuration
-server.port=8081
-
+# ========================================
+# OAUTH2 RESOURCE SERVER CONFIGURATION
+# ========================================
 # Spring Addons OIDC Configuration
-com.c4-soft.springaddons.oidc.ops[0].iss=http://keycloak:8080/realms/template-realm
+# Default: localhost:9000 for local dev, override via KEYCLOAK_ISSUER env var for Docker
+com.c4-soft.springaddons.oidc.ops[0].iss=${KEYCLOAK_ISSUER:http://localhost:9000/realms/template-realm}
 com.c4-soft.springaddons.oidc.ops[0].username-claim=$.preferred_username
 com.c4-soft.springaddons.oidc.ops[0].authorities[0].path=$.realm_access.roles
 com.c4-soft.springaddons.oidc.ops[0].aud=
 
-# Resource Server Configuration - matches your OpenAPI spec security definitions
-com.c4-soft.springaddons.oidc.resourceserver.permit-all=/error,/api/v1/greetings,/api/v1/greetings/**,/actuator/health/**
+# Resource Server Configuration - matches OpenAPI spec security definitions
+# Note: Paths are relative to context-path (/api), so /v1/greetings = /api/v1/greetings
+com.c4-soft.springaddons.oidc.resourceserver.permit-all=/error,/v1/greetings,/v1/greetings/**
 ```
 
-#### ✅ Verification: Backend Config
-1. **Run Backend:**
-   ```bash
-   cd backend
-   ./mvnw spring-boot:run
-   ```
-2. **Check Port:**
-   - Ensure it started on port 8081.
-   - Access `http://localhost:8081/actuator/health`.
+**Also update the port configuration** (change from 8080 to 8081):
 
-**Alternative: YAML equivalent** (for reference only - not recommended if you're already using .properties):
+```properties
+# ========================================
+# 3. WEB SERVER CONFIGURATION
+# ========================================
+server.port=${SPRING_SERVER_PORT:8081}
+
+# ========================================
+# 5. ACTUATOR CONFIGURATION  
+# ========================================
+# Management port (was 8081, now 8082 since app port moved to 8081)
+management.server.port=${MANAGEMENT_SERVER_PORT:8082}
+```
+
+#### Step 3.2.2: Update `docker-compose.yml`
+
+**Location:** `/docker-compose.yml`
+
+Add the `KEYCLOAK_ISSUER` environment variable to the backend service:
 
 ```yaml
-server:
-  port: 8081
-
-spring:
-  application:
-    name: backend
-
-com:
-  c4-soft:
-    springaddons:
-      oidc:
-        # OpenID Provider configuration
-        ops:
-          - iss: http://keycloak:8080/realms/template-realm
-            username-claim: $.preferred_username
-            authorities:
-              - path: $.realm_access.roles
-            aud:  # Leave empty or specify your audience
-
-        # Resource Server configuration - aligns with OpenAPI spec
-        resourceserver:
-          permit-all:
-            - /error
-            - /api/v1/greetings            # GET list - public (security: [] in spec)
-            - /api/v1/greetings/*          # GET single - public (security: [] in spec)
-            - /actuator/health/**
-
-logging:
-  level:
-    root: INFO
-    org.springframework.security: DEBUG
+services:
+  backend:
+    # ... existing config ...
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/template-realm  # 👈 Add this line
+      # ... rest of existing env vars ...
 ```
+
+> **Why this approach?** Using environment variable substitution follows the 12-factor app principle and avoids duplicating configuration across multiple properties files. The default (`localhost:9000`) works for local development, while Docker overrides it via the environment variable.
+
+#### ✅ Verification: Backend Config
+1. **Start Keycloak first:**
+   ```bash
+   docker-compose up -d keycloak
+   # Wait for health check to pass
+   docker-compose logs -f keycloak | Select-String "Listening"
+   ```
+2. **Run Backend locally:**
+   ```bash
+   cd backend
+   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+   ```
+3. **Check Ports:**
+   - App should start on port **8081**: `http://localhost:8081/api/actuator/health`
+   - Management on port **8082**: `http://localhost:8082/actuator/health`
+4. **Verify OIDC discovery (requires Keycloak running):**
+   - Check logs for: `Fetching JWK keys from http://localhost:9000/realms/template-realm/protocol/openid-connect/certs`
 
 **Configuration Explained:**
 
 - **iss:** Issuer URL of Keycloak (used to validate JWT signature)
+  - Default `localhost:9000` for local development
+  - Override via `KEYCLOAK_ISSUER` env var for Docker (`keycloak:8080`)
 - **username-claim:** Where to find username in JWT (Keycloak uses `preferred_username`)
 - **authorities.path:** Where to find roles in JWT (Keycloak stores in `realm_access.roles`)
 - **aud:** Audience claim validation (optional, leave empty if not using)
-- **permit-all:** Matches your OpenAPI spec - endpoints with `security: []` are public
+- **permit-all:** Paths relative to context-path - endpoints with `security: []` in OpenAPI spec
 
 ---
 
@@ -1492,73 +1526,188 @@ logging:
 
 **Location:** `backend/src/main/java/com/example/demo/common/config/WebSecurityConfig.java`
 
-**Replace the entire file** with:
+> **Important:** The existing `WebSecurityConfig` has important security headers (CSP, Permissions-Policy, X-Frame-Options) that must be preserved. We'll keep the headers configuration but remove the manual authorization rules since Spring Addons handles those via properties.
+
+**Update the file** to use Spring Addons for authorization while keeping security headers:
 
 ```java
 package com.example.demo.common.config;
 
+import java.util.Arrays;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import com.c4_soft.springaddons.security.oidc.starter.synchronised.resourceserver.ResourceServerSynchronizedHttpSecurityPostProcessor;
 
 /**
  * Security configuration for OAuth2 Resource Server.
- *
- * Spring Addons automatically configures:
- * - JWT validation against Keycloak
+ * <p>
+ * Spring Addons handles:
+ * - JWT validation against Keycloak (issuer, signature)
  * - Authorities extraction from realm_access.roles
  * - Stateless session management
- * - Public endpoint access (configured in application.yml)
- *
- * No @Bean SecurityFilterChain needed - Spring Addons handles it!
+ * - Public endpoint access (configured in application.properties)
+ * <p>
+ * This config adds:
+ * - Security headers (CSP, Permissions-Policy, X-Frame-Options) - ZAP DAST fixes
+ * - CORS configuration for frontend access
+ * - Method-level security via @EnableMethodSecurity
+ * <p>
+ * For test security configuration, see TestSecurityConfig in testsupport package.
  */
 @Configuration
 @EnableWebSecurity
-@Profile("!test")  // Don't apply in tests (TestSecurityConfig is used instead)
-public class WebSecurityConfig {
-    // Spring Addons auto-configuration handles everything!
-    // See: com.c4-soft.springaddons.oidc.resourceserver config in application.properties
-}
-```
-
-#### ✅ Verification: Security Config
-1. **Access Public Endpoint (Directly to Backend):**
-   ```bash
-   curl -I http://localhost:8081/api/v1/greetings
-   ```
-   **Expected:** HTTP 200 OK (since we permitted it).
-2. **Access Protected Endpoint (Directly to Backend):**
-   ```bash
-   curl -I http://localhost:8081/api/v1/me
-   ```
-   **Expected:** HTTP 401 Unauthorized (since it's protected and we sent no token).
-
-**What changed?**
-
-- **Before:** Manual `SecurityFilterChain` with `oauth2ResourceServer()` configuration
-- **After:** Spring Addons auto-configures based on YAML properties
-
-**If you need custom authorization rules:**
-
-```java
-@Configuration
-@EnableWebSecurity
+@EnableMethodSecurity
 @Profile("!test")
 public class WebSecurityConfig {
 
+    @Value("${cors.allowed.origins:http://localhost:5173}")
+    private String corsAllowedOrigins;
+
+    /**
+     * Customizes the Spring Addons auto-configured SecurityFilterChain.
+     * Adds security headers that were configured for ZAP DAST compliance.
+     */
     @Bean
-    @ConditionalOnMissingBean(SecurityFilterChain.class)
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
-                .anyRequest().authenticated()
-            );
-        return http.build();
+    ResourceServerSynchronizedHttpSecurityPostProcessor securityHeadersPostProcessor() {
+        return (HttpSecurity http) -> {
+            try {
+                http.headers(headers -> {
+                    // Content-Security-Policy for API-only backend (fixes ZAP 10038)
+                    headers.contentSecurityPolicy(csp -> csp
+                            .policyDirectives("default-src 'none'; frame-ancestors 'none'")
+                    );
+                    // Permissions-Policy (fixes ZAP 10063)
+                    headers.permissionsPolicyHeader(permissions -> permissions
+                            .policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+                    );
+                    // Cache-Control to prevent caching sensitive responses (fixes ZAP 10049)
+                    headers.cacheControl(Customizer.withDefaults());
+                    // X-Frame-Options: DENY
+                    headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny);
+                    // X-Content-Type-Options: nosniff
+                    headers.contentTypeOptions(Customizer.withDefaults());
+                });
+                return http;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to configure security headers", e);
+            }
+        };
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // Allow frontend origins from configuration (comma-separated)
+        configuration.setAllowedOrigins(Arrays.asList(corsAllowedOrigins.split(",")));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
 ```
+
+**Step 3.3b: Add Method-Level Security to Controllers**
+
+Since the `permit-all` property in Spring Addons doesn't support HTTP method-based filtering (e.g., allowing GET but protecting POST on the same path), we use method-level security with `@PreAuthorize` annotations.
+
+**Location:** `backend/src/main/java/com/example/demo/greeting/controller/GreetingController.java`
+
+Add `@PreAuthorize("isAuthenticated()")` to methods that require authentication according to the OpenAPI spec:
+
+```java
+import org.springframework.security.access.prepost.PreAuthorize;
+
+// ... existing code ...
+
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<GreetingResponse> createGreeting(CreateGreetingRequest request) {
+    // ... existing implementation ...
+}
+
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<Void> deleteGreeting(String id) {
+    // ... existing implementation ...
+}
+
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<GreetingResponse> patchGreeting(String id, PatchGreetingRequest patchGreetingRequest) {
+    // ... existing implementation ...
+}
+
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<GreetingResponse> updateGreeting(String id, UpdateGreetingRequest updateGreetingRequest) {
+    // ... existing implementation ...
+}
+```
+
+**Note:** GET methods (`listGreetings`, `getGreeting`) remain unannotated, matching `security: []` in the OpenAPI spec.
+
+**Key Changes:**
+- **Removed:** Manual `SecurityFilterChain` bean - Spring Addons auto-creates this
+- **Removed:** Manual authorization rules (`.authorizeHttpRequests()`) - handled by `permit-all` + `@PreAuthorize`
+- **Removed:** HTTP Basic Auth - replaced by JWT via Spring Addons
+- **Removed:** CSRF disable - Spring Addons handles this for stateless APIs
+- **Added:** `@EnableMethodSecurity` for method-level access control
+- **Added:** `ResourceServerSynchronizedHttpSecurityPostProcessor` to customize headers on the auto-configured chain
+- **Added:** `@PreAuthorize("isAuthenticated()")` on protected controller methods
+- **Kept:** Security headers (CSP, Permissions-Policy, etc.) for ZAP compliance
+- **Kept:** CORS configuration for frontend access
+
+#### ✅ Verification: Security Config
+1. **Rebuild and restart backend:**
+   ```bash
+   docker-compose up -d --build backend
+   ```
+2. **Access Public Endpoint (via Docker):**
+   ```powershell
+   Invoke-WebRequest -Uri "http://localhost:8081/api/v1/greetings" -Method GET
+   ```
+   **Expected:** HTTP 200 OK (public endpoint via `permit-all` property).
+3. **Access Protected Endpoint without Token:**
+   ```powershell
+   Invoke-WebRequest -Uri "http://localhost:8081/api/v1/greetings" -Method POST -Body '{"message":"test"}' -ContentType "application/json"
+   ```
+   **Expected:** HTTP 403 Forbidden (method-level security denies anonymous users).
+   > **Note:** Returns 403 instead of 401 because method security throws `AccessDeniedException` for anonymous users. Functionally correct - both mean "not authorized".
+4. **Verify Security Headers are present:**
+   ```powershell
+   (Invoke-WebRequest -Uri "http://localhost:8081/api/v1/greetings").Headers
+   ```
+   **Expected:** Headers should include `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Permissions-Policy`.
+
+**What changed?**
+
+| Aspect           | Before                            | After                                                                 |
+| ---------------- | --------------------------------- | --------------------------------------------------------------------- |
+| Authorization    | Manual `.authorizeHttpRequests()` | Spring Addons `permit-all` + `@PreAuthorize`                          |
+| Authentication   | HTTP Basic Auth                   | JWT validation via Spring Addons                                      |
+| CSRF             | Manually disabled                 | Handled by Spring Addons (stateless)                                  |
+| Method Security  | Not used                          | `@EnableMethodSecurity` + `@PreAuthorize`                             |
+| Security Headers | ✅ Present                         | ✅ Preserved via `ResourceServerSynchronizedHttpSecurityPostProcessor` |
+| CORS             | ✅ Present                         | ✅ Preserved                                                           |
+
+---
 
 ---
 

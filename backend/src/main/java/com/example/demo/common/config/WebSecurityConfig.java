@@ -3,74 +3,55 @@ package com.example.demo.common.config;
 import java.util.Arrays;
 import java.util.List;
 
-import jakarta.servlet.DispatcherType;
-
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
-import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.c4_soft.springaddons.security.oidc.starter.synchronised.resourceserver.ResourceServerSynchronizedHttpSecurityPostProcessor;
+
 /**
- * Production security configuration.
+ * Security configuration for OAuth2 Resource Server.
  * <p>
- * This configuration is NOT active during tests (profile "test" is excluded).
+ * Spring Addons handles:
+ * - JWT validation against Keycloak (issuer, signature)
+ * - Authorities extraction from realm_access.roles
+ * - Stateless session management
+ * - Public endpoint access (configured in application.properties)
+ * <p>
+ * This config adds:
+ * - Security headers (CSP, Permissions-Policy, X-Frame-Options) - ZAP DAST fixes
+ * - CORS configuration for frontend access
+ * - Method-level security via @EnableMethodSecurity
+ * <p>
  * For test security configuration, see TestSecurityConfig in testsupport package.
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @Profile("!test")
 public class WebSecurityConfig {
 
     @Value("${cors.allowed.origins:http://localhost:5173}")
     private String corsAllowedOrigins;
 
+    /**
+     * Customizes the Spring Addons auto-configured SecurityFilterChain.
+     * Adds security headers that were configured for ZAP DAST compliance.
+     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-
-                .authorizeHttpRequests((requests) -> requests
-
-                                // 1. Allow Error Dispatches (Fixes missing headers on 404 pages)
-                                .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
-
-                                // 2. Allow access to the /error endpoint itself
-                                .requestMatchers("/error").permitAll()
-
-                                // 3. PUBLIC Actuator Endpoints
-                                .requestMatchers(EndpointRequest.to("health")).permitAll()
-
-                                // 4. DENY/AUTHENTICATE ALL OTHER Actuator Endpoints
-                                .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
-
-                                // 5. Application Endpoints
-                                .requestMatchers("/", "/v1/greetings", "/v1/greetings/**").permitAll()
-                                .anyRequest().authenticated()
-                )
-                .exceptionHandling(e -> e
-                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                )
-                // Enable HTTP Basic Auth for actuator endpoints (machine-to-machine access)
-                .httpBasic(basic -> basic
-                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                )
-                .formLogin(AbstractHttpConfigurer::disable)
-                .logout(LogoutConfigurer::permitAll)
-                // Security headers configuration (fixes ZAP DAST scan warnings)
-                .headers(headers -> {
+    ResourceServerSynchronizedHttpSecurityPostProcessor securityHeadersPostProcessor() {
+        return (HttpSecurity http) -> {
+            try {
+                http.headers(headers -> {
                     // Content-Security-Policy for API-only backend (fixes ZAP 10038)
                     headers.contentSecurityPolicy(csp -> csp
                             .policyDirectives("default-src 'none'; frame-ancestors 'none'")
@@ -86,8 +67,11 @@ public class WebSecurityConfig {
                     // X-Content-Type-Options: nosniff
                     headers.contentTypeOptions(Customizer.withDefaults());
                 });
-
-        return http.build();
+                return http;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to configure security headers", e);
+            }
+        };
     }
 
     @Bean

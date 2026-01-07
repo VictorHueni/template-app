@@ -73,9 +73,30 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<!-- OAuth2 Resource Server - Required for JWT validation -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+		</dependency>
+
+		<!-- Spring Addons OIDC - Simplifies OAuth2 Resource Server Configuration -->
+		<dependency>
+			<groupId>com.c4-soft.springaddons</groupId>
+			<artifactId>spring-addons-starter-oidc</artifactId>
+			<version>9.1.0</version>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Spring Addons Test - for @WithJwt and other test utilities -->
+		<dependency>
+			<groupId>com.c4-soft.springaddons</groupId>
+			<artifactId>spring-addons-oauth2-test</artifactId>
+			<version>9.1.0</version>
 			<scope>test</scope>
 		</dependency>
 

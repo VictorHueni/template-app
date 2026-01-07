@@ -63,6 +63,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SERVER_PORT: 8081
       MANAGEMENT_SERVER_PORT: 8082
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/template-realm
 
     # Map logs/files if necessary (optional)
     # volumes:
@@ -162,7 +163,7 @@ services:
       context: ./gateway
       dockerfile: Dockerfile
     ports:
-      - "${GW_PORT}:8080"  # 👈 Gateway is now the main entry point
+      - "${GW_PORT}:8080" # 👈 Gateway is now the main entry point
     environment:
       SPRING_PROFILES_ACTIVE: docker
       KC_CLIENT_SECRET: ${KC_CLIENT_SECRET}
@@ -173,7 +174,7 @@ services:
       BACKEND_PORT: 8081
     depends_on:
       keycloak:
-        condition: service_healthy  # 👈 Wait for Keycloak to be ready
+        condition: service_healthy # 👈 Wait for Keycloak to be ready
       backend:
         condition: service_started
     networks:

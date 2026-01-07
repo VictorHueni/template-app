@@ -199,12 +199,13 @@ backend/src/main/java/com/example/demo/
 
 ### Step 1: Create the Controller
 
-The controller implements the generated `ProductsApi` interface:
+The controller implements the generated `ProductsApi` interface. Use `@PreAuthorize` annotations to enforce authentication on protected methods:
 
 ```java
 package com.example.demo.product.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.api.v1.controller.ProductsApi;
@@ -223,17 +224,18 @@ public class ProductController implements ProductsApi {
     private final ProductService service;
     private final ProductMapper mapper;
 
-    // PUBLIC ENDPOINT - No authentication required
-    // Security is handled via Spring Addons config (permit-all pattern)
+    // PUBLIC ENDPOINT - No @PreAuthorize annotation
+    // Matches OpenAPI: security: []
     @Override
     public ResponseEntity<ProductPage> listProducts(Integer page, Integer size) {
         var entityPage = service.getProducts(page, size);
         return ResponseEntity.ok(mapper.toProductPage(entityPage));
     }
 
-    // PROTECTED ENDPOINT - JWT validated by Spring Addons
-    // Gateway forwards JWT → Spring validates → method executes
+    // PROTECTED ENDPOINT - Requires authentication
+    // Matches OpenAPI: security: - BearerAuth: []
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ProductResponse> createProduct(CreateProductRequest request) {
         var entity = service.createProduct(
             request.getName(),
@@ -241,56 +243,100 @@ public class ProductController implements ProductsApi {
         );
         return ResponseEntity.status(201).body(mapper.toProductResponse(entity));
     }
+
+    // PROTECTED ENDPOINT with role requirement
+    // Use hasRole() for role-based authorization
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteProduct(String id) {
+        service.deleteProduct(Long.parseLong(id));
+        return ResponseEntity.noContent().build();
+    }
 }
 ```
 
-**Important:** The controller does NOT handle authentication logic. Spring Addons automatically:
+**Security Annotations Summary:**
+
+| OpenAPI Security             | Controller Annotation                | Description                       |
+| ---------------------------- | ------------------------------------ | --------------------------------- |
+| `security: []`               | *(none)*                             | Public endpoint, no auth required |
+| `security: - BearerAuth: []` | `@PreAuthorize("isAuthenticated()")` | Requires valid JWT token          |
+| Role-based                   | `@PreAuthorize("hasRole('ADMIN')")`  | Requires specific role            |
+
+**Important:** Spring Addons automatically:
 - Validates JWT tokens from the Gateway
-- Extracts user roles from the token
-- Rejects requests with invalid/expired tokens
+- Extracts user roles from the `realm_access.roles` claim
+- Returns 403 Forbidden for unauthorized requests
 
 ### Step 2: Configure Security
 
-Security is configured in `application-*.properties`. Public endpoints are specified in the `permit-all` property:
+Security is configured using **method-level annotations** (`@PreAuthorize`) rather than URL-based patterns. This approach is cleaner when the same path has different security requirements for different HTTP methods (e.g., GET is public, POST is protected).
 
-```properties
-# backend/src/main/resources/application-local.properties
+#### Understanding the Security Configuration
 
-# Public endpoints (match your OpenAPI spec security: [] endpoints)
-com.c4-soft.springaddons.oidc.resourceserver.permit-all=\
-    /error,\
-    /actuator/health/**,\
-    /api/v1/greetings,\
-    /api/v1/greetings/**,\
-    /api/v1/products         # 👈 Add your new public GET endpoint
-```
-
-**Note:** If your endpoint needs to be public for GET but protected for POST (like `/api/v1/products`), you need custom security config:
+Spring Addons auto-configures the security filter chain. The `WebSecurityConfig` class enables method security and adds custom headers:
 
 ```java
 // backend/src/main/java/com/example/demo/common/config/WebSecurityConfig.java
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity  // 👈 Enables @PreAuthorize annotations
+@Profile("!test")
 public class WebSecurityConfig {
 
+    // Spring Addons auto-configures:
+    // - JWT validation against Keycloak
+    // - Stateless session management
+    // - Bearer token authentication filter
+
+    // This bean customizes the auto-configured SecurityFilterChain
+    // to add security headers (CSP, X-Frame-Options, etc.)
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(auth -> auth
-            // Public: GET products list
-            .requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll()
-            .requestMatchers(HttpMethod.GET, "/api/v1/products/*").permitAll()
-            // Protected: POST/PUT/DELETE products
-            .requestMatchers(HttpMethod.POST, "/api/v1/products").authenticated()
-            .requestMatchers(HttpMethod.PUT, "/api/v1/products/*").authenticated()
-            .requestMatchers(HttpMethod.DELETE, "/api/v1/products/*").authenticated()
-            // Everything else requires authentication
-            .anyRequest().authenticated()
-        );
-        return http.build();
+    ResourceServerSynchronizedHttpSecurityPostProcessor securityHeadersPostProcessor() {
+        return (HttpSecurity http) -> {
+            http.headers(headers -> {
+                headers.contentSecurityPolicy(csp -> csp
+                    .policyDirectives("default-src 'none'; frame-ancestors 'none'")
+                );
+                // ... other headers
+            });
+            return http;
+        };
     }
 }
 ```
+
+#### Public Endpoints via `permit-all` Property
+
+For endpoints that are entirely public (all HTTP methods), add them to `permit-all`:
+
+```properties
+# backend/src/main/resources/application-local.properties
+
+# Paths relative to context-path (/api)
+com.c4-soft.springaddons.oidc.resourceserver.permit-all=/error,/v1/greetings,/v1/greetings/**
+```
+
+#### Mixed Public/Protected Endpoints
+
+When the same path needs different security per HTTP method, use `@PreAuthorize` in the controller:
+
+```java
+// GET /v1/products - Public (no annotation)
+@Override
+public ResponseEntity<ProductPage> listProducts(Integer page, Integer size) { ... }
+
+// POST /v1/products - Protected
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<ProductResponse> createProduct(CreateProductRequest request) { ... }
+```
+
+**This is the recommended approach** because:
+- Security is declared next to the method it protects
+- Matches the OpenAPI spec pattern (`security: []` vs `security: - BearerAuth: []`)
+- No need to maintain complex URL patterns in configuration
 
 ### Step 3: Accessing the Authenticated User
 
@@ -326,10 +372,17 @@ public ResponseEntity<ProductResponse> createProduct(
 
 ### Step 4: Role-Based Authorization
 
-For fine-grained access control, use `@PreAuthorize`:
+For fine-grained access control, use `@PreAuthorize` with role checks:
 
 ```java
 import org.springframework.security.access.prepost.PreAuthorize;
+
+// Requires authentication only (any authenticated user)
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<ProductResponse> createProduct(CreateProductRequest request) {
+    // ...
+}
 
 // Only users with ADMIN role can delete products
 @Override
@@ -339,22 +392,25 @@ public ResponseEntity<Void> deleteProduct(String id) {
     return ResponseEntity.noContent().build();
 }
 
-// Users with either USER or ADMIN role can create products
+// Users with either USER or ADMIN role can update products
 @Override
 @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-public ResponseEntity<ProductResponse> createProduct(CreateProductRequest request) {
+public ResponseEntity<ProductResponse> updateProduct(String id, UpdateProductRequest request) {
     // ...
 }
 ```
 
-**Enable method security** in your config:
+**Common `@PreAuthorize` Expressions:**
 
-```java
-@Configuration
-@EnableMethodSecurity(prePostEnabled = true)
-public class MethodSecurityConfig {
-}
-```
+| Expression                    | Description                 |
+| ----------------------------- | --------------------------- |
+| `isAuthenticated()`           | Any authenticated user      |
+| `hasRole('ADMIN')`            | User has ADMIN role         |
+| `hasAnyRole('USER', 'ADMIN')` | User has USER or ADMIN role |
+| `hasAuthority('SCOPE_read')`  | User has specific authority |
+| `#id == authentication.name`  | Resource owner check        |
+
+**Note:** Method security is enabled via `@EnableMethodSecurity` in `WebSecurityConfig`. No separate configuration class is needed.
 
 ---
 
@@ -624,8 +680,10 @@ export * from "./components/CreateProductForm";
 | Security Setting                         | Meaning                | HTTP Response on Failure |
 | ---------------------------------------- | ---------------------- | ------------------------ |
 | `security: []`                           | Public endpoint        | N/A                      |
-| `security: - BearerAuth: []`             | Requires valid JWT     | 401 Unauthorized         |
+| `security: - BearerAuth: []`             | Requires valid JWT     | 403 Forbidden*           |
 | With `@PreAuthorize("hasRole('ADMIN')")` | Requires specific role | 403 Forbidden            |
+
+> *Method-level security returns 403 for unauthenticated users. This is functionally equivalent to 401.
 
 ### Checklist: New Endpoint
 
@@ -638,8 +696,9 @@ export * from "./components/CreateProductForm";
 - [ ] **Backend** (`backend/`)
   - [ ] Run `./mvnw generate-sources` to regenerate API interfaces
   - [ ] Create/update controller implementing the generated interface
-  - [ ] Update `permit-all` in properties if endpoint is public
-  - [ ] Add `@PreAuthorize` annotations for role-based access
+  - [ ] Add `@PreAuthorize("isAuthenticated()")` for protected endpoints
+  - [ ] Add `@PreAuthorize("hasRole('...')")` for role-based access
+  - [ ] *(Optional)* Update `permit-all` in properties if entire path is public
 
 - [ ] **Frontend** (`frontend/`)
   - [ ] Run `npm run generate:api` to regenerate client
@@ -659,14 +718,26 @@ security:
 ```
 
 ```java
+// Java: Public endpoint (no annotation needed if in permit-all)
+@Override
+public ResponseEntity<?> listItems() { }
+
+// Java: Protected endpoint (requires authentication)
+@Override
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<?> createItem(Request request) { }
+
+// Java: Role-based access
+@Override
+@PreAuthorize("hasRole('ADMIN')")
+public ResponseEntity<?> deleteItem(String id) { }
+
 // Java: Access authenticated user
+@Override
+@PreAuthorize("isAuthenticated()")
 public ResponseEntity<?> myEndpoint(Authentication auth) {
     String username = auth.getName();
 }
-
-// Java: Role-based access
-@PreAuthorize("hasRole('ADMIN')")
-public ResponseEntity<?> adminOnly() { }
 ```
 
 ```typescript
