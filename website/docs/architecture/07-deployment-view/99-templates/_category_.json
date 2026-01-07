@@ -1,0 +1,10 @@
+{
+  "label": "Templates & Patterns",
+  "position": 99,
+  "collapsible": true,
+  "collapsed": true,
+  "link": {
+    "type": "generated-index",
+    "description": "Generic Arc42 infrastructure templates for reference."
+  }
+}

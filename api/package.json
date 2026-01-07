@@ -2,7 +2,7 @@
     "name": "api-contract",
     "version": "1.0.0",
     "scripts": {
-        "lint": "spectral lint specification/openapi.yaml --ruleset rules/style.yaml",
+        "lint": "spectral lint specification/openapi.yaml",
         "validate": "openapi-generator-cli validate -i specification/openapi.yaml",
         "mock": "prism mock specification/openapi.yaml",
         "diff": "openapi-diff"

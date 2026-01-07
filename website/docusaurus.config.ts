@@ -2,6 +2,8 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import type {ScalarOptions} from '@scalar/docusaurus';
+import { remarkKroki } from 'remark-kroki';
+import rehypeRaw from 'rehype-raw';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -43,6 +45,31 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
+          remarkPlugins: [
+            [
+              remarkKroki,
+              {
+                server: 'https://kroki.io',
+                alias: ['plantuml'],
+                output: 'inline-svg',
+                target: 'mdx3',
+              },
+            ],
+          ],
+          rehypePlugins: [
+            [
+              rehypeRaw,
+              {
+                passThrough: [
+                  'mdxFlowExpression',
+                  'mdxJsxFlowElement',
+                  'mdxJsxTextElement',
+                  'mdxTextExpression',
+                  'mdxjsEsm',
+                ],
+              },
+            ],
+          ],
         },
         blog: false, // Disable blog
         theme: {

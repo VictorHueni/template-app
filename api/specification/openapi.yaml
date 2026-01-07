@@ -11,6 +11,10 @@ info:
     email: api-support@example.com
     url: https://github.com/VictorHueni/template-app
 
+externalDocs:
+  description: Developer Guide & API-First Workflow
+  url: http://localhost:3001/docs/developer-guides/creating-endpoints
+
 servers:
   # Production (first = default in most SDK generators)
   - url: https://api.example.com/api
