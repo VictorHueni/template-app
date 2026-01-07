@@ -683,5 +683,5 @@ if (!isAuthenticated) {
 ## See Also
 
 - [Development Cheatsheet](./dev-cheatsheet.md) — Commands for building and testing
-- [API Specification](/static/openapi.yaml) — Live OpenAPI documentation
+- [API Specification](/openapi.yaml) — Live OpenAPI documentation
 - [Architecture Overview](/docs/architecture/intro) — System design details
