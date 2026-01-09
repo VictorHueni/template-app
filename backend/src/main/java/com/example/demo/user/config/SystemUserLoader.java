@@ -11,7 +11,7 @@ import com.example.demo.user.model.UserDetailsImpl;
 import com.example.demo.user.repository.UserRepository;
 
 @Configuration
-@Profile({"test", "dev"}) // WARNING: Do not enable in production environments
+@Profile({"test & !integration", "dev"}) // WARNING: Do not enable in production environments
 public class SystemUserLoader {
 
     @Value("${admin.username:user}")

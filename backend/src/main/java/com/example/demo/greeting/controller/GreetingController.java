@@ -54,7 +54,7 @@ public class GreetingController implements GreetingsApi {
     }
 
     @Override
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteGreeting(String id) {
         Long idLong = Long.parseLong(id);
         if (service.deleteGreeting(idLong)) {

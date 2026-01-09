@@ -14,7 +14,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,6 +70,29 @@ class SecurityAuditorAwareTest {
 
         // Assert
         assertThat(current).isPresent().contains("alice");
+    }
+
+    @Test
+    @DisplayName("should return username from JwtAuthenticationToken name")
+    void shouldReturnUsernameFromJwtAuthenticationTokenName() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("sub", "test-sub")
+                .claim("preferred_username", "testuser")
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(60))
+                .build();
+
+        Authentication auth = new JwtAuthenticationToken(
+                jwt,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                "testuser"
+        );
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        Optional<String> current = auditorAware.getCurrentAuditor();
+
+        assertThat(current).isPresent().contains("testuser");
     }
 
     @Test

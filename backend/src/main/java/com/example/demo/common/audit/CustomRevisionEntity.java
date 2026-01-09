@@ -39,7 +39,7 @@ import lombok.Setter;
 public class CustomRevisionEntity {
 
     @Id
-    @SequenceGenerator(name = "seq_revinfo_id", sequenceName = "seq_revinfo_id", allocationSize = 50)
+    @SequenceGenerator(name = "seq_revinfo_id", sequenceName = "seq_revinfo_id", allocationSize = 1)
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_revinfo_id")
     @RevisionNumber
     @Column(name = "rev")
