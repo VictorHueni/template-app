@@ -10,9 +10,13 @@ import java.util.Objects;
 
 import javax.sql.DataSource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.datasource.DelegatingDataSource;
 
 public final class SmartRoutingDataSource extends DelegatingDataSource {
+
+    private static final Logger log = LoggerFactory.getLogger(SmartRoutingDataSource.class);
 
     public SmartRoutingDataSource(DataSource targetDataSource) {
         super(Objects.requireNonNull(targetDataSource, "targetDataSource"));
@@ -35,11 +39,13 @@ public final class SmartRoutingDataSource extends DelegatingDataSource {
     private static void applySearchPath(Connection connection) throws SQLException {
         String schema = SchemaContext.getSchema();
         if (schema == null) {
+            log.debug("No schema context, resetting search path to default");
             resetSearchPath(connection);
             return;
         }
 
         String quotedSchema = quoteIdentifier(schema);
+        log.debug("Applying search_path to schema: {}", schema);
         try (Statement statement = connection.createStatement()) {
             statement.execute("SET search_path TO " + quotedSchema + ", public");
         }
