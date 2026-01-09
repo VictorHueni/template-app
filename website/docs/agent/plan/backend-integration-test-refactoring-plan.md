@@ -55,6 +55,11 @@ Rationale: In production the Gateway performs the OAuth2 handshake and relays a 
 
 ---
 
+## Core Stack 
+- Spring Boot: 4.0.1
+- Spring Security: 7.0.2 (transitive via starter)
+- Java: 25
+
 ## 2. Phase 0: Prerequisites & Configuration
 
 ### Step 2.1: Verify Dependencies
@@ -66,6 +71,7 @@ Rationale: In production the Gateway performs the OAuth2 handshake and relays a 
 2. Verify the dependency is present in the `<dependencies>` section.
 3. Run `./mvnw dependency:tree | grep oauth2` to confirm transitive dependencies include `spring-security-oauth2-jose`.
 4. Expected output: The tree should list `com.nimbusds:nimbus-jose-jwt` as a transitive dependency.
+
 
 ### Step 2.2: Disable Auto-Migration
 **Why:** We want to control Flyway programmatically to migrate specific schemas, not the default `public` schema on startup.
@@ -121,24 +127,7 @@ git status  # Review what has changed
 git add -A  # Or selectively: git add backend/pom.xml backend/src/test/resources/
 git rm <legacy_files>  # Remove any old auth testcontainer files
 
-git commit -m "refactor(test): Phase 0 - Prerequisites for hybrid parallel integration test strategy
-
-**Changes:**
-- Verify JWT signing dependencies are available (spring-security-oauth2-jose)
-- Configure test profile for controlled database migration (disable Flyway auto-start)
-- Tune connection pool for parallel test execution
-- Remove legacy OAuth2 testcontainer references
-
-**Why:**
-- Foundation for local JWT token generation in subsequent phases
-- Enables schema-per-test isolation without startup overhead
-- Prepares infrastructure for parallel test execution
-
-**Testing:**
-- Full build passes: ./mvnw clean compile
-- No legacy testcontainer references remain
-- Test profile loads configuration correctly
-"
+git commit -m "<commit message>"
 ```
 
 **Verification After Commit:**

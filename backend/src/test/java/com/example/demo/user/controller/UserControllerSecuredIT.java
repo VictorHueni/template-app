@@ -43,7 +43,7 @@ import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
  * @see AbstractSecuredRestAssuredIT
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles({"test", "keycloak-test"})
+@ActiveProfiles({"test"})
 @DisplayName("UserController Security Integration Tests (Keycloak)")
 class UserControllerSecuredIT extends AbstractSecuredRestAssuredIT {
 

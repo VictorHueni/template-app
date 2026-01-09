@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
  * @see AbstractSecuredRestAssuredIT
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles({"test", "keycloak-test"})
+@ActiveProfiles({"test"})
 @ResourceLock(value = "DB", mode = READ_WRITE)
 @DisplayName("GreetingController Security Integration Tests (Keycloak)")
 class GreetingControllerSecuredIT extends AbstractSecuredRestAssuredIT {
