@@ -3,9 +3,8 @@ package com.example.demo.testsupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+
+import com.example.demo.testsupport.auth.TestJwtUtils;
 
 import io.restassured.RestAssured;
 import io.restassured.specification.RequestSpecification;
@@ -34,7 +33,7 @@ public abstract class AbstractSecuredRestAssuredIT extends AbstractIntegrationTe
      * @return the access token string
      */
     protected String getUserToken() {
-        return null;
+        return TestJwtUtils.getUserToken();
     }
 
     /**
@@ -43,7 +42,7 @@ public abstract class AbstractSecuredRestAssuredIT extends AbstractIntegrationTe
      * @return the access token string
      */
     protected String getAdminToken() {
-        return null;
+        return TestJwtUtils.getAdminToken();
     }
 
     /**

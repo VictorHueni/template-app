@@ -16,21 +16,22 @@ import org.springframework.test.context.ActiveProfiles;
 import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
 
 /**
- * Security integration tests for UserController using real Keycloak JWT tokens.
+ * Security integration tests for UserController using locally minted JWT tokens.
  *
  * <p><strong>Test Scope:</strong></p>
  * <ul>
- *   <li>Tests real OAuth2/OIDC security with Keycloak Testcontainer</li>
+ *   <li>Tests OAuth2 Resource Server behavior (JWT validation + claim mapping)</li>
  *   <li>Tests full HTTP request/response cycle via RestAssured</li>
  *   <li>Tests JWT token validation and claim extraction</li>
  *   <li>Validates responses against OpenAPI spec</li>
  * </ul>
  *
- * <p><strong>Why Keycloak Testcontainer?</strong></p>
+ * <p><strong>Why locally minted tokens?</strong></p>
  * <p>
  * Spring's {@code @WithJwt} annotation sets SecurityContext in ThreadLocal,
  * which doesn't propagate to server threads during RestAssured HTTP calls.
- * This test uses real JWT tokens from Keycloak for true end-to-end security testing.
+ * This test uses locally minted JWTs (signed with a fixed HS256 secret) to emulate
+ * the Gateway relaying a JWT to the backend.
  * </p>
  *
  * <p><strong>Test Users:</strong></p>
@@ -44,7 +45,7 @@ import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test"})
-@DisplayName("UserController Security Integration Tests (Keycloak)")
+@DisplayName("UserController Security Integration Tests (Mock JWT)")
 class UserControllerSecuredIT extends AbstractSecuredRestAssuredIT {
 
     @Nested

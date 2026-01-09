@@ -1,5 +1,6 @@
 package com.example.demo.testsupport.auth;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -21,7 +22,7 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @TestConfiguration
 @Profile("integration")
-@Import(MockJwtBeansConfig.class)
+@Import({MockJwtBeansConfig.class, MockMethodSecurityConfig.class})
 public class MockSecurityConfig {
 
     @Bean
@@ -36,10 +37,11 @@ public class MockSecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests((requests) -> requests
                         // Public endpoints (matches OpenAPI security: [])
-                        .requestMatchers("/api/v1/greetings", "/api/v1/greetings/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/greetings", "/api/v1/greetings/**").permitAll()
 
-                        // Protected endpoint
-                        .requestMatchers("/api/v1/me").authenticated()
+                        // Protected API endpoints: enforce authentication at filter-chain level.
+                        // This ensures missing/invalid tokens yield 401 (not 403).
+                        .requestMatchers("/api/**").authenticated()
 
                         // Default: allow other non-API requests (e.g., error pages) during tests
                         .anyRequest().permitAll()

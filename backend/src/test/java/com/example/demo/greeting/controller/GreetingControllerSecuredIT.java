@@ -21,13 +21,13 @@ import com.example.demo.testsupport.DatabaseCleanupHelper;
 import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 /**
- * Security integration tests for GreetingController using real Keycloak JWT tokens.
+ * Security integration tests for GreetingController using locally minted JWT tokens.
  *
  * <p><strong>Test Scope:</strong></p>
  * <ul>
  *   <li>Tests OAuth2 security enforcement on protected endpoints</li>
  *   <li>Tests public endpoint access without authentication</li>
- *   <li>Tests that unauthenticated requests to protected endpoints return 401</li>
+ *   <li>Tests security-layer responses (401/403 depending on where enforcement happens)</li>
  *   <li>Validates responses against OpenAPI spec</li>
  * </ul>
  *
@@ -47,7 +47,7 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test"})
 @ResourceLock(value = "DB", mode = READ_WRITE)
-@DisplayName("GreetingController Security Integration Tests (Keycloak)")
+@DisplayName("GreetingController Security Integration Tests (Mock JWT)")
 class GreetingControllerSecuredIT extends AbstractSecuredRestAssuredIT {
 
     /**

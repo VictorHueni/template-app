@@ -43,6 +43,7 @@ public class MockJwtBeansConfig {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setPrincipalClaimName("preferred_username");
         converter.setJwtGrantedAuthoritiesConverter(realmAccessRolesConverter());
         return converter;
     }

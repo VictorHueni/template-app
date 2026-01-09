@@ -198,32 +198,44 @@ The refactor is only complete if the suite still proves:
    *   Valid token but insufficient role -> 403 (authorization failure)
 *   Identity propagation: authenticated identity/claims are correctly mapped (e.g., auditing fields like “createdBy” or equivalent domain attribution).
 
-**Best-practice alignment:** For endpoints that are protected in production, prefer enforcing authentication at the filter-chain level (so missing/invalid token yields 401) and enforcing role/authority via method security (403).
+**Best-practice alignment (confirmed):** Enforce authentication at the filter-chain level (so missing/invalid token yields 401) and enforce roles/authorities at method security (403).
+
+**Role-enforcement anchor (Option A):** Introduce at least one admin-only operation to make the “insufficient role -> 403” scenario real. For this template we use:
+- `DELETE /api/v1/greetings/{id}` -> ADMIN only
+
 **Test:**
 1. For each secured endpoint, write three scenarios:
    - **Authorized:** Request with valid token of required role → Expect 200.
    - **Insufficient Role:** Request with valid token but missing required role (e.g., `getUserToken()` on admin-only endpoint) → Expect 403.
    - **Missing/Invalid Token:** Request with no token or invalid signature → Expect 401.
-2. For endpoints that audit createdBy/modifiedBy, verify:
-   - Create a resource with `getUserToken()` and retrieve it; verify `createdBy` field equals the user from the token (`preferred_username`).
-3. After Phase 2 is implemented (programmatic Flyway per test schema), run the complete test suite: `./mvnw verify -Dspring.profiles.active=integration`.
-4. Expected outcome: All three scenarios pass for each secured endpoint, proving role enforcement and claim mapping work correctly.
+2. Validate claim mapping without DB (Phase 1 friendly):
+   - Decode `TestJwtUtils.getUserToken()` and ensure `preferred_username` exists.
+   - Convert JWT to Authentication and ensure:
+     - principal name is `preferred_username`
+     - `realm_access.roles` becomes `ROLE_*` authorities.
+3. For endpoints that audit createdBy/modifiedBy (after Phase 2), verify identity propagation:
+   - Create a resource with `getUserToken()` and verify the audit field equals the user from the token (`preferred_username`).
+4. After Phase 2 is implemented (programmatic Flyway per test schema), run the complete test suite: `./mvnw verify -Dspring.profiles.active=integration`.
+5. Expected outcome: All three scenarios pass for each secured endpoint, proving role enforcement and claim mapping work correctly.
 
 ### Steps 3.5 : Final Steps (Commit Authentication Layer)
 
 After completing all Phase 1 steps and validating each one, execute these final steps to commit your changes:
 
 **Final Validation:**
-1. Test JWT utilities work correctly: `./mvnw test -Dtest='*JwtUtils*' -pl backend`.
-2. Test secured endpoints work with mock tokens: `./mvnw test -Dtest='*Secured*' -pl backend`.
-3. Verify no Keycloak references remain in test codebase:
-   ```bash
-   grep -r "Keycloak" backend/src/test/ || echo "✓ Clean"
-   ```
-4. Verify mock security config is profile-gated:
-   ```bash
-   grep -r "@Profile.*integration" backend/src/test/ | grep -i "security\|config"
-   ```
+1. Test JWT utilities work correctly:
+   - Linux/Mac: `./mvnw test -Dtest='*JwtUtils*' -pl backend`
+   - Windows: `mvn.cmd test "-Dtest=*JwtUtils*"` (run from `backend/`)
+2. Test the no-DB mock security plumbing:
+   - Windows: `mvn.cmd test "-Dtest=TestJwtUtilsTest,MockSecurityConfigContextTest"` (run from `backend/`)
+3. (After Phase 2) Test secured endpoints work with mock tokens:
+   - `./mvnw test -Dtest='*Secured*' -pl backend`
+4. Verify no Keycloak references remain in test codebase:
+   - Linux/Mac: `grep -r "Keycloak" backend/src/test/ || echo "✓ Clean"`
+   - Windows PowerShell: `Get-ChildItem -Recurse backend\src\test | Select-String -Pattern "Keycloak"`
+5. Verify mock security config is profile-gated:
+   - Linux/Mac: `grep -r "@Profile(\"integration\"" backend/src/test/ | grep -i "security\|config"`
+   - Windows PowerShell: `Get-ChildItem -Recurse backend\src\test\java | Select-String -Pattern "@Profile\(\"integration\""`
 
 **Commit Changes:**
 ```bash
@@ -382,40 +394,8 @@ After completing all Phase 2 steps and validating each one, execute these final 
 git status  # Review persistence infrastructure changes
 git add -A  # Or selectively add schema isolation files
 
-git commit -m "refactor(test): Phase 2 - Smart schema isolation for parallel execution
-
-**Changes:**
-- Create thread-local schema context holder
-  * Store/clear schema name per test thread
-  * Ensure no cross-thread pollution
-
-- Implement dynamic datasource routing
-  * Intercept connections to set correct schema
-  * Route JDBC operations based on thread context
-  * Wrap existing datasource transparently
-
-- Create JUnit test lifecycle manager
-  * BeforeEach: Create unique schema, run migrations
-  * AfterEach: Clean schema, clear context
-  * Automatic isolation per test method
-
-- Configure for parallel execution
-  * Enable concurrent test class execution
-  * Keep sequential method execution (preserve scenarios)
-  * Deterministic parallelism (CPU-based or fixed)
-
-**Why:**
-- Schema-per-test provides strong isolation without per-test containers
-- Single PostgreSQL instance reduces resource overhead
-- Parallel execution reduces suite time by 60-75%
-
-**Testing:**
-- Each test gets isolated schema
-- Migrations run successfully per schema
-- Data pollution tests pass (each test sees only own data)
-- Async operations inherit schema context correctly
-"
-```
+git commit -m "refactor(test): <commit message>"
+## Tip: use a short subject line + a few bullet points in the body.
 
 **Verification After Commit:**
 1. Run `git log --oneline -1` to confirm commit message.
@@ -425,6 +405,19 @@ git commit -m "refactor(test): Phase 2 - Smart schema isolation for parallel exe
 5. Document in ticket/PR: "Phase 2 complete. Parallel execution active with schema-per-test isolation."
 
 ---
+
+**Convergence (do later, after Phase 2):** Once `@SpringBootTest` can reliably run with `@ActiveProfiles({"test", "integration"})`, converge the test tiers so there is only one IT per component:
+1. Rename `*SecuredIT.java` classes to `*IT.java` (or merge secured scenarios into the existing `*IT` for that component).
+2. Keep security enabled for the whole IT tier and vary behavior per request:
+   * Unauthenticated requests -> no `Authorization` header
+   * Authenticated requests -> `Authorization: Bearer <token>`
+3. Make profiles consistent across all RestAssured ITs in the suite:
+   * Use the same `@ActiveProfiles({"test", "integration"})` everywhere (avoid mixed profile sets that split the Spring TestContext cache).
+4. Keep helper methods (`givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()`) in a single shared base class.
+5. Run a suite spot-check after convergence:
+   * `./mvnw test -Dtest='*ControllerIT' -pl backend`
+   * `./mvnw verify -Dspring.profiles.active=integration -pl backend`
+
 
 ## 5. Phase 3: Cross-Thread Context Propagation
 
