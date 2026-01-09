@@ -4,7 +4,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
+import com.example.demo.testsupport.persistence.SchemaContext;
+import com.example.demo.testsupport.persistence.TestSchemaFilter;
+
 import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
 
 /**
  * Base class for REST API integration tests using RestAssured.
@@ -51,6 +55,13 @@ public abstract class AbstractRestAssuredIntegrationTest extends AbstractIntegra
     void configureRestAssuredBaseUri() {
         RestAssured.baseURI = "http://localhost";
         RestAssured.port = port;
+
+        String schema = SchemaContext.getSchema();
+        RequestSpecBuilder builder = new RequestSpecBuilder();
+        if (schema != null && !schema.isBlank()) {
+            builder.addHeader(TestSchemaFilter.TEST_SCHEMA_HEADER, schema);
+        }
+        RestAssured.requestSpecification = builder.build();
     }
 
     @AfterEach
