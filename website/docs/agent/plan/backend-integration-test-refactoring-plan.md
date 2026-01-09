@@ -414,21 +414,32 @@ If Flyway-per-test becomes a bottleneck, keep Option 1 but introduce a faster mi
 **Implementation:** `backend/src/test/java/com/example/demo/testsupport/persistence/SchemaIsolationExtension.java`
 *   Implement `BeforeEachCallback`, `AfterEachCallback`.
 *   **BeforeEach:**
-    1.  Generate random schema name (`test_req_...`).
-    2.  `CREATE SCHEMA` using `dataSource.getConnection()`.
-    3.  `SchemaContext.setSchema()`.
-    4.  Programmatically run `Flyway.configure().dataSource(ds).schemas(schemaName).locations(...).migrate()`.
+   1.  Clear `SchemaContext` (defensive hygiene).
+   2.  Generate random schema name (`test_req_...`) using a UUID (lowercase, no hyphens).
+   3.  Store schema name in `ExtensionContext.Store` (so `AfterEach` can drop it).
+   4.  Obtain `DataSource` from the Spring test context via `SpringExtension.getApplicationContext(ctx)`.
+   5.  `CREATE SCHEMA "<schema>"` using `dataSource.getConnection()` (with `SchemaContext` still unset).
+   6.  `SchemaContext.setSchema(schemaName)`.
+   7.  Programmatically run Flyway for that schema:
+      * `Flyway.configure().dataSource(ds)`
+      * `.schemas(schemaName).defaultSchema(schemaName)`
+      * `.locations("classpath:db/migration")`
+      * `.migrate()`
 *   **AfterEach:**
-    1.  `DROP SCHEMA ... CASCADE`.
-    2.  `SchemaContext.clear()`.
+   1.  Read schema name from `ExtensionContext.Store`.
+   2.  `SchemaContext.clear()`.
+   3.  `DROP SCHEMA "<schema>" CASCADE`.
+
+Implementation note: the extension logs `Creating test schema ...`, `Running Flyway migrations ...`, and `Dropping test schema ...` so schema lifecycle can be verified in test output.
 
 **Test:**
-1. Create an integration test that uses `@ExtendWith(SchemaIsolationExtension.class)` and `@SpringBootTest`.
-2. In the test method, verify `SchemaContext.getSchema()` is NOT null and matches a pattern like `test_req_*`.
-3. Query the database: `SELECT schema_name FROM information_schema.schemata WHERE schema_name = current_schema();`.
-4. Verify the test schema exists and matches the context value.
-5. After the test completes, manually verify via database that the schema was dropped: `SELECT schema_name FROM information_schema.schemata WHERE schema_name = '<previous_test_schema>';`.
-6. Expected outcome: Extension creates a unique schema, runs migrations, and cleans up after each test without manual intervention.
+1. Create an integration test: `backend/src/test/java/com/example/demo/testsupport/persistence/SchemaIsolationExtensionIT.java`.
+2. Use `@SpringBootTest` + `@ExtendWith(SchemaIsolationExtension.class)`.
+3. In the test method, verify `SchemaContext.getSchema()` is NOT blank and starts with `test_req_`.
+4. Query the database: `select current_schema()` and verify it equals `SchemaContext.getSchema()`.
+5. Verify Flyway ran by checking `flyway_schema_history` exists in the current schema.
+6. Verify schema drop via logs (look for `Dropping test schema ... CASCADE`).
+7. Expected outcome: Extension creates a unique schema, runs migrations in it, and cleans up after each test.
 
 ### Steps 4.5: Final Steps (Commit Persistence Layer)
 
@@ -437,7 +448,7 @@ After completing all Phase 2 steps and validating each one, execute these final 
 **Final Validation:**
 1. Test SchemaContext isolation: `./mvnw test -Dtest=SchemaContextTest`.
 2. Test SmartRoutingDataSource: `./mvnw test -Dtest='*DataSourceTest'`.
-3. Test SchemaIsolationExtension: `./mvnw test -Dtest='*PeristenceIT' | head -50` to see schema creation/drops.
+3. Test SchemaIsolationExtension: `./mvnw test -Dtest=SchemaIsolationExtensionIT` to see schema creation/migrations/drops in logs.
 4. Verify all components compile without errors:
    ```bash
    ./mvnw clean compile -pl backend -DskipTests
@@ -449,25 +460,7 @@ After completing all Phase 2 steps and validating each one, execute these final 
    # Run twice; second run should show different schema names
    ```
 
-**Commit Changes:**
-```bash
-git status  # Review persistence infrastructure changes
-git add -A  # Or selectively add schema isolation files
-
-git commit -m "refactor(test): <commit message>"
-## Tip: use a short subject line + a few bullet points in the body.
-
-**Verification After Commit:**
-1. Run `git log --oneline -1` to confirm commit message.
-2. Test persistence components: `./mvnw test -Dtest='*Schema*,*Persistence*' -pl backend`.
-3. Measure parallelism: Run `./mvnw verify -pl backend` and note execution time (should be 60-75% faster).
-4. Verify schema lifecycle in logs: `./mvnw test -pl backend 2>&1 | grep -E "test_req_|Flyway"`.
-5. Document in ticket/PR: "Phase 2 complete. Parallel execution active with schema-per-test isolation."
-```
-
 ---
-
-
 ## 5. Phase 3: Cross-Thread Context Propagation
 
 ### Step 5.1: The Server-Side Filter
@@ -575,34 +568,7 @@ After completing all Phase 3 steps and validating each one, execute these final 
 git status  # Review context propagation changes
 git add -A  # Or selectively add filter and decorator files
 
-git commit -m "refactor(test): Phase 3 - Cross-thread context propagation
-
-**Changes:**
-- Create request-level schema routing filter
-  * Intercept HTTP requests to read schema header
-  * Set ThreadLocal context for request duration
-  * Ensure cleanup in finally block
-
-- Implement async context propagation decorator
-  * Capture parent thread schema context
-  * Propagate to async task threads
-  * Support @Async methods and event listeners
-
-- Configure client-side header injection
-  * RestAssured automatically includes schema header
-  * Uses ThreadLocal context from JUnit thread
-  * No test code changes needed
-
-**Why:**
-- HTTP requests run on Tomcat thread (different from JUnit thread)
-- Async tasks run on executor thread (different from request thread)
-- ThreadLocal context must be explicitly propagated across threads
-
-**Testing:**
-- HTTP requests routed to correct schema
-- Async operations see same schema as parent
-- No cross-test data pollution
-- All schema-aware operations work consistently
+git commit -m "refactor(test): <commit message>
 "
 ```
 
