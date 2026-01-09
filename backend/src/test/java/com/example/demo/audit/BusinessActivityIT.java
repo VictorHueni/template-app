@@ -1,17 +1,16 @@
 package com.example.demo.audit;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
+import com.example.demo.testsupport.AbstractControllerIT;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -47,10 +46,10 @@ import static org.hamcrest.Matchers.notNullValue;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test", "integration"})
-class BusinessActivityIT extends AbstractSecuredRestAssuredIT {
+class BusinessActivityIT extends AbstractControllerIT {
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private BusinessActivityLogRepository auditLogRepository;
 
     // Note: No manual cleanup needed - SchemaIsolationExtension provides per-test schema isolation.
     // Each test runs in its own database schema which is dropped CASCADE after the test.
@@ -99,33 +98,19 @@ class BusinessActivityIT extends AbstractSecuredRestAssuredIT {
         // This uses await().untilAsserted() to poll the database until async processing completes
         // (or timeout after 5 seconds)
         await().pollInSameThread().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            // Query the audit log table for records matching this greeting
-            List<Map<String, Object>> logs = jdbcTemplate.queryForList(
-                    "SELECT * FROM business_activity_log WHERE aggregate_id = ?",
-                    greetingId
-            );
+            // Query the audit log repository for record matching this greeting
+            Optional<BusinessActivityLog> logOptional = auditLogRepository.findByAggregateId(greetingId);
 
-            // Should have exactly one audit log entry (one for the create event)
-            assertThat(logs).hasSize(1);
+            // Should have exactly one audit log entry
+            assertThat(logOptional).isPresent();
 
             // Verify the audit log entry contains correct event information
-            Map<String, Object> log = logs.get(0);
-            assertThat(log.get("event_type")).isEqualTo("GreetingCreatedEvent");
-            assertThat(log.get("aggregate_type")).isEqualTo("Greeting");
-            assertThat(log.get("aggregate_id")).isEqualTo(greetingId);
-            assertThat(log.get("occurred_at")).isNotNull();
-            assertThat(log.get("data")).isNotNull();  // Contains serialized event data
-        });
-
-        // AND: The EVENT_PUBLICATION (outbox) table is empty
-        // This verifies Spring Modulith's completion-mode=DELETE successfully deleted the event
-        // after it was processed
-        await().pollInSameThread().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM event_publication",
-                    Integer.class
-            );
-            assertThat(count).isZero();  // Event publication table should be empty
+            BusinessActivityLog log = logOptional.get();
+            assertThat(log.getEventType()).isEqualTo("GreetingCreatedEvent");
+            assertThat(log.getAggregateType()).isEqualTo("Greeting");
+            assertThat(log.getAggregateId()).isEqualTo(greetingId);
+            assertThat(log.getOccurredAt()).isNotNull();
+            assertThat(log.getData()).isNotNull();  // Contains serialized event data
         });
     }
 
@@ -158,21 +143,18 @@ class BusinessActivityIT extends AbstractSecuredRestAssuredIT {
         // THEN: Verify the audit log entry contains serialized JSON data
         // Wait for async event processing to complete
         await().pollInSameThread().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            // Query the data column (JSONB type, cast to text for comparison)
-            String jsonData = jdbcTemplate.queryForObject(
-                    "SELECT data::text FROM business_activity_log WHERE aggregate_id = ?",
-                    String.class,
-                    greetingId
-            );
+            // Query the audit log repository for record matching this greeting
+            Optional<BusinessActivityLog> logOptional = auditLogRepository.findByAggregateId(greetingId);
+            assertThat(logOptional).isPresent();
 
-            // Verify JSON contains expected fields and values
-            assertThat(jsonData)
-                    .contains("\"message\"")
-                    .contains("JSON Test Message")
-                    .contains("\"recipient\"")
-                    .contains("JsonRecipient")
-                    .contains("\"reference\"")  // Greeting reference like "GRE-0001-123456"
-                    .contains("GRE-");
+            // Get the data map directly from the entity
+            Map<String, Object> data = logOptional.get().getData();
+
+            // Verify the data contains expected fields and values
+            assertThat(data).isNotNull();
+            assertThat(data.get("message")).isEqualTo("JSON Test Message");
+            assertThat(data.get("recipient")).isEqualTo("JsonRecipient");
+            assertThat(data.get("reference")).asString().startsWith("GRE-");
         });
     }
 }

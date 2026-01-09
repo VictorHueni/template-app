@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
+import com.example.demo.testsupport.AbstractControllerIT;
 
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static io.restassured.RestAssured.given;
@@ -18,7 +18,7 @@ import static org.hamcrest.Matchers.notNullValue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test", "integration"})
 @DisplayName("UserController Integration Tests (Mock JWT)")
-class UserControllerIT extends AbstractSecuredRestAssuredIT {
+class UserControllerIT extends AbstractControllerIT {
 
     @Nested
     @DisplayName("GET /api/v1/me - Authentication Tests")

@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.example.demo.greeting.service.GreetingService;
-import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
+import com.example.demo.testsupport.AbstractControllerIT;
 
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
 import static org.hamcrest.Matchers.equalTo;
@@ -54,7 +54,7 @@ import static org.hamcrest.Matchers.notNullValue;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test", "integration"})
-class GreetingControllerIT extends AbstractSecuredRestAssuredIT {
+class GreetingControllerIT extends AbstractControllerIT {
 
     @Autowired
     GreetingService greetingService;
