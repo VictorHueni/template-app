@@ -293,61 +293,121 @@ If Flyway-per-test becomes a bottleneck, keep Option 1 but introduce a faster mi
 ### Step 4.1: Schema Context Holder
 **Why:** Store the current schema name for the running thread.
 **Implementation:** `backend/src/test/java/com/example/demo/testsupport/persistence/SchemaContext.java`
-*   Simple `ThreadLocal<String>`.
+*   Simple `ThreadLocal<String>` (intentionally **not** `InheritableThreadLocal`).
+*   Utility class (`final`, private constructor) with:
+   *   `setSchema(String)` (rejects null/blank)
+   *   `getSchema()` (nullable)
+   *   `requireSchema()` (throws if unset, useful for fail-fast in later steps)
+   *   `clear()` uses `ThreadLocal.remove()` to avoid pooled-thread pollution under parallel test execution.
 
 **Test:**
 1. Create a unit test: `backend/src/test/java/com/example/demo/testsupport/persistence/SchemaContextTest.java`.
 2. Verify `SchemaContext.setSchema("test_schema_1")` and `SchemaContext.getSchema()` returns the same value.
 3. In a new thread, verify `SchemaContext.getSchema()` returns null (proving ThreadLocal isolation).
 4. Verify `SchemaContext.clear()` clears the value and subsequent `getSchema()` returns null.
-5. Expected outcome: ThreadLocal correctly isolates schema per thread and supports set/get/clear operations.
+5. Verify `SchemaContext.requireSchema()` throws when unset.
+6. Verify `SchemaContext.setSchema("  ")` throws (blank schema is rejected).
+7. Add `@AfterEach SchemaContext.clear()` to enforce ThreadLocal hygiene (JUnit reuses threads when running classes in parallel).
+8. Expected outcome: ThreadLocal correctly isolates schema per thread and supports set/get/clear operations without cross-test leakage.
 
 ### Step 4.2: Smart Routing DataSource
 **Why:** Intercept JDBC calls and switch the PostgreSQL `search_path` to the current thread's schema.
 **Implementation:** `backend/src/test/java/com/example/demo/testsupport/persistence/SmartRoutingDataSource.java`
 *   Extend `DelegatingDataSource`.
-*   Override `getConnection()`:
+*   Override `getConnection()` and `getConnection(username, password)`.
+*   Important: `search_path` is **session state** in PostgreSQL. With pooling, connections are reused, so we must prevent schema leakage.
+   *   On checkout, apply `SET search_path TO "<schema>", public` when `SchemaContext` is set.
+   *   When `SchemaContext` is unset, defensively `RESET search_path`.
+   *   Return a proxied `Connection` that runs `RESET search_path` on `close()` before returning to the pool.
+   *   Quote (or strictly validate) schema identifiers to avoid SQL injection / invalid identifiers.
+*   Example (simplified):
     ```java
     Connection conn = super.getConnection();
     String schema = SchemaContext.getSchema();
-    if (schema != null) {
-        try (Statement stmt = conn.createStatement()) {
-            stmt.execute("SET search_path TO " + schema);
-        }
-    }
-    return conn;
+   if (schema == null) {
+      try (Statement stmt = conn.createStatement()) {
+         stmt.execute("RESET search_path");
+      }
+      return conn;
+   }
+   try (Statement stmt = conn.createStatement()) {
+      stmt.execute("SET search_path TO \"" + schema + "\", public");
+   }
+   return proxiedConnThatResetsOnClose(conn);
     ```
 
 **Test:**
-1. Create an integration test with a datasource and SmartRoutingDataSource wrapper.
-2. Set `SchemaContext.setSchema("test_schema_1")` and execute a query: `SELECT current_schema();`.
-3. Verify the result equals `test_schema_1` (proving the SET search_path worked).
-4. Switch to a different schema via `SchemaContext.setSchema("test_schema_2")` on a new connection.
-5. Verify subsequent queries execute in `test_schema_2`.
-6. Expected outcome: Connections are routed to the correct schema based on ThreadLocal context.
+1. Create a Testcontainers-based integration test: `backend/src/test/java/com/example/demo/testsupport/persistence/SmartRoutingDataSourceIT.java`.
+2. Configure the underlying pool with `maximumPoolSize=1` to force physical connection reuse (this detects leakage reliably).
+3. Create two schemas (`test_schema_1`, `test_schema_2`).
+4. Set `SchemaContext.setSchema("test_schema_1")` and verify `SELECT current_schema();` returns `test_schema_1`.
+5. Set `SchemaContext.setSchema("test_schema_2")` and verify `SELECT current_schema();` returns `test_schema_2`.
+6. Clear the context and verify a new borrow returns to the default schema (typically `public`).
+7. Expected outcome: Connections are routed to the correct schema based on ThreadLocal context and do not leak schema state across pooled connections.
 
 ### Step 4.3: DataSource Configuration
 **Why:** Register the Smart Proxy as the primary DataSource, wrapping the auto-configured one.
 **Implementation:** `backend/src/test/java/com/example/demo/testsupport/persistence/TestPersistenceConfig.java`
 *   Annotate with `@TestConfiguration`.
-*   Inject `DataSourceProperties` (populated by `@ServiceConnection`).
-*   Define `@Bean @Primary DataSource`:
+*   Use a `BeanPostProcessor` to wrap the auto-configured DataSource (instead of defining a new bean):
     ```java
     @Bean
-    @Primary
-    public DataSource dataSource(DataSourceProperties properties) {
-        HikariDataSource hikari = properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
-        return new SmartRoutingDataSource(hikari);
+    static BeanPostProcessor dataSourcePostProcessor() {
+        return new BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String beanName) {
+                if (bean instanceof DataSource ds && !(bean instanceof SmartRoutingDataSource)) {
+                    return new SmartRoutingDataSource(ds);
+                }
+                return bean;
+            }
+        };
     }
     ```
+*   **Rationale for BeanPostProcessor approach:**
+    *   Preserves the auto-configured DataSource (including `@ServiceConnection` from Testcontainers).
+    *   Avoids duplicate bean conflicts with Spring Boot's DataSource auto-configuration.
+    *   Works seamlessly with HikariCP pooling and any Spring Boot DataSource properties.
 
-**Test:**
-1. Run a test with `@SpringBootTest` and verify the test profile loads `TestPersistenceConfig`.
-2. Inject `DataSource` in the test: `@Autowired DataSource dataSource`.
-3. Verify the bean is an instance of `SmartRoutingDataSource`: `assertThat(dataSource).isInstanceOf(SmartRoutingDataSource.class)`.
-4. Set `SchemaContext.setSchema("test_schema_demo")` and get a connection.
-5. Verify the connection's `search_path` is set by executing `SHOW search_path;`.
-6. Expected outcome: DataSource bean is correctly registered and wraps connections with schema routing.
+**Test:** `backend/src/test/java/com/example/demo/testsupport/persistence/TestPersistenceConfigIT.java`
+
+> ⚠️ **Critical: Spring Modulith Exclusions Required**
+>
+> When testing `TestPersistenceConfig` in isolation (minimal context with only DataSource/JDBC),
+> Spring Modulith's auto-configurations must be excluded. These classes expect a `@SpringBootApplication`-annotated
+> class for module discovery. Since minimal test contexts use `@SpringBootConfiguration` instead,
+> exclude them via `spring.autoconfigure.exclude` property (required because some classes are package-private):
+>
+> ```java
+> @SpringBootTest(
+>     classes = { TestPersistenceConfigIT.TestApp.class, TestPersistenceConfig.class },
+>     properties = {
+>         "spring.main.web-application-type=none",
+>         "spring.autoconfigure.exclude=" +
+>             "com.c4_soft.springaddons.security.oidc.starter.synchronised.resourceserver.SpringAddonsOidcResourceServerBeans," +
+>             "org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration," +
+>             "org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration," +
+>             "org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration," +
+>             "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration," +
+>             "org.springframework.modulith.observability.autoconfigure.ModuleObservabilityAutoConfiguration," +
+>             "org.springframework.modulith.events.jpa.autoconfigure.JpaEventPublicationAutoConfiguration," +
+>             "org.springframework.modulith.events.autoconfigure.EventPublicationAutoConfiguration," +
+>             "org.springframework.modulith.actuator.autoconfigure.ApplicationModulesEndpointConfiguration," +
+>             "org.springframework.modulith.runtime.autoconfigure.ApplicationModuleInitializerRuntimeVerification"
+>     }
+> )
+> ```
+
+1. Create `TestPersistenceConfigIT.java` with an inner `@SpringBootConfiguration` class (not `@SpringBootApplication`).
+2. Exclude security and Spring Modulith auto-configurations as shown above.
+3. Configure `@Testcontainers` with `PostgreSQLContainer` and `@ServiceConnection`.
+4. Inject `DataSource` in the test: `@Autowired DataSource dataSource`.
+5. Verify the bean is an instance of `SmartRoutingDataSource`: `assertThat(dataSource).isInstanceOf(SmartRoutingDataSource.class)`.
+6. Test schema routing:
+   *   Set `SchemaContext.setSchema("test_schema_demo")`.
+   *   Get a connection and execute `SELECT current_schema()`.
+   *   Verify it returns `test_schema_demo`.
+7. Expected outcome: DataSource bean is correctly wrapped by BeanPostProcessor and routes connections based on SchemaContext.
 
 ### Step 4.4: JUnit Extension (The Orchestrator)
 **Why:** Manage the schema lifecycle (Create -> Migrate -> Test -> Drop).
@@ -403,20 +463,9 @@ git commit -m "refactor(test): <commit message>"
 3. Measure parallelism: Run `./mvnw verify -pl backend` and note execution time (should be 60-75% faster).
 4. Verify schema lifecycle in logs: `./mvnw test -pl backend 2>&1 | grep -E "test_req_|Flyway"`.
 5. Document in ticket/PR: "Phase 2 complete. Parallel execution active with schema-per-test isolation."
+```
 
 ---
-
-**Convergence (do later, after Phase 2):** Once `@SpringBootTest` can reliably run with `@ActiveProfiles({"test", "integration"})`, converge the test tiers so there is only one IT per component:
-1. Rename `*SecuredIT.java` classes to `*IT.java` (or merge secured scenarios into the existing `*IT` for that component).
-2. Keep security enabled for the whole IT tier and vary behavior per request:
-   * Unauthenticated requests -> no `Authorization` header
-   * Authenticated requests -> `Authorization: Bearer <token>`
-3. Make profiles consistent across all RestAssured ITs in the suite:
-   * Use the same `@ActiveProfiles({"test", "integration"})` everywhere (avoid mixed profile sets that split the Spring TestContext cache).
-4. Keep helper methods (`givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()`) in a single shared base class.
-5. Run a suite spot-check after convergence:
-   * `./mvnw test -Dtest='*ControllerIT' -pl backend`
-   * `./mvnw verify -Dspring.profiles.active=integration -pl backend`
 
 
 ## 5. Phase 3: Cross-Thread Context Propagation
@@ -577,6 +626,20 @@ git commit -m "refactor(test): Phase 3 - Cross-thread context propagation
 ---
 
 ## 6. Phase 4: Final Integration & Cleanup
+
+
+**Convergence (do later, after Phase 2):** Once `@SpringBootTest` can reliably run with `@ActiveProfiles({"test", "integration"})`, converge the test tiers so there is only one IT per component:
+1. Rename `*SecuredIT.java` classes to `*IT.java` (or merge secured scenarios into the existing `*IT` for that component).
+2. Keep security enabled for the whole IT tier and vary behavior per request:
+   * Unauthenticated requests -> no `Authorization` header
+   * Authenticated requests -> `Authorization: Bearer <token>`
+3. Make profiles consistent across all RestAssured ITs in the suite:
+   * Use the same `@ActiveProfiles({"test", "integration"})` everywhere (avoid mixed profile sets that split the Spring TestContext cache).
+4. Keep helper methods (`givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()`) in a single shared base class.
+5. Run a suite spot-check after convergence:
+   * `./mvnw test -Dtest='*ControllerIT' -pl backend`
+   * `./mvnw verify -Dspring.profiles.active=integration -pl backend`
+
 
 ### Step 6.1: Update Base Integration Test
 **Action:** Update `backend/src/test/java/com/example/demo/testsupport/AbstractIntegrationTest.java`.
