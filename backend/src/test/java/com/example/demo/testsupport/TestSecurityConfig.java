@@ -18,7 +18,7 @@ import com.example.demo.common.config.WebSecurityConfig;
 
 @Configuration
 @EnableWebSecurity
-@Profile("test")
+@Profile("test & !integration")
 public class TestSecurityConfig {
 
     @Bean
