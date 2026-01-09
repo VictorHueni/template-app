@@ -461,7 +461,21 @@ After completing all Phase 2 steps and validating each one, execute these final 
    ```
 
 ---
+
 ## 5. Phase 3: Cross-Thread Context Propagation
+
+**Convergence (do later, after Phase 2):** Once `@SpringBootTest` can reliably run with `@ActiveProfiles({"test", "integration"})`, converge the test tiers so there is only one IT per component:
+1. Rename `*SecuredIT.java` classes to `*IT.java` (or merge secured scenarios into the existing `*IT` for that component).
+2. Keep security enabled for the whole IT tier and vary behavior per request:
+   * Unauthenticated requests -> no `Authorization` header
+   * Authenticated requests -> `Authorization: Bearer <token>`
+3. Make profiles consistent across all RestAssured ITs in the suite:
+   * Use the same `@ActiveProfiles({"test", "integration"})` everywhere (avoid mixed profile sets that split the Spring TestContext cache).
+4. Keep helper methods (`givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()`) in a single shared base class.
+5. Run a suite spot-check after convergence:
+   * `./mvnw test -Dtest='*ControllerIT' -pl backend`
+   * `./mvnw verify -Dspring.profiles.active=integration -pl backend`
+
 
 ### Step 5.1: The Server-Side Filter
 **Why:** RestAssured requests hit Tomcat on a different thread; in the `integration` test profile we must propagate schema context via an HTTP header.
@@ -521,6 +535,8 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
 *   Implement `org.springframework.core.task.TaskDecorator`.
 *   Capture `SchemaContext.getSchema()` in the `decorate` method.
 *   Return a wrapper `Runnable` that sets the schema before execution and clears it after.
+*   Add DEBUG-level logging to trace context propagation for troubleshooting.
+
 **Action:** Register in `TestPersistenceConfig.java`:
     ```java
     @Bean
@@ -529,7 +545,9 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
     }
 
     // Override default TaskExecutor to use the decorator
+    // CRITICAL: @Primary is REQUIRED for Spring Modulith integration
     @Bean(name = "applicationTaskExecutor")
+    @Primary
     public ThreadPoolTaskExecutor applicationTaskExecutor(TaskDecorator decorator) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setTaskDecorator(decorator);
@@ -537,6 +555,30 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
         return executor;
     }
     ```
+
+> ⚠️ **Critical: Spring Modulith 2.x Integration**
+>
+> Spring Modulith 2.0+ uses `@ApplicationModuleListener` which is a meta-annotation combining:
+> - `@Async` (uses bean named `applicationTaskExecutor` by default)
+> - `@Transactional(propagation = REQUIRES_NEW)`
+> - `@TransactionalEventListener`
+>
+> For the `TaskDecorator` to apply to Spring Modulith event listeners, two requirements must be met:
+>
+> 1. **`@EnableAsync` on TestPersistenceConfig**: Required to activate async processing and ensure
+>    Spring picks up our custom executor configuration.
+>
+> 2. **`@Primary` on applicationTaskExecutor bean**: Without `@Primary`, Spring Modulith may use
+>    its own auto-configured executor that doesn't have our `TaskDecorator`, causing schema context
+>    to be lost in async event handlers (resulting in writes to wrong schema or test failures).
+>
+> **Verification**: Add DEBUG logging to `SchemaContextTaskDecorator` to confirm schema context
+> is being captured and propagated:
+> ```java
+> log.debug("Capturing schema context for async propagation: {}", schema);
+> log.debug("Executing async task with schema context: {}", capturedSchema);
+> log.debug("Cleared schema context after async task completion");
+> ```
 
 **Test:**
 1. Create an integration test that triggers an async operation (e.g., a `@Async` method or modulith event listener that writes to the database).
@@ -546,7 +588,7 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
 5. Run multiple tests in parallel to ensure schema context is correctly isolated across threads.
 6. Expected outcome: Async operations inherit and execute within the correct schema context without leaking into other tests' schemas.
 
-### Phase 3: Final Steps (Commit Cross-Thread Context Propagation)
+### Steps 5.5 Final Steps (Commit Cross-Thread Context Propagation)
 
 After completing all Phase 3 steps and validating each one, execute these final steps to commit your changes:
 
@@ -572,40 +614,16 @@ git commit -m "refactor(test): <commit message>
 "
 ```
 
-**Verification After Commit:**
-1. Run `git log --oneline -1` to confirm commit message.
-2. Test propagation layer: `./mvnw test -Dtest='*Filter*,*Decorator*' -pl backend`.
-3. Run full suite: `./mvnw verify -pl backend` (no test failures from context issues).
-4. Check audit/event logs are created in correct schema:
-   ```bash
-   ./mvnw test -Dtest='*Activity*,*Event*' -pl backend
-   ```
-5. Document in ticket/PR: "Phase 3 complete. Context propagation working across sync/async boundaries."
 
----
-4. Run full suite with parallel execution to confirm no cross-test data pollution:
+1. Run full suite with parallel execution to confirm no cross-test data pollution:
    ```bash
    ./mvnw verify -Dspring.profiles.active=integration -pl backend
    ```
-5. Document in ticket/PR: "Phase 3 context propagation layer complete. Async operations now respect schema isolation."
+2. Document in ticket/PR: "Phase 3 context propagation layer complete. Async operations now respect schema isolation."
 
 ---
 
 ## 6. Phase 4: Final Integration & Cleanup
-
-
-**Convergence (do later, after Phase 2):** Once `@SpringBootTest` can reliably run with `@ActiveProfiles({"test", "integration"})`, converge the test tiers so there is only one IT per component:
-1. Rename `*SecuredIT.java` classes to `*IT.java` (or merge secured scenarios into the existing `*IT` for that component).
-2. Keep security enabled for the whole IT tier and vary behavior per request:
-   * Unauthenticated requests -> no `Authorization` header
-   * Authenticated requests -> `Authorization: Bearer <token>`
-3. Make profiles consistent across all RestAssured ITs in the suite:
-   * Use the same `@ActiveProfiles({"test", "integration"})` everywhere (avoid mixed profile sets that split the Spring TestContext cache).
-4. Keep helper methods (`givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()`) in a single shared base class.
-5. Run a suite spot-check after convergence:
-   * `./mvnw test -Dtest='*ControllerIT' -pl backend`
-   * `./mvnw verify -Dspring.profiles.active=integration -pl backend`
-
 
 ### Step 6.1: Update Base Integration Test
 **Action:** Update `backend/src/test/java/com/example/demo/testsupport/AbstractIntegrationTest.java`.
@@ -627,14 +645,34 @@ git commit -m "refactor(test): <commit message>
 *   Keep methods in the same thread by default to preserve multi-step scenario consistency within a class.
 *   Set a deterministic parallelism strategy (fixed number or CPU-based) to avoid environment-dependent behavior across CI agents.
 
+> ⚠️ **Known Limitation: Parallel Class Execution (2026-01)**
+>
+> **Status**: Parallel class execution is currently **disabled** (`mode.classes.default=same_thread`).
+>
+> **Symptom**: When `mode.classes.default=concurrent`, tests pass individually but fail intermittently
+> when run together in the suite. Specifically:
+> - `BusinessActivityIT.recordsBusinessActivityWhenGreetingCreatedViaRestApi` - expected 1 audit record, got 0
+> - `GreetingControllerIT.returns404WhenDeletingNonExistentGreeting` - returns 500 instead of 404
+>
+> **Root Cause (suspected)**: HikariCP connection pool behavior with schema routing under parallel
+> test class execution. Even with per-test schema isolation, connections borrowed by concurrent
+> test classes may interfere with each other's `SET search_path` commands.
+>
+> **Current Workaround**: Sequential class execution (`same_thread`) ensures all 54 tests pass reliably.
+> Test execution time is still acceptable (~45s for the full suite).
+>
+> **TODO**: Investigate HikariCP behavior with `SmartRoutingDataSource` in parallel scenarios:
+> 1. Add connection ID logging to trace pool borrowing/returning
+> 2. Consider connection-per-schema pooling or separate connection pools
+> 3. Evaluate if `getConnection()` needs synchronization or connection affinity
+
 **Test:**
 1. Verify the properties file exists at `backend/src/test/resources/junit-platform.properties`.
 2. Run `./mvnw test -X | grep "junit.jupiter.execution.parallel"` to confirm properties are loaded.
 3. Execute the full test suite: `./mvnw verify`.
-4. Observe test output: tests should run concurrently (multiple test classes executing in parallel).
-5. Measure execution time compared to Phase 0 to confirm parallelism is working (should be significantly faster).
-6. Verify no test failures due to data pollution (schema isolation ensures clean separation).
-7. Expected outcome: Tests execute in parallel, reducing total suite execution time significantly.
+4. Observe test output: tests should run sequentially by class (until parallel execution issue is resolved).
+5. Verify no test failures due to data pollution (schema isolation ensures clean separation).
+6. Expected outcome: All tests pass reliably in sequential mode.
 
 ### Step 6.3: Refactor Existing Tests (Remove Locking & Manual Cleanup)
 **Why:** `SchemaIsolationExtension` handles isolation and cleanup now.
@@ -727,59 +765,8 @@ After completing all Phase 4 steps and validating each one, execute these final 
 git status  # Review all phase integration changes
 git add -A  # Or selectively add test class updates
 
-git commit -m "refactor(test): Phase 4 - Final integration and cleanup
-
-**Changes:**
-- Update base test classes
-  * Add schema isolation extension
-  * Add mock security configuration imports
-  * All derived tests inherit infrastructure automatically
-
-- Refactor existing integration tests
-  * Remove serialization locks (no longer needed)
-  * Remove manual cleanup helpers (automatic now)
-  * Tests can now run in parallel safely
-
-- Enable parallel execution
-  * Configure JUnit platform for concurrent classes
-  * Methods remain sequential (maintain scenario semantics)
-  * Deterministic parallelism configuration
-
-- Remove deprecated cleanup infrastructure
-  * Delete manual cleanup helpers
-  * Schema DROP CASCADE replaces truncation
-  * Simpler test lifecycle
-
-**Why:**
-- All 4 phases integrated into working system
-- Tests gain schema isolation automatically
-- Tests gain mock authentication automatically
-- Manual cleanup logic eliminated
-- Parallel execution enabled for speed
-
-**Performance:**
-- Before: Serialized + Keycloak startup overhead
-- After: Parallel + mocked auth + per-schema isolation
-- Expected: 60-75% execution time reduction
-
-**Testing:**
-- All tests pass with zero failures
-- Schema isolation working across suite
-- No data pollution between tests
-- Parallelism active (multiple classes concurrent)
-"
+git commit -m "<commit message>
 ```
-
-**Verification After Commit:**
-1. Run `git log --oneline -1` to confirm commit message.
-2. Run full test suite:
-   ```bash
-   ./mvnw verify -pl backend
-   # All tests pass, exit code 0
-   ```
-3. Verify parallelism is active in logs.
-4. Compare execution time to Phase 0 baseline (document improvement %).
-5. Document in ticket/PR: "Phase 4 complete. All phases integrated. Tests run 60-75% faster with full isolation."
 
 ---
    Should show parallel=true in logs
@@ -787,7 +774,7 @@ git commit -m "refactor(test): Phase 4 - Final integration and cleanup
    ```bash
    echo "Execution time: $(./mvnw verify -pl backend -q 2>&1 | tail -1)"
    ```
-5. Document in ticket/PR: "Phase 4 complete. Full hybrid parallel integration test strategy implemented. Tests now run 70%+ faster with improved isolation."
+1. Document in ticket/PR: "Phase 4 complete. Full hybrid parallel integration test strategy implemented. Tests now run 70%+ faster with improved isolation."
 
 ### Post-Implementation: Maintenance & Monitoring
 
@@ -827,7 +814,17 @@ Mitigation: If per-test migration time becomes a bottleneck, consider a template
 
 ### 7.4 Async Execution and Schema Context
 Risk: Async work (`@Async`, CompletableFutures, modulith events) does not automatically inherit ThreadLocal schema context, causing writes to fail or leak into the default schema under parallel tests.
-Mitigation: Use a TaskDecorator (or executor decoration) to propagate schema context for any async DB access.
+Mitigation: Use a TaskDecorator (or executor decoration) to propagate schema context for any async DB access. Ensure the custom executor bean has `@Primary` annotation and the config class has `@EnableAsync`.
+
+### 7.5 HikariCP Connection Pool and Parallel Schema Routing
+Risk: Under parallel test class execution, HikariCP's connection pooling can cause interference between concurrent tests' `SET search_path` commands, even with per-test schema isolation.
+Symptom: Tests pass individually but fail intermittently when run together (wrong schema, missing data, unexpected errors).
+Current Status (2026-01): Parallel class execution is disabled (`mode.classes.default=same_thread`) as a workaround.
+Mitigation Options (future investigation):
+1. Connection-per-schema pooling: Maintain separate connection pools per active test schema.
+2. Connection affinity: Ensure a test class always gets the same physical connections throughout its lifecycle.
+3. Synchronization: Add locking around `getConnection()` to prevent concurrent `SET search_path` race conditions.
+4. Alternative isolation: Consider database-per-test-class (Option 2 in Section 4.A) if schema routing proves too complex.
 
 ---
 
