@@ -3,6 +3,7 @@ package com.example.demo.testsupport;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import com.example.demo.testsupport.auth.MockSecurityConfig;
+import com.example.demo.testsupport.persistence.TestPersistenceConfig;
 
 /**
  * Base class for Spring integration tests that need a real PostgreSQL database.
@@ -40,7 +41,7 @@ import com.example.demo.testsupport.auth.MockSecurityConfig;
  *
  * @see TestcontainersConfiguration
  */
-@SpringJUnitConfig(classes = {TestcontainersConfiguration.class, MockSecurityConfig.class})
+@SpringJUnitConfig(classes = {TestcontainersConfiguration.class, MockSecurityConfig.class, TestPersistenceConfig.class})
 public abstract class AbstractIntegrationTest {
     // No fields needed - container is managed by TestcontainersConfiguration
 }
