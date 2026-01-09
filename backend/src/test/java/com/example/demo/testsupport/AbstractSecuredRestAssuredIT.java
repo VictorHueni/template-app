@@ -5,8 +5,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 import com.example.demo.testsupport.auth.TestJwtUtils;
+import com.example.demo.testsupport.persistence.SchemaContext;
+import com.example.demo.testsupport.persistence.TestSchemaFilter;
 
 import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.specification.RequestSpecification;
 
 import static io.restassured.RestAssured.given;
@@ -20,6 +23,13 @@ public abstract class AbstractSecuredRestAssuredIT extends AbstractIntegrationTe
     void setUpRestAssured() {
         RestAssured.baseURI = "http://localhost";
         RestAssured.port = port;
+
+        String schema = SchemaContext.getSchema();
+        RequestSpecBuilder builder = new RequestSpecBuilder();
+        if (schema != null && !schema.isBlank()) {
+            builder.addHeader(TestSchemaFilter.TEST_SCHEMA_HEADER, schema);
+        }
+        RestAssured.requestSpecification = builder.build();
     }
 
     @AfterEach

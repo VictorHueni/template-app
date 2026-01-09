@@ -1,26 +1,20 @@
 package com.example.demo.greeting.controller;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.example.demo.greeting.service.GreetingService;
-import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
-import com.example.demo.testsupport.DatabaseCleanupHelper;
+import com.example.demo.testsupport.AbstractSecuredRestAssuredIT;
 
 import static com.example.demo.contract.OpenApiValidator.validationFilter;
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 /**
  * API-level integration tests for Greeting HTTP endpoints (REST CRUD operations).
@@ -60,42 +54,10 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test", "integration"})
-@ResourceLock(value = "DB", mode = READ_WRITE)
-class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
-
-    @Autowired
-    JdbcTemplate jdbcTemplate;
+class GreetingControllerIT extends AbstractSecuredRestAssuredIT {
 
     @Autowired
     GreetingService greetingService;
-
-    @Autowired
-    DatabaseCleanupHelper cleanupHelper;
-
-    /**
-     * Prepare database before test by cleaning the greeting table.
-     *
-     * <p><strong>Purpose:</strong> Ensures each test starts with clean, isolated data.
-     * All previous test data is removed before test execution begins.</p>
-     *
-     * <p><strong>Why @BeforeEach is Sufficient for REST Tests:</strong></p>
-     * <ul>
-     *   <li>REST controller tests use HTTP requests with separate server threads</li>
-     *   <li>Each HTTP request commits directly to database (outside test transaction scope)</li>
-     *   <li>Data created by test A is permanent in database</li>
-     *   <li>Test B's @BeforeEach cleanup removes all of Test A's data</li>
-     *   <li>@AfterEach would be redundant (data already committed by HTTP layer)</li>
-     * </ul>
-     *
-     * <p><strong>Why NOT @AfterEach for this test:</strong></p>
-     * Unlike async event tests (BusinessActivityIT) which have pending background processing,
-     * REST controller tests have no async work that leaks to next test. The committed data
-     * is cleaned at the START of each test via @BeforeEach.
-     */
-    @BeforeEach
-    void cleanupDatabase() {
-        cleanupHelper.truncateTables("greeting");
-    }
 
     /**
      * INTENTIONALLY NOT IMPLEMENTED FOR REST CONTROLLER TESTS
@@ -126,7 +88,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
     @Test
     void createsGreetingAndReturnsContract() {
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
@@ -150,7 +112,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
         greetingService.createGreeting("Message B", "B");
 
         // 2. Act & Assert
-        given()
+        givenUnauthenticated()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .queryParam("page", 0)
@@ -175,12 +137,25 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     // ============================================================
 
     @Test
+    void createGreetingWithoutAuthenticationReturns403() {
+        givenUnauthenticated()
+                .contentType("application/json")
+                .body("""
+                       {"message": "Hello, World!", "recipient": "World"}
+                       """)
+                .when()
+                .post("/api/v1/greetings")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
     void getsGreetingById() {
         // Arrange: Create a greeting
         var created = greetingService.createGreeting("Hello GET", "GetTest");
 
         // Act & Assert
-        given()
+        givenUnauthenticated()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .when()
@@ -197,7 +172,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
     @Test
     void returns404WhenGreetingNotFound() {
-        given()
+        givenUnauthenticated()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .when()
@@ -217,7 +192,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
         var created = greetingService.createGreeting("Original Message", "Original");
 
         // Act & Assert
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
@@ -234,8 +209,23 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     }
 
     @Test
+    void updateGreetingWithoutAuthenticationReturns403() {
+        var created = greetingService.createGreeting("Original Message", "Original");
+
+        givenUnauthenticated()
+                .contentType("application/json")
+                .body("""
+                       {"message": "Updated Message", "recipient": "Updated"}
+                       """)
+                .when()
+                .put("/api/v1/greetings/{id}", created.getId())
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
     void returns404WhenUpdatingNonExistentGreeting() {
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
@@ -253,7 +243,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
         var created = greetingService.createGreeting("Original Message", "OriginalRecipient");
 
         // Act & Assert: Patch only the message
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
@@ -269,12 +259,27 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     }
 
     @Test
+    void patchGreetingWithoutAuthenticationReturns403() {
+        var created = greetingService.createGreeting("Original Message", "OriginalRecipient");
+
+        givenUnauthenticated()
+                .contentType("application/json")
+                .body("""
+                       {"message": "Patched Message"}
+                       """)
+                .when()
+                .patch("/api/v1/greetings/{id}", created.getId())
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
     void patchesGreetingRecipientOnly() {
         // Arrange: Create a greeting
         var created = greetingService.createGreeting("Original Message", "OriginalRecipient");
 
         // Act & Assert: Patch only the recipient
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
@@ -291,7 +296,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
 
     @Test
     void returns404WhenPatchingNonExistentGreeting() {
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
@@ -309,7 +314,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
         var created = greetingService.createGreeting("To Delete", "DeleteTest");
 
         // Act: Delete the greeting
-        given()
+              givenAuthenticatedAdmin()
                 .filter(validationFilter())
                 .when()
                 .delete("/api/v1/greetings/{id}", created.getId())
@@ -317,7 +322,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
                 .statusCode(204);
 
         // Assert: Verify it's gone
-        given()
+        givenUnauthenticated()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .when()
@@ -327,8 +332,19 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     }
 
     @Test
+    void deleteGreetingWithoutAuthenticationReturns403() {
+        var created = greetingService.createGreeting("To Delete", "DeleteTest");
+
+        givenUnauthenticated()
+                .when()
+                .delete("/api/v1/greetings/{id}", created.getId())
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
     void returns404WhenDeletingNonExistentGreeting() {
-        given()
+              givenAuthenticatedAdmin()
                 .filter(validationFilter())
                 .when()
                 .delete("/api/v1/greetings/{id}", 999999999L)
@@ -365,7 +381,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
         var created = greetingService.createGreeting("Precision Test", "Test");
 
         // Act & Assert: Verify ID is returned as a string in JSON
-        given()
+        givenUnauthenticated()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .when()
@@ -387,7 +403,7 @@ class GreetingControllerIT extends AbstractRestAssuredIntegrationTest {
     @Test
     void returns400WhenCreatingGreetingWithMissingRequiredField() {
         // Missing 'message' field which is required
-        given()
+        givenAuthenticatedUser()
                 .filter(validationFilter())
                 .contentType("application/json")
                 .body("""
