@@ -1382,7 +1382,7 @@ spring:
 
 ---
 
-## 6. Phase 3: Backend (Resource Server)
+## 6. Phase 3: Backend (Resource Server) (✅ Completed)
 
 The backend validates JWTs sent by the Gateway and serves protected resources.
 
@@ -1959,452 +1959,141 @@ services:
 
 ## 7. Phase 4: Backend Testing (✅ Completed)
 
-This phase implements comprehensive integration tests for the authentication-related backend components using real Keycloak JWT tokens.
+This phase implements comprehensive **integration tests** for the backend authentication components **without Keycloak**. Instead, tests run against the real Spring Security Resource Server configuration, using locally minted HS256 JWTs under the `integration` profile.
 
 ### Design Decision: Integration Test Strategy
 
-#### The Problem: Thread Boundary
+#### The Problem: Real HTTP crosses thread boundaries
 
-When testing secured endpoints with RestAssured (or any real HTTP client), there's a fundamental challenge:
+With RestAssured + `@SpringBootTest(webEnvironment = RANDOM_PORT)`, the test code and the server request handling run on different threads:
 
 ```
-┌─────────────────────────────────────┐     ┌─────────────────────────────────────┐
-│         TEST THREAD                 │     │       SERVER THREAD                 │
-│                                     │     │                                     │
-│  @WithJwt sets SecurityContext ─────┼──X──┼─► SecurityContext is EMPTY here    │
-│  (via ThreadLocal)                  │     │                                     │
-│                                     │     │   RestAssured HTTP request arrives  │
-│  RestAssured.given()                │     │   with NO Authorization header      │
-│    .get("/api/v1/me") ──────────────┼─────┼─►                                   │
-│                                     │     │   @PreAuthorize checks fail         │
-└─────────────────────────────────────┘     └─────────────────────────────────────┘
+┌─────────────────────────────────────┐     ┌──────────────────────────────────────────┐
+│         TEST THREAD                 │     │             SERVER THREAD               │
+│                                     │     │                                          │
+│  SchemaIsolationExtension sets       │     │  TestSchemaFilter must set schema        │
+│  SchemaContext (ThreadLocal)        │     │  from X-Test-Schema header               │
+│                                     │     │                                          │
+│  RestAssured.given()                │     │  Controller executes with method security│
+│    .header("Authorization", ...) ───┼────►│  + Resource Server JWT validation         │
+│    .header("X-Test-Schema", ...) ───┼────►│  + DB schema routing via search_path      │
+│    .get("/api/v1/me")               │     │                                          │
+└─────────────────────────────────────┘     └──────────────────────────────────────────┘
 ```
 
-- `@WithJwt` uses `SecurityContextHolder` which stores auth in a `ThreadLocal`
-- RestAssured makes **real HTTP calls** to the embedded server running on `RANDOM_PORT`
-- The server processes requests in a **different thread** (Tomcat worker thread)
-- `ThreadLocal` doesn't propagate across threads
-- The server sees an unauthenticated request
+**Key point:** annotations like `@WithJwt` populate a `ThreadLocal` in the test thread and do not authenticate real HTTP requests. The only reliable approach for RestAssured ITs is to send an `Authorization: Bearer <jwt>` header.
 
-#### Options Evaluated
-
-| Option | Approach                    | Pros                      | Cons                                                         |
-| ------ | --------------------------- | ------------------------- | ------------------------------------------------------------ |
-| **A**  | MockMvc IT (no RestAssured) | Simple, `@WithJwt` works  | ❌ Loses OpenAPI validation, different pattern from other ITs |
-| **B**  | RestAssured + WireMock JWKS | Real HTTP, moderate setup | ❌ Can't test logout/refresh flows, mock issuer               |
-| **C**  | Testcontainers Keycloak     | Full E2E, real tokens     | ⚠️ ~15-30s startup (mitigated by singleton + reuse)           |
-
-#### Decision: Testcontainers Keycloak (Option C) ✅
+#### Decision (✅ Implemented): Mock JWTs (HS256) + `integration` profile
 
 **Rationale:**
-1. **Template App Philosophy** - This is a template for multiple enterprise projects. One-time setup cost pays dividends across all derived projects.
-2. **API-First Alignment** - RestAssured + `swagger-request-validator` ensures OpenAPI contract compliance. No equivalent exists for other HTTP clients.
-3. **Future-Proof** - Infrastructure ready for testing logout flows, token refresh, and role-based access in later phases.
-4. **Real Security Testing** - No mocks means catching real misconfiguration issues (wrong issuer, role mapping bugs).
-5. **Consistency** - Same RestAssured pattern as existing `GreetingControllerIT`.
+1. **Fast and deterministic**: no external IdP container startup.
+2. **Still realistic**: exercises Spring Security’s Resource Server decoding + claim-to-authority mapping and method-security.
+3. **Aligned with the hybrid IT refactor**: controller ITs already require per-request header propagation (`X-Test-Schema`) for schema-per-test isolation.
 
 ---
 
-### Fit-Gap Analysis: Plan vs. Implementation
+### Current Implementation (What exists now)
 
-#### What Matched the Plan ✅
+#### Profiles (important)
 
-| Planned                             | Implemented                                                   | Notes                                                                                      |
-| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Testcontainers Keycloak singleton   | ✅ `KeycloakTestcontainerConfiguration`                        | Uses `dasniko/testcontainers-keycloak:3.6.0`                                               |
-| Token Provider utility              | ✅ `KeycloakTokenProvider`                                     | Direct access grant with scope `openid profile email roles`                                |
-| Abstract base class                 | ✅ `AbstractSecuredRestAssuredIT`                              | Provides `givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()` |
-| Profile-based security toggle       | ✅ `@Profile("test & !keycloak-test")` on `TestSecurityConfig` | Correctly excludes permissive config                                                       |
-| keycloak-test properties file       | ✅ `application-keycloak-test.properties`                      | Comprehensive config with security model documentation                                     |
-| OpenAPI validation with RestAssured | ✅ `swagger-request-validator-restassured`                     | Used where applicable                                                                      |
+| Test Type                                             | Profile(s)    | Security behavior                                                             |
+| ----------------------------------------------------- | ------------- | ----------------------------------------------------------------------------- |
+| “Plain” integration tests where auth is not the focus | `test`        | Permissive security via `TestSecurityConfig` (permit all)                     |
+| Authentication-focused controller ITs                 | `integration` | Real Resource Server behavior using mock HS256 JWTs + method-security enabled |
 
-#### Key Differences from Plan 🔄
+#### JWT claim shape used by integration tests
 
-| Planned                                      | Actual Implementation                       | Reason for Change                                                                                                      |
-| -------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `KeycloakTestcontainerConfig`                | `KeycloakTestcontainerConfiguration`        | Used Keycloak-specific Testcontainer library (`dasniko/testcontainers-keycloak`) instead of generic `GenericContainer` |
-| Profiles: `test, integration, keycloak-test` | Profiles: `test, keycloak-test`             | Simplified - `integration` profile not needed                                                                          |
-| Expected 401 for unauthenticated access      | Returns **403** for method-security denials | `@PreAuthorize` throws `AccessDeniedException` → 403, not 401                                                          |
-| OpenAPI validation on all tests              | **Skipped for 401/403 error responses**     | Spring Security returns `application/json`, not `application/problem+json`                                             |
-| Unit tests with `@WithJwt`                   | **Not implemented (deferred)**              | Focused on integration tests first; unit tests can be added later                                                      |
-| `@DynamicPropertySource` for issuer only     | Must include **all** related properties     | Setting `ops[0].iss` dynamically overwrites entire `ops[0]` entry                                                      |
+- Principal: `preferred_username`
+- Roles: `realm_access.roles` mapped to Spring authorities `ROLE_*`
+- Issuer: validated against a test issuer string
 
 ---
 
-### Critical Implementation Insights
+### Known Behavior (as asserted by current tests)
 
-#### 1. @DynamicPropertySource Override Behavior ⚠️
+These status codes are **intentionally documented as-is** because they match the current Spring Addons + method security setup:
 
-**Problem Discovered:** Setting `com.c4-soft.springaddons.oidc.ops[0].iss` via `@DynamicPropertySource` creates a new `ops[0]` entry that **overwrites** all properties defined in the properties file for that index.
+1. **Missing token** often yields `403` (method-security denial), not `401`.
+2. **Invalid JWT signature** yields `401`.
+3. **Malformed Authorization header** can yield `403`.
 
-**Solution:** Include ALL related properties in `@DynamicPropertySource`:
-
-```java
-@DynamicPropertySource
-static void keycloakProperties(DynamicPropertyRegistry registry) {
-    registry.add("com.c4-soft.springaddons.oidc.ops[0].iss",
-            KeycloakTestcontainerConfiguration::getIssuerUrl);
-    // MUST also set these - properties file entries are overwritten by array index
-    registry.add("com.c4-soft.springaddons.oidc.ops[0].authorities[0].path",
-            () -> "$.roles");
-    registry.add("com.c4-soft.springaddons.oidc.ops[0].username-claim",
-            () -> "$.preferred_username");
-}
-```
-
-#### 2. Method Security Returns 403, Not 401 ⚠️
-
-**Planned Behavior:**
-```
-Anonymous request → 401 Unauthorized
-```
-
-**Actual Behavior with `permit-all` + `@PreAuthorize`:**
-```
-Anonymous request 
-  → Filter chain allows (permit-all)
-  → Controller method reached
-  → @PreAuthorize("isAuthenticated()") fails
-  → AccessDeniedException thrown
-  → 403 Forbidden returned
-```
-
-**Why This Happens:**
-- `permit-all` in Spring Addons allows requests through without authentication
-- Method-level security (`@PreAuthorize`) evaluates AFTER the filter chain
-- Spring Security treats anonymous users as "authenticated but with no roles"
-- `AccessDeniedException` → 403 (not `AuthenticationException` → 401)
-
-**Test Adjustment:**
-```java
-@Test
-@DisplayName("should return 403 without authentication")
-void shouldReturn401WithoutAuth() {
-    // Note: Returns 403 (not 401) because:
-    // 1. permit-all allows anonymous through filter chain
-    // 2. @PreAuthorize("isAuthenticated()") throws AccessDeniedException
-    // 3. Spring Security translates to 403 Forbidden
-    givenUnauthenticated()
-        .post("/api/v1/greetings")
-        .then()
-        .statusCode(403);  // NOT 401
-}
-```
-
-#### 3. OpenAPI Validation Limitations
-
-**Cannot validate 401/403 responses** against OpenAPI spec because:
-- Spring Security returns `Content-Type: application/json`
-- OpenAPI spec defines `application/problem+json` for error responses
-- `swagger-request-validator` fails on content-type mismatch
-
-**Solution:** Skip OpenAPI validation filter for security error tests:
-```java
-@Test
-void shouldReturn401WithoutToken() {
-    givenUnauthenticated()
-        // No .filter(validationFilter()) - Spring Security response format differs
-        .get("/api/v1/me")
-        .then()
-        .statusCode(401);
-}
-```
-
-#### 4. Keycloak Realm Role Mapping
-
-**Plan assumed:** Roles at `$.realm_access.roles`
-
-**Actual implementation:** Roles mapped to flat `$.roles` claim via custom protocol mapper in `template-realm.json`:
-
-```json
-{
-  "name": "realm roles",
-  "protocol": "openid-connect",
-  "protocolMapper": "oidc-usermodel-realm-role-mapper",
-  "config": {
-    "claim.name": "roles",           // Flat claim, not nested
-    "multivalued": "true",
-    "id.token.claim": "true",
-    "access.token.claim": "true"
-  }
-}
-```
+Anchor tests:
+- `backend/src/test/java/com/example/demo/user/controller/UserControllerIT.java`
+- `backend/src/test/java/com/example/demo/greeting/controller/GreetingControllerIT.java`
 
 ---
 
-### Final Test Architecture
+### Implementation Files Summary (Updated)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    INTEGRATION TEST                             │
-├─────────────────────────────────────────────────────────────────┤
-│  @SpringBootTest(RANDOM_PORT)                                   │
-│  @ActiveProfiles({"test", "keycloak-test"})                    │
-│                                                                 │
-│  ┌─────────────┐    RestAssured     ┌─────────────────────┐    │
-│  │ Test Method │ ──────────────────►│  Backend (real)     │    │
-│  │             │  + Bearer token    │  - JWT validation   │    │
-│  │             │  + OpenAPI filter  │  - @PreAuthorize    │    │
-│  │             │    (where valid)   │  - Method Security  │    │
-│  └──────┬──────┘                    └──────────┬──────────┘    │
-│         │                                      │               │
-│         │ Get token                            │ Validate JWT  │
-│         ▼                                      ▼               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │      Keycloak Testcontainer (dasniko/3.6.0)             │   │
-│  │  - Real OIDC provider                                   │   │
-│  │  - Imports template-realm.json                          │   │
-│  │  - Test users: testuser(USER), adminuser(USER+ADMIN)    │   │
-│  │  - Roles mapped to $.roles (flat claim)                 │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Final Test Categories
-
-| Category                        | Tool                      | Profile                 | Security                          | HTTP Status for Unauth |
-| ------------------------------- | ------------------------- | ----------------------- | --------------------------------- | ---------------------- |
-| **Integration (no security)**   | RestAssured               | `test`                  | Bypassed via `TestSecurityConfig` | N/A (all permitted)    |
-| **Integration (with security)** | RestAssured + Keycloak TC | `test`, `keycloak-test` | Real JWT + Method Security        | **403** (not 401)      |
-
-> **Note:** Unit tests with `@WithJwt` were deferred. The integration tests provide comprehensive security coverage.
+| File                                                                                   | Purpose                                                                      |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `backend/src/test/java/com/example/demo/testsupport/auth/TestJwtUtils.java`            | Creates HS256 JWTs for tests (USER/ADMIN)                                    |
+| `backend/src/test/java/com/example/demo/testsupport/auth/MockJwtBeansConfig.java`      | Test `JwtDecoder` + `JwtAuthenticationConverter` (principal + roles mapping) |
+| `backend/src/test/java/com/example/demo/testsupport/auth/MockSecurityConfig.java`      | Resource-server + method security for `integration` profile                  |
+| `backend/src/test/java/com/example/demo/testsupport/TestSecurityConfig.java`           | Permissive security for `test` profile (non-auth-focused tests)              |
+| `backend/src/test/java/com/example/demo/testsupport/AbstractControllerIT.java`         | RestAssured base: adds `Authorization` and `X-Test-Schema` per request       |
+| `backend/src/test/java/com/example/demo/testsupport/persistence/TestSchemaFilter.java` | Server-side schema context propagation from `X-Test-Schema`                  |
+| `backend/src/test/java/com/example/demo/user/controller/UserControllerIT.java`         | Auth tests for `/api/v1/me`                                                  |
 
 ---
 
-### Implementation Files Summary
+### Step 4.1: Use the correct base classes
 
-| File                                            | Purpose                                                          |
-| ----------------------------------------------- | ---------------------------------------------------------------- |
-| `KeycloakTestcontainerConfiguration.java`       | Singleton Keycloak container with realm import                   |
-| `KeycloakTokenProvider.java`                    | Obtains real JWT tokens via direct access grant                  |
-| `AbstractSecuredRestAssuredIT.java`             | Base class with `givenAuthenticatedUser/Admin/Unauthenticated()` |
-| `KeycloakTestSecurityConfig.java`               | Enables `@EnableMethodSecurity` for keycloak-test profile        |
-| `application-keycloak-test.properties`          | Full config including `permit-all` paths                         |
-| `keycloak/template-realm.json` (test resources) | Realm config with test users and role mapping                    |
-| `UserControllerSecuredIT.java`                  | Security tests for `/api/v1/me`                                  |
-| `GreetingControllerSecuredIT.java`              | Security tests for `/api/v1/greetings` CRUD                      |
+**Action:**
+1. All controller integration tests must extend `AbstractControllerIT`.
+2. Ensure schema isolation is active via `AbstractIntegrationTest` (SchemaIsolationExtension + persistence config).
 
 ---
 
-### Step 4.1: Add Testcontainers Keycloak Dependency
+### Step 4.2: Generate JWTs locally (HS256)
 
-**Location:** `backend/pom.xml`
+**Action:** Use `TestJwtUtils` to generate tokens that match what the backend expects.
 
-```xml
-<!-- Keycloak Testcontainer for security integration tests -->
-<dependency>
-    <groupId>com.github.dasniko</groupId>
-    <artifactId>testcontainers-keycloak</artifactId>
-    <version>3.6.0</version>
-    <scope>test</scope>
-</dependency>
-```
-
----
-
-### Step 4.2: Create Keycloak Testcontainer Configuration
-
-**Location:** `backend/src/test/java/com/example/demo/testsupport/KeycloakTestcontainerConfiguration.java`
-
-```java
-package com.example.demo.testsupport;
-
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-
-import dasniko.testcontainers.keycloak.KeycloakContainer;
-
-/**
- * Testcontainers configuration for Keycloak.
- * Uses dasniko/testcontainers-keycloak for simplified Keycloak container management.
- */
-@TestConfiguration
-public class KeycloakTestcontainerConfiguration {
-
-    private static final KeycloakContainer KEYCLOAK;
-
-    static {
-        KEYCLOAK = new KeycloakContainer("quay.io/keycloak/keycloak:26.2.4")
-                .withRealmImportFile("keycloak/template-realm.json")
-                .withReuse(true);
-        KEYCLOAK.start();
-    }
-
-    @Bean
-    public KeycloakContainer keycloakContainer() {
-        return KEYCLOAK;
-    }
-
-    public static String getIssuerUrl() {
-        return KEYCLOAK.getAuthServerUrl() + "/realms/template-realm";
-    }
-
-    public static String getTokenEndpoint() {
-        return getIssuerUrl() + "/protocol/openid-connect/token";
-    }
-}
-```
-
----
-
-### Step 4.3: Create Token Provider Utility
-
-**Location:** `backend/src/test/java/com/example/demo/testsupport/KeycloakTokenProvider.java`
-
-```java
-package com.example.demo.testsupport;
-
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
-
-/**
- * Utility to obtain OAuth2 access tokens from Keycloak Testcontainer.
- * Uses Resource Owner Password Credentials grant (direct access grant).
- */
-public final class KeycloakTokenProvider {
-
-    private static final String CLIENT_ID = "template-gateway";
-
-    private KeycloakTokenProvider() {}
-
-    public static String getUserToken() {
-        return getAccessToken("testuser", "test123");
-    }
-
-    public static String getAdminToken() {
-        return getAccessToken("adminuser", "admin123");
-    }
-
-    private static String getAccessToken(String username, String password) {
-        Response response = RestAssured.given()
-                .contentType("application/x-www-form-urlencoded")
-                .formParam("grant_type", "password")
-                .formParam("client_id", CLIENT_ID)
-                .formParam("username", username)
-                .formParam("password", password)
-                .formParam("scope", "openid profile email roles")
-                .post(KeycloakTestcontainerConfiguration.getTokenEndpoint());
-
-        if (response.getStatusCode() != 200) {
-            throw new RuntimeException("Failed to obtain token: " + response.getBody().asString());
-        }
-        return response.jsonPath().getString("access_token");
-    }
-}
-```
-
----
-
-### Step 4.4: Create KeycloakTestSecurityConfig
-
-**Why?** `@EnableMethodSecurity` is on `WebSecurityConfig` which has `@Profile("!test")`. For keycloak-test profile, we need method security enabled.
-
-**Location:** `backend/src/test/java/com/example/demo/testsupport/KeycloakTestSecurityConfig.java`
-
-```java
-package com.example.demo.testsupport;
-
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-
-/**
- * Security configuration for Keycloak integration tests.
- * Enables @PreAuthorize annotations which WebSecurityConfig provides in non-test profiles.
- */
-@Configuration
-@EnableWebSecurity
-@EnableMethodSecurity
-@Profile("test & keycloak-test")
-public class KeycloakTestSecurityConfig {
-    // Spring Addons auto-configures SecurityFilterChain
-    // We only enable method security here
-}
-```
-
----
-
-### Step 4.5: Update TestSecurityConfig Profile
-
-**Location:** `backend/src/test/java/com/example/demo/testsupport/TestSecurityConfig.java`
-
-Change the `@Profile` annotation to exclude keycloak-test:
-
-```java
-@Configuration
-@EnableWebSecurity
-@Profile("test & !keycloak-test")  // Exclude when keycloak-test is active
-public class TestSecurityConfig {
-    // ... existing permissive security config ...
-}
-```
-
----
-
-### Step 4.6: Create keycloak-test Application Properties
-
-**Location:** `backend/src/test/resources/application-keycloak-test.properties`
-
-Key configuration:
-
-```properties
-# Re-enable Spring Addons OIDC (test profile excludes it)
-spring.autoconfigure.exclude=
-
-# Spring Addons OIDC - issuer set dynamically via @DynamicPropertySource
-com.c4-soft.springaddons.oidc.ops[0].username-claim=$.preferred_username
-com.c4-soft.springaddons.oidc.ops[0].authorities[0].path=$.roles
-com.c4-soft.springaddons.oidc.ops[0].aud=
-
-# permit-all paths - method security handles protection
-com.c4-soft.springaddons.oidc.resourceserver.permit-all=/error,/v1/greetings,/v1/greetings/**
-```
-
----
-
-### Step 4.7: Create Abstract Secured Integration Test Base
-
-**Location:** `backend/src/test/java/com/example/demo/testsupport/AbstractSecuredRestAssuredIT.java`
-
-Provides helper methods and dynamic property injection. Key feature:
-
-```java
-@DynamicPropertySource
-static void keycloakProperties(DynamicPropertyRegistry registry) {
-    registry.add("com.c4-soft.springaddons.oidc.ops[0].iss", ...);
-    registry.add("com.c4-soft.springaddons.oidc.ops[0].authorities[0].path", () -> "$.roles");
-    registry.add("com.c4-soft.springaddons.oidc.ops[0].username-claim", () -> "$.preferred_username");
-}
-```
-
----
-
-### Step 4.8: Update Keycloak Realm for Tests
-
-**Location:** `backend/src/test/resources/keycloak/template-realm.json`
-
-Key modifications from base realm:
-1. Added `openid`, `profile`, `email`, `roles` as `defaultDefaultClientScopes`
-2. Changed roles mapper to flat `$.roles` claim (not `$.realm_access.roles`)
-3. Ensured `template-gateway` client has direct access grant enabled
-
----
-
-### Verification: Run All Secured Tests
+**Verification:** Run the unit tests for token generation and decoding:
 
 ```bash
 cd backend
-./mvnw test -Dtest="*SecuredIT"
+./mvnw test -Dtest="*JwtUtils*"
 ```
 
-**Expected Results:**
-- `UserControllerSecuredIT`: 6 tests pass
-- `GreetingControllerSecuredIT`: 11 tests pass
-- Total: 17 secured integration tests
+---
+
+### Step 4.3: Validate JWTs via Mock Resource Server config
+
+**Action:** Ensure the `integration` profile wires:
+1. `MockJwtBeansConfig` (JwtDecoder + converter)
+2. `MockSecurityConfig` (resource server + method security)
+
+**Verification:** Run the integration tests that assert 200/401/403 behavior:
+
+```bash
+cd backend
+./mvnw test -Dtest=UserControllerIT -Dspring.profiles.active=integration
+```
 
 ---
+
+### Step 4.4: Propagate auth + schema via per-request headers
+
+**Action:** Do not rely on global RestAssured static state. Add headers **per request**:
+- `Authorization: Bearer <jwt>` from `givenAuthenticatedUser()` / `givenAuthenticatedAdmin()`
+- `X-Test-Schema: <schema>` from `SchemaContext` (handled by `AbstractControllerIT`)
+
+---
+
+### Step 4.5: OpenAPI validation usage
+
+**Action:** Use the OpenAPI validation filter for successful functional responses.
+
+**Note:** For security-error responses (401/403), tests commonly skip OpenAPI validation because the security layer may not match the API error media type contract.
+
+---
+
+### Known Caveats (add to backlog if needed)
+
+1. **Issuer should be configurable**: the integration-test issuer is currently validated against a constant; extract it to a test property (e.g. `test.jwt.issuer`) to avoid drift between environments.
+2. **403 vs 401 semantics**: missing token can produce `403` due to permit-all + `@PreAuthorize` behavior; keep tests aligned with current assertions unless the security chain is redesigned.
+3. **OpenAPI validation gaps for security errors**: prefer OpenAPI validation for 2xx flows, and keep 401/403 assertions focused on security behavior.
 
 ## 8. Phase 5: Frontend Integration
 
@@ -2414,7 +2103,7 @@ cd backend
 > - **Hooks Pattern:** Custom hooks like `useAuth`, `useUser`
 > - **OpenAPI Types:** Generated from spec via `@hey-api/openapi-ts`
 
-### Step 4.1: Add Auth Routes to Vite Proxy
+### Step 5.1: Add Auth Routes to Vite Proxy
 
 **Why?** The `/api` proxy is already correctly pointing to the Gateway (8080). We just need to **add** the authentication-related routes.
 
@@ -2480,7 +2169,7 @@ export default defineConfig(({ mode }) => ({
 
 ---
 
-### Step 4.2: Update API Config for Session Cookies
+### Step 5.2: Update API Config for Session Cookies
 
 **Why?** The hey-api client needs to send session cookies with every request for BFF authentication.
 
@@ -2572,7 +2261,7 @@ export * from "./generated";
 
 ---
 
-### Step 4.3: Create Auth Feature Module
+### Step 5.3: Create Auth Feature Module
 
 **Why?** Following your existing feature structure (`src/features/greetings/`), we create a dedicated auth module.
 
@@ -2598,7 +2287,7 @@ frontend/src/features/auth/
 
 ---
 
-### Step 4.4: Create Auth Types
+### Step 5.4: Create Auth Types
 
 **Location:** `frontend/src/features/auth/types.ts`
 
@@ -2634,7 +2323,7 @@ export interface AuthState {
 
 ---
 
-### Step 4.5: Create Auth Hooks
+### Step 5.5: Create Auth Hooks
 
 **Location:** `frontend/src/features/auth/hooks/useLoginOptions.ts`
 
@@ -2857,7 +2546,7 @@ export { useLoginOptions } from "./useLoginOptions";
 
 ---
 
-### Step 4.6: Create Auth Context (Optional)
+### Step 5.6: Create Auth Context (Optional)
 
 **Why?** If you need to share auth state across many components without prop drilling.
 
@@ -2904,7 +2593,7 @@ export function useAuthContext() {
 
 ---
 
-### Step 4.7: Create Auth Components
+### Step 5.7: Create Auth Components
 
 **Location:** `frontend/src/features/auth/components/LoginButton.tsx`
 
@@ -3001,7 +2690,7 @@ export { UserMenu } from "./UserMenu";
 
 ---
 
-### Step 4.8: Create Feature Index
+### Step 5.8: Create Feature Index
 
 **Location:** `frontend/src/features/auth/index.ts`
 
@@ -3021,7 +2710,7 @@ export { LoginButton, LogoutButton, UserMenu } from "./components";
 
 ---
 
-### Step 4.9: Update App.tsx
+### Step 5.9: Update App.tsx
 
 **Location:** `frontend/src/App.tsx`
 
@@ -3053,7 +2742,7 @@ export default App;
 
 ---
 
-### Step 4.10: Initialize API Client in main.tsx
+### Step 5.10: Initialize API Client in main.tsx
 
 **Location:** `frontend/src/main.tsx`
 
@@ -3076,12 +2765,11 @@ createRoot(document.getElementById("root")!).render(
 
 ---
 
-## 7.5. Phase 4.5: API-First - OpenAPI Spec Updates
+## Phase 6: API-First - OpenAPI Spec Updates
 
 > **Important:** This section adds the `/api/v1/me` endpoint to your OpenAPI spec, maintaining your API-first approach where the spec is the source of truth.
 
-### Step 4.5.1: Add User Tag to OpenAPI Spec
-
+### Step 6.1: Add User Tag to OpenAPI Spec
 **Location:** `api/specification/openapi.yaml`
 
 Add a new `User` tag alongside the existing `Greetings` tag:
@@ -3094,7 +2782,7 @@ tags:
     description: Operations for current user information and authentication status
 ```
 
-### Step 4.5.2: Add /api/v1/me Endpoint
+### Step 6.2: Add /api/v1/me Endpoint
 
 **Location:** `api/specification/openapi.yaml` - Add to `paths:` section:
 
@@ -3145,7 +2833,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 ```
 
-### Step 4.5.3: Add UserInfoResponse Schema
+### Step 6.3: Add UserInfoResponse Schema
 
 **Location:** `api/specification/openapi.yaml` - Add to `components.schemas:` section:
 
@@ -3186,7 +2874,7 @@ components:
         - roles
 ```
 
-### Step 4.5.4: Regenerate Frontend API Client
+### Step 6.4: Regenerate Frontend API Client
 
 **Action:** Run the API client generation:
 
@@ -3228,7 +2916,7 @@ export const getMe = (options?: Options) => {
 2. **Check File:**
    - Verify `frontend/src/api/generated/sdk.gen.ts` contains `getMe`.
 
-### Step 4.5.5: Update MSW Mock Handlers (Optional)
+### Step 6.5: Update MSW Mock Handlers (Optional)
 
 **Location:** `frontend/src/test/mocks/handlers.ts`
 
@@ -3287,7 +2975,7 @@ export const authHandlers = [
 
 ---
 
-## 9. Phase 6: Advanced Features
+## 9. Phase 7: Advanced Features
 
 ### Feature 1: CSRF Token Handling
 
@@ -3373,9 +3061,9 @@ if (user && isTokenExpired(user)) {
 
 ---
 
-## 10. Phase 7: End-to-End Testing & Verification
+## 10. Phase 8: End-to-End Testing & Verification
 
-### Step 9.1: Start All Services
+### Step 8.1: Start All Services
 
 ```bash
 # From project root
@@ -3394,7 +3082,7 @@ docker-compose logs -f keycloak
 
 ---
 
-### Step 9.2: Get Keycloak Client Secret
+### Step 8.2: Get Keycloak Client Secret
 
 1. Open Keycloak admin console: http://localhost:9000
 2. Login with `admin` / `admin`
@@ -3408,7 +3096,7 @@ docker-compose logs -f keycloak
 
 ---
 
-### Step 9.3: Test Authentication Flow
+### Step 8.3: Test Authentication Flow
 
 #### Test 1: Access Protected Endpoint (Unauthenticated)
 
@@ -3495,7 +3183,7 @@ curl -v http://localhost:8080/api/v1/me \
 
 ---
 
-### Step 9.4: Test Logout Flow
+### Step 8.4: Test Logout Flow
 
 1. In React app, click "Logout" button
 2. Browser redirects to Keycloak logout
@@ -3513,7 +3201,7 @@ fetch('/api/v1/me', { credentials: 'include' })
 
 ---
 
-### Step 9.5: Test Role-Based Access
+### Step 8.5: Test Role-Based Access
 
 **Create an admin-only endpoint:**
 

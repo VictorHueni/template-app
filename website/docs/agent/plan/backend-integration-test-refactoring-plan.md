@@ -6,7 +6,7 @@
 Currently, our integration tests rely on heavy resources:
 1.  **Keycloak Container:** Starts a real Keycloak instance (~15-20s startup).
 2.  **Shared Database with Locking:** We use `@ResourceLock("DB")`, forcing tests to run one by one (serialized) to avoid data pollution.
-3.  **Data Cleanup:** We rely on `DatabaseCleanupHelper` to truncate tables between tests, which is slow and error-prone if new tables are added.
+3.  **Data Cleanup:** We rely on manual cleanup (table truncation helpers), which is slow and error-prone if new tables are added.
 
 ### The Consequences
 *   **Slow Feedback Loop:** Running the full suite takes too long due to serialized execution and cleanup overhead.
@@ -67,10 +67,8 @@ Rationale: In production the Gateway performs the OAuth2 handshake and relays a 
 **Action:** Verify `backend/pom.xml` has `spring-security-oauth2-jose` (usually included in `spring-boot-starter-oauth2-resource-server`).
 
 **Test:**
-1. Open `backend/pom.xml` and search for `spring-boot-starter-oauth2-resource-server`.
-2. Verify the dependency is present in the `<dependencies>` section.
-3. Run `./mvnw dependency:tree | grep oauth2` to confirm transitive dependencies include `spring-security-oauth2-jose`.
-4. Expected output: The tree should list `com.nimbusds:nimbus-jose-jwt` as a transitive dependency.
+1. Verify `backend/pom.xml` includes `spring-boot-starter-oauth2-resource-server`.
+2. Run a normal build to ensure all security/JWT dependencies resolve: `./mvnw -pl backend test -DfailIfNoTests=false`.
 
 
 ### Step 2.2: Disable Auto-Migration
@@ -86,9 +84,7 @@ spring.datasource.hikari.maximum-pool-size=20
 
 **Test:**
 1. Verify the file `backend/src/test/resources/application-integration.properties` exists and contains both properties.
-2. Run a quick test with profile `integration`: `./mvnw test -Dspring.profiles.active=integration`.
-3. Check the startup logs—you should **NOT** see "Flyway migrating" messages for the public schema on startup.
-4. Verify pool configuration is loaded by searching logs for `maximum-pool-size=20`.
+2. Run a quick integration test and confirm it starts without migrating the `public` schema: `./mvnw -pl backend test -Dspring.profiles.active=integration -DfailIfNoTests=false`.
 
 ### Step 2.3: Remove Legacy Keycloak Config
 **Why:** We are replacing the containerized Keycloak with a mock.
@@ -101,34 +97,7 @@ spring.datasource.hikari.maximum-pool-size=20
 **Test:**
 1. Execute the delete commands (or use IDE to remove files).
 2. Run `./mvnw clean compile` to verify no compilation errors referring to these classes.
-3. Search codebase for imports of the deleted classes: `grep -r "KeycloakTestcontainerConfiguration" backend/src/`.
-4. Expected result: No search results (all references have been removed).
-
-### Step 2.4: Final Steps (Commit Prerequisites & Configuration)
-
-After completing all Phase 0 steps and validating each one, execute these final steps to commit your changes:
-
-**Final Validation:**
-1. Run `./mvnw clean compile` one final time to ensure no lingering compilation errors.
-2. Verify all configuration files exist and are valid:
-   ```bash
-   ./mvnw test -Dspring.profiles.active=integration -DfailIfNoTests=false
-   ```
-3. Confirm all legacy authentication container files have been removed:
-   ```bash
-   find backend/src/test -name "*Keycloak*" -type f
-   # Expected: No results
-   ```
-
-**Commit Changes:**
-```bash
-# Stage configuration changes and removed files
-git status  # Review what has changed
-git add -A  # Or selectively: git add backend/pom.xml backend/src/test/resources/
-git rm <legacy_files>  # Remove any old auth testcontainer files
-
-git commit -m "<commit message>"
-```
+3. Confirm there are no remaining Keycloak testcontainer classes under `backend/src/test/java/com/example/demo/testsupport/`.
 ---
 
 ## 3. Phase 1: Authentication Layer (The "Virtual Gateway")
@@ -171,24 +140,19 @@ All test-only security wiring must be enabled only for the `integration` test pr
 4. Expected outcome: The `JwtDecoder` validates locally signed JWTs with the exact production claim shape.
 
 ### Step 3.3: Refactor Secured Base Test
-**Why:** `AbstractSecuredRestAssuredIT` currently relies on Keycloak classes we just deleted.
-**Action:** Update `backend/src/test/java/com/example/demo/testsupport/AbstractSecuredRestAssuredIT.java`.
-*   Remove `@Import(KeycloakTestcontainerConfiguration.class)`.
-*   Remove `DynamicPropertySource` for Keycloak properties.
-*   Update `getUserToken()` and `getAdminToken()` to use `TestJwtUtils`.
-*   Remove any leftover Keycloak-related imports/helpers.
+**Why:** We want one consistent controller IT tier without “SecuredIT vs IT” splitting.
+**Action:** Ensure controller integration tests extend the unified base class:
+*   Use `backend/src/test/java/com/example/demo/testsupport/AbstractControllerIT.java`.
+*   Use `givenUnauthenticated()`, `givenAuthenticatedUser()`, and `givenAuthenticatedAdmin()` to vary auth per request.
+*   Remove any remaining `AbstractSecured*` base class and any `*SecuredIT.java` test classes.
 
 **Best-practice note (test tiering):** Avoid permanently splitting tests into “SecuredIT vs IT”. Prefer one integration-test tier where security is always available and each test simply decides whether to send an `Authorization` header.
 
 **When to activate full web-security tests:** Only after Phase 2 (schema-per-test + programmatic Flyway migrations) is implemented, so `@SpringBootTest(webEnvironment = RANDOM_PORT)` can start reliably with the `integration` profile.
 
 **Test:**
-1. Compile/test the JWT token plumbing without starting the full web context:
-   *   Run unit/context-level tests (e.g., `*JwtUtils*`, mock security context tests).
-2. Verify secured IT code compiles without references to removed Keycloak classes.
-3. After Phase 2 is done, run a secured integration test that extends `AbstractSecuredRestAssuredIT` (e.g., `GreetingControllerSecuredIT`) with `@ActiveProfiles({"test", "integration"})`.
-4. Execute a protected endpoint with `RestAssured.given().header("Authorization", "Bearer " + getUserToken())`.
-5. Expected outcome: Secured tests pass using the new JWT utility and no longer depend on Keycloak containers.
+1. Run the auth-focused tests: `./mvnw -pl backend test -Dtest='*JwtUtils*,*Security*'`.
+2. Run one controller IT and verify both unauthenticated and authenticated calls work (401/403/200 as expected).
 
 ### Steps 3.4 : Authorization Coverage Checklist (Must-Have Assertions)
 The refactor is only complete if the suite still proves:
@@ -219,32 +183,7 @@ The refactor is only complete if the suite still proves:
 5. Expected outcome: All three scenarios pass for each secured endpoint, proving role enforcement and claim mapping work correctly.
 
 ### Steps 3.5 : Final Steps (Commit Authentication Layer)
-
-After completing all Phase 1 steps and validating each one, execute these final steps to commit your changes:
-
-**Final Validation:**
-1. Test JWT utilities work correctly:
-   - Linux/Mac: `./mvnw test -Dtest='*JwtUtils*' -pl backend`
-   - Windows: `mvn.cmd test "-Dtest=*JwtUtils*"` (run from `backend/`)
-2. Test the no-DB mock security plumbing:
-   - Windows: `mvn.cmd test "-Dtest=TestJwtUtilsTest,MockSecurityConfigContextTest"` (run from `backend/`)
-3. (After Phase 2) Test secured endpoints work with mock tokens:
-   - `./mvnw test -Dtest='*Secured*' -pl backend`
-4. Verify no Keycloak references remain in test codebase:
-   - Linux/Mac: `grep -r "Keycloak" backend/src/test/ || echo "✓ Clean"`
-   - Windows PowerShell: `Get-ChildItem -Recurse backend\src\test | Select-String -Pattern "Keycloak"`
-5. Verify mock security config is profile-gated:
-   - Linux/Mac: `grep -r "@Profile(\"integration\"" backend/src/test/ | grep -i "security\|config"`
-   - Windows PowerShell: `Get-ChildItem -Recurse backend\src\test\java | Select-String -Pattern "@Profile\(\"integration\""`
-
-**Commit Changes:**
-```bash
-git status  # Review authentication layer changes
-git add -A  # Or selectively add auth test infrastructure files
-
-git commit -m "refactor(test): <commit message>
-"
-```
+This plan intentionally omits commit instructions. Validate via the tests in the steps above.
 
 ---
 
@@ -356,10 +295,21 @@ If Flyway-per-test becomes a bottleneck, keep Option 1 but introduce a faster mi
         return new BeanPostProcessor() {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
-                if (bean instanceof DataSource ds && !(bean instanceof SmartRoutingDataSource)) {
-                    return new SmartRoutingDataSource(ds);
-                }
-                return bean;
+            if (!(bean instanceof DataSource ds)) {
+               return bean;
+            }
+
+            // Implementation detail (current): only wrap the primary DataSource bean.
+            // This preserves Spring Boot's auto-config (@ServiceConnection) and avoids surprises.
+            if (!"dataSource".equals(beanName)) {
+               return bean;
+            }
+
+            if (ds instanceof SmartRoutingDataSource) {
+               return bean;
+            }
+
+            return new SmartRoutingDataSource(ds);
             }
         };
     }
@@ -369,50 +319,19 @@ If Flyway-per-test becomes a bottleneck, keep Option 1 but introduce a faster mi
     *   Avoids duplicate bean conflicts with Spring Boot's DataSource auto-configuration.
     *   Works seamlessly with HikariCP pooling and any Spring Boot DataSource properties.
 
-**Test:** `backend/src/test/java/com/example/demo/testsupport/persistence/TestPersistenceConfigIT.java`
+**Note (current implementation):** `TestPersistenceConfig` is gated with `@Profile("integration")` and also registers the schema header filter + async TaskDecorator/executor used in Phase 3.
 
-> ⚠️ **Critical: Spring Modulith Exclusions Required**
->
-> When testing `TestPersistenceConfig` in isolation (minimal context with only DataSource/JDBC),
-> Spring Modulith's auto-configurations must be excluded. These classes expect a `@SpringBootApplication`-annotated
-> class for module discovery. Since minimal test contexts use `@SpringBootConfiguration` instead,
-> exclude them via `spring.autoconfigure.exclude` property (required because some classes are package-private):
->
-> ```java
-> @SpringBootTest(
->     classes = { TestPersistenceConfigIT.TestApp.class, TestPersistenceConfig.class },
->     properties = {
->         "spring.main.web-application-type=none",
->         "spring.autoconfigure.exclude=" +
->             "com.c4_soft.springaddons.security.oidc.starter.synchronised.resourceserver.SpringAddonsOidcResourceServerBeans," +
->             "org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration," +
->             "org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration," +
->             "org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration," +
->             "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration," +
->             "org.springframework.modulith.observability.autoconfigure.ModuleObservabilityAutoConfiguration," +
->             "org.springframework.modulith.events.jpa.autoconfigure.JpaEventPublicationAutoConfiguration," +
->             "org.springframework.modulith.events.autoconfigure.EventPublicationAutoConfiguration," +
->             "org.springframework.modulith.actuator.autoconfigure.ApplicationModulesEndpointConfiguration," +
->             "org.springframework.modulith.runtime.autoconfigure.ApplicationModuleInitializerRuntimeVerification"
->     }
-> )
-> ```
+**Test (recommended, low-drift):** Validate via an end-to-end integration test run.
 
-1. Create `TestPersistenceConfigIT.java` with an inner `@SpringBootConfiguration` class (not `@SpringBootApplication`).
-2. Exclude security and Spring Modulith auto-configurations as shown above.
-3. Configure `@Testcontainers` with `PostgreSQLContainer` and `@ServiceConnection`.
-4. Inject `DataSource` in the test: `@Autowired DataSource dataSource`.
-5. Verify the bean is an instance of `SmartRoutingDataSource`: `assertThat(dataSource).isInstanceOf(SmartRoutingDataSource.class)`.
-6. Test schema routing:
-   *   Set `SchemaContext.setSchema("test_schema_demo")`.
-   *   Get a connection and execute `SELECT current_schema()`.
-   *   Verify it returns `test_schema_demo`.
-7. Expected outcome: DataSource bean is correctly wrapped by BeanPostProcessor and routes connections based on SchemaContext.
+**Key components (for reference):**
+* `backend/src/test/java/com/example/demo/testsupport/persistence/TestPersistenceConfig.java`
+* `backend/src/test/java/com/example/demo/testsupport/persistence/SmartRoutingDataSource.java`
+* `backend/src/test/java/com/example/demo/testsupport/persistence/SchemaContext.java`
 
 ### Step 4.4: JUnit Extension (The Orchestrator)
 **Why:** Manage the schema lifecycle (Create -> Migrate -> Test -> Drop).
 **Implementation:** `backend/src/test/java/com/example/demo/testsupport/persistence/SchemaIsolationExtension.java`
-*   Implement `BeforeEachCallback`, `AfterEachCallback`.
+*   Implement `BeforeEachCallback`, `AfterEachCallback`, and `InvocationInterceptor`.
 *   **BeforeEach:**
    1.  Clear `SchemaContext` (defensive hygiene).
    2.  Generate random schema name (`test_req_...`) using a UUID (lowercase, no hyphens).
@@ -425,6 +344,9 @@ If Flyway-per-test becomes a bottleneck, keep Option 1 but introduce a faster mi
       * `.schemas(schemaName).defaultSchema(schemaName)`
       * `.locations("classpath:db/migration")`
       * `.migrate()`
+*   **InvocationInterceptor (current implementation):**
+   *   JUnit parallel execution may run `beforeEach` on a different thread than the test method.
+   *   `interceptTestMethod(...)` reads the schema name from the `ExtensionContext.Store` and ensures `SchemaContext.setSchema(schemaName)` is applied on the **test method execution thread**.
 *   **AfterEach:**
    1.  Read schema name from `ExtensionContext.Store`.
    2.  `SchemaContext.clear()`.
@@ -442,39 +364,12 @@ Implementation note: the extension logs `Creating test schema ...`, `Running Fly
 7. Expected outcome: Extension creates a unique schema, runs migrations in it, and cleans up after each test.
 
 ### Steps 4.5: Final Steps (Commit Persistence Layer)
-
-After completing all Phase 2 steps and validating each one, execute these final steps to commit your changes:
-
-**Final Validation:**
-1. Test SchemaContext isolation: `./mvnw test -Dtest=SchemaContextTest`.
-2. Test SmartRoutingDataSource: `./mvnw test -Dtest='*DataSourceTest'`.
-3. Test SchemaIsolationExtension: `./mvnw test -Dtest=SchemaIsolationExtensionIT` to see schema creation/migrations/drops in logs.
-4. Verify all components compile without errors:
-   ```bash
-   ./mvnw clean compile -pl backend -DskipTests
-   ```
-5. Verify no schema pollution across test runs:
-   ```bash
-   ./mvnw test -Dtest=SampleIT -DfailIfNoTests=false
-   ./mvnw test -Dtest=SampleIT -DfailIfNoTests=false
-   # Run twice; second run should show different schema names
-   ```
+This plan intentionally omits commit instructions. Validate via Phase 4 verification.
 
 ---
 
 ## 5. Phase 3: Cross-Thread Context Propagation
-
-**Convergence (do later, after Phase 2):** Once `@SpringBootTest` can reliably run with `@ActiveProfiles({"test", "integration"})`, converge the test tiers so there is only one IT per component:
-1. Rename `*SecuredIT.java` classes to `*IT.java` (or merge secured scenarios into the existing `*IT` for that component).
-2. Keep security enabled for the whole IT tier and vary behavior per request:
-   * Unauthenticated requests -> no `Authorization` header
-   * Authenticated requests -> `Authorization: Bearer <token>`
-3. Make profiles consistent across all RestAssured ITs in the suite:
-   * Use the same `@ActiveProfiles({"test", "integration"})` everywhere (avoid mixed profile sets that split the Spring TestContext cache).
-4. Keep helper methods (`givenAuthenticatedUser()`, `givenAuthenticatedAdmin()`, `givenUnauthenticated()`) in a single shared base class.
-5. Run a suite spot-check after convergence:
-   * `./mvnw test -Dtest='*ControllerIT' -pl backend`
-   * `./mvnw verify -Dspring.profiles.active=integration -pl backend`
+**Note:** The controller IT tier is unified. All controller integration tests should extend `AbstractControllerIT` and vary authentication per request via helper methods.
 
 
 ### Step 5.1: The Server-Side Filter
@@ -483,9 +378,13 @@ After completing all Phase 2 steps and validating each one, execute these final 
 *   Extend `OncePerRequestFilter`.
 *   Read header `X-Test-Schema`.
 *   If present, `SchemaContext.setSchema()`.
-*   `finally { SchemaContext.clear() }`.
+*   If absent, clear any *stale* schema value on the pooled request thread.
+*   **Important (current implementation):** the filter does **not** unconditionally clear the schema context after request processing. This is documented in the class Javadoc as required for Spring Modulith async event handling + TaskDecorator capture timing.
 
-ThreadLocal hygiene is a non-negotiable invariant under parallel execution: schema context must be set for the duration of request handling and always cleared in a `finally` block to prevent pooled-thread pollution across concurrent tests.
+ThreadLocal hygiene is still a non-negotiable invariant under parallel execution.
+Current invariant: every request must either carry `X-Test-Schema` or the request thread must have stale context cleared before processing.
+
+> Note: We can revisit whether to restore `finally { clear }` later; for now, the plan documents the current behavior.
 
 **Test:**
 1. Run an integration test using RestAssured with a schema-specific header: `RestAssured.given().header("X-Test-Schema", "test_schema_abc").get("/api/v1/greetings")`.
@@ -497,16 +396,7 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
 
 ### Step 5.2: Register the Filter
 **Why:** Ensure the filter runs for every request in the `integration` test profile.
-**Action:** Add to `TestPersistenceConfig.java`:
-    ```java
-    @Bean
-    public FilterRegistrationBean<TestSchemaFilter> testSchemaFilter() {
-        FilterRegistrationBean<TestSchemaFilter> registrationBean = new FilterRegistrationBean<>();
-        registrationBean.setFilter(new TestSchemaFilter());
-        registrationBean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-        return registrationBean;
-    }
-    ```
+**Action:** Ensure `TestPersistenceConfig` registers `TestSchemaFilter` with highest precedence.
 
 **Test:**
 1. Run an integration test and inject `FilterRegistrationBean` or verify via Spring's filter registry that `TestSchemaFilter` is registered.
@@ -517,12 +407,16 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
 
 ### Step 5.3: Configure RestAssured (Client-Side)
 **Why:** Automatically inject the header into all requests.
-**Action:** Update `backend/src/test/java/com/example/demo/testsupport/AbstractRestAssuredIntegrationTest.java`.
-*   In `@BeforeEach`, check `SchemaContext.getSchema()`.
-*   If set, add `RequestSpecBuilder().addHeader("X-Test-Schema", schema)`.
+**Action (current implementation):** Use `backend/src/test/java/com/example/demo/testsupport/AbstractControllerIT.java`.
+*   Do **not** set `RestAssured.requestSpecification` (static global) because it introduces races under parallel class execution.
+*   Instead, add the schema header **per request** by capturing `SchemaContext.getSchema()` at call time.
+*   Use the built-in helpers:
+   * `givenUnauthenticated()`
+   * `givenAuthenticatedUser()`
+   * `givenAuthenticatedAdmin()`
 
 **Test:**
-1. Create a test that extends `AbstractRestAssuredIntegrationTest`.
+1. Create a test that extends `AbstractControllerIT`.
 2. Verify that `SchemaContext.getSchema()` is set (from `SchemaIsolationExtension`).
 3. Make a RestAssured request: `RestAssured.get("/api/v1/greetings")`.
 4. Verify the request succeeds (no 4xx errors indicating missing header).
@@ -558,27 +452,8 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
 
 > ⚠️ **Critical: Spring Modulith 2.x Integration**
 >
-> Spring Modulith 2.0+ uses `@ApplicationModuleListener` which is a meta-annotation combining:
-> - `@Async` (uses bean named `applicationTaskExecutor` by default)
-> - `@Transactional(propagation = REQUIRES_NEW)`
-> - `@TransactionalEventListener`
->
-> For the `TaskDecorator` to apply to Spring Modulith event listeners, two requirements must be met:
->
-> 1. **`@EnableAsync` on TestPersistenceConfig**: Required to activate async processing and ensure
->    Spring picks up our custom executor configuration.
->
-> 2. **`@Primary` on applicationTaskExecutor bean**: Without `@Primary`, Spring Modulith may use
->    its own auto-configured executor that doesn't have our `TaskDecorator`, causing schema context
->    to be lost in async event handlers (resulting in writes to wrong schema or test failures).
->
-> **Verification**: Add DEBUG logging to `SchemaContextTaskDecorator` to confirm schema context
-> is being captured and propagated:
-> ```java
-> log.debug("Capturing schema context for async propagation: {}", schema);
-> log.debug("Executing async task with schema context: {}", capturedSchema);
-> log.debug("Cleared schema context after async task completion");
-> ```
+> `@ApplicationModuleListener` runs async and requires schema context propagation.
+> Ensure `TestPersistenceConfig` has `@EnableAsync` and the `applicationTaskExecutor` is `@Primary` and uses the `TaskDecorator`.
 
 **Test:**
 1. Create an integration test that triggers an async operation (e.g., a `@Async` method or modulith event listener that writes to the database).
@@ -589,37 +464,7 @@ ThreadLocal hygiene is a non-negotiable invariant under parallel execution: sche
 6. Expected outcome: Async operations inherit and execute within the correct schema context without leaking into other tests' schemas.
 
 ### Steps 5.5 Final Steps (Commit Cross-Thread Context Propagation)
-
-After completing all Phase 3 steps and validating each one, execute these final steps to commit your changes:
-
-**Final Validation:**
-1. Test HTTP header filtering: `./mvnw test -Dtest='*Filter*' -pl backend`.
-2. Test async context propagation: `./mvnw test -Dtest='*Async*,*Event*' -pl backend`.
-3. Verify ThreadLocal hygiene across all tests:
-   ```bash
-   ./mvnw test -Dtest='*IT' -pl backend
-   # No context leaks or schema mismatches
-   ```
-4. Test concurrent requests to same endpoint (different schemas):
-   ```bash
-   ./mvnw test -Dtest='*Parallel*' -pl backend
-   ```
-
-**Commit Changes:**
-```bash
-git status  # Review context propagation changes
-git add -A  # Or selectively add filter and decorator files
-
-git commit -m "refactor(test): <commit message>
-"
-```
-
-
-1. Run full suite with parallel execution to confirm no cross-test data pollution:
-   ```bash
-   ./mvnw verify -Dspring.profiles.active=integration -pl backend
-   ```
-2. Document in ticket/PR: "Phase 3 context propagation layer complete. Async operations now respect schema isolation."
+This plan intentionally omits commit instructions. Validate via Phase 4 verification.
 
 ---
 
@@ -628,7 +473,9 @@ git commit -m "refactor(test): <commit message>
 ### Step 6.1: Update Base Integration Test
 **Action:** Update `backend/src/test/java/com/example/demo/testsupport/AbstractIntegrationTest.java`.
 *   Add `@ExtendWith(SchemaIsolationExtension.class)`.
-*   Add `@Import({TestPersistenceConfig.class, MockSecurityConfig.class})`.
+*   Wire test infrastructure via Spring TestContext configuration:
+   * `@ContextConfiguration(classes = {TestcontainersConfiguration.class, MockSecurityConfig.class, TestPersistenceConfig.class})`
+   * `@ExtendWith({SchemaIsolationExtension.class, SpringExtension.class})`
 
 **Test:**
 1. Verify the base class has both annotations in place.
@@ -641,38 +488,24 @@ git commit -m "refactor(test): <commit message>
 ### Step 6.2: Enable Parallel Execution
 **Action:** Verify `backend/src/test/resources/junit-platform.properties`.
 *   `junit.jupiter.execution.parallel.enabled=true`
+*   `junit.jupiter.execution.parallel.mode.default=same_thread`
 *   `junit.jupiter.execution.parallel.mode.classes.default=concurrent`
+*   `junit.jupiter.execution.parallel.config.strategy=dynamic`
 *   Keep methods in the same thread by default to preserve multi-step scenario consistency within a class.
 *   Set a deterministic parallelism strategy (fixed number or CPU-based) to avoid environment-dependent behavior across CI agents.
 
-> ⚠️ **Known Limitation: Parallel Class Execution (2026-01)**
+> ⚠️ **Parallel Execution Note (current state)**
 >
-> **Status**: Parallel class execution is currently **disabled** (`mode.classes.default=same_thread`).
+> **Status**: Parallel class execution is **enabled** (`mode.classes.default=concurrent`).
 >
-> **Symptom**: When `mode.classes.default=concurrent`, tests pass individually but fail intermittently
-> when run together in the suite. Specifically:
-> - `BusinessActivityIT.recordsBusinessActivityWhenGreetingCreatedViaRestApi` - expected 1 audit record, got 0
-> - `GreetingControllerIT.returns404WhenDeletingNonExistentGreeting` - returns 500 instead of 404
->
-> **Root Cause (suspected)**: HikariCP connection pool behavior with schema routing under parallel
-> test class execution. Even with per-test schema isolation, connections borrowed by concurrent
-> test classes may interfere with each other's `SET search_path` commands.
->
-> **Current Workaround**: Sequential class execution (`same_thread`) ensures all 54 tests pass reliably.
-> Test execution time is still acceptable (~45s for the full suite).
->
-> **TODO**: Investigate HikariCP behavior with `SmartRoutingDataSource` in parallel scenarios:
-> 1. Add connection ID logging to trace pool borrowing/returning
-> 2. Consider connection-per-schema pooling or separate connection pools
-> 3. Evaluate if `getConnection()` needs synchronization or connection affinity
+> If intermittent failures reappear under suite execution, temporarily switch back to
+> `mode.classes.default=same_thread` and investigate connection-pool/schema routing interactions.
 
 **Test:**
 1. Verify the properties file exists at `backend/src/test/resources/junit-platform.properties`.
-2. Run `./mvnw test -X | grep "junit.jupiter.execution.parallel"` to confirm properties are loaded.
-3. Execute the full test suite: `./mvnw verify`.
-4. Observe test output: tests should run sequentially by class (until parallel execution issue is resolved).
-5. Verify no test failures due to data pollution (schema isolation ensures clean separation).
-6. Expected outcome: All tests pass reliably in sequential mode.
+2. Execute a suite run: `./mvnw -pl backend verify -Dspring.profiles.active=integration`.
+3. Observe test output: methods run `same_thread` within a class, classes run `concurrent`.
+4. Expected outcome: All tests pass without schema/data pollution.
 
 ### Step 6.3: Refactor Existing Tests (Remove Locking & Manual Cleanup)
 **Why:** `SchemaIsolationExtension` handles isolation and cleanup now.
@@ -683,18 +516,19 @@ git commit -m "refactor(test): <commit message>
 **Files to Update:**
 *   `backend/src/test/java/com/example/demo/audit/BusinessActivityIT.java`
 *   `backend/src/test/java/com/example/demo/greeting/controller/GreetingControllerIT.java`
-*   `backend/src/test/java/com/example/demo/greeting/controller/GreetingControllerSecuredIT.java`
 *   `backend/src/test/java/com/example/demo/greeting/repository/GreetingRepositoryIT.java`
 *   `backend/src/test/java/com/example/demo/greeting/service/GreetingServiceIT.java`
-*   `backend/src/test/java/com/example/demo/user/controller/UserControllerSecuredIT.java`
+*   `backend/src/test/java/com/example/demo/user/controller/UserControllerIT.java`
 
 **Test:**
 1. For each file updated, run the specific test: `./mvnw test -Dtest=GreetingControllerIT`.
 2. Verify all tests pass.
-3. Grep for remaining `@ResourceLock` in test files: `grep -r "@ResourceLock" backend/src/test/`.
-4. Expected result: No `@ResourceLock` annotations should remain in IT classes.
-5. Grep for remaining `DatabaseCleanupHelper` usage: `grep -r "DatabaseCleanupHelper" backend/src/test/`.
-6. Expected result: No references to the cleanup helper should remain.
+3. Verify there are no remaining `@ResourceLock` usages (Windows PowerShell):
+   `Get-ChildItem -Recurse backend\src\test | Select-String -Pattern "@ResourceLock"`
+4. Expected result: No matches.
+5. Verify there is no truncation-helper based cleanup left (Windows PowerShell):
+   `Get-ChildItem -Recurse backend\src\test | Select-String -Pattern "DatabaseCleanupHelper"`
+6. Expected result: No matches.
 
 ### 6.4 Test Data Lifecycle (Expected Pattern)
 *   Seeding: Create test data via HTTP calls (RestAssured) or repositories within the test method as needed.
@@ -709,14 +543,11 @@ git commit -m "refactor(test): <commit message>
 5. Expected outcome: Tests can seed data cleanly, and cleanup happens implicitly without manual effort.
 
 ### Step 6.5: Remove Legacy Cleanup Helper
-**Action:** Delete `backend/src/test/java/com/example/demo/testsupport/DatabaseCleanupHelper.java`.
+**Action:** Ensure there is no remaining `DatabaseCleanupHelper` and no manual truncation-based cleanup.
 
 **Test:**
-1. Verify the file exists before deletion.
-2. Delete the file using the IDE or command line: `rm backend/src/test/java/com/example/demo/testsupport/DatabaseCleanupHelper.java`.
-3. Run `./mvnw clean compile` to ensure no compilation errors.
-4. Search for any remaining imports of this class: `grep -r "DatabaseCleanupHelper" backend/src/`.
-5. Expected result: No compilation errors and no remaining references.
+1. Search for any remaining imports of this class (Windows PowerShell): `Get-ChildItem -Recurse backend\src\test\java | Select-String -Pattern "DatabaseCleanupHelper"`.
+2. Expected result: No references.
 
 ### Step 6.6: Verification
 *   Run `mvn verify` to ensure all tests pass.
@@ -732,66 +563,14 @@ git commit -m "refactor(test): <commit message>
    - Search for `DROP SCHEMA test_req_` (should see cleanup for each test).
    - Search for `Flyway migrating` (should appear multiple times, once per schema).
 5. Run tests multiple times to ensure consistency (no flaky tests due to schema pollution).
-6. Run a subset: `./mvnw test -Dtest=GreetingControllerIT,UserControllerSecuredIT` and verify isolation is working.
+6. Run a subset: `./mvnw test -Dtest=GreetingControllerIT,UserControllerIT` and verify isolation is working.
 7. Expected outcome: Full suite passes, schemas are created and destroyed correctly, and execution time is significantly reduced.
 
 ### Step 6.7: Final Steps (Commit Final Integration & Cleanup)
-
-After completing all Phase 4 steps and validating each one, execute these final steps to commit your changes:
-
-**Final Validation:**
-1. Check base class configuration:
-   ```bash
-   grep -E "@ExtendWith|@Import" backend/src/test/java/com/example/demo/testsupport/Abstract*.java
-   # Should show both annotations present
-   ```
-2. Verify refactored test classes:
-   ```bash
-   grep -r "@ResourceLock" backend/src/test/ || echo "✓ No @ResourceLock found"
-   grep -r "DatabaseCleanupHelper" backend/src/test/ || echo "✓ No cleanup helper references"
-   ```
-3. Run full test suite with parallelism:
-   ```bash
-   ./mvnw clean verify -pl backend -DfailIfNoTests=false
-   ```
-4. Measure execution time improvement (document baseline vs. actual).
-5. Run twice to verify no flaky tests:
-   ```bash
-   ./mvnw verify -pl backend && ./mvnw verify -pl backend
-   ```
-
-**Commit Changes:**
-```bash
-git status  # Review all phase integration changes
-git add -A  # Or selectively add test class updates
-
-git commit -m "<commit message>
-```
-
----
-   Should show parallel=true in logs
-   Generate performance report (before/after):
-   ```bash
-   echo "Execution time: $(./mvnw verify -pl backend -q 2>&1 | tail -1)"
-   ```
-1. Document in ticket/PR: "Phase 4 complete. Full hybrid parallel integration test strategy implemented. Tests now run 70%+ faster with improved isolation."
-
-### Post-Implementation: Maintenance & Monitoring
-
-After all 4 phases are complete and committed, establish these ongoing practices:
-
-**Weekly Checks:**
-- Monitor CI execution time trends (should remain consistently fast).
-- Watch for any test flakiness or data pollution issues (schema context leaks).
-- Review test logs for anomalies in schema creation/cleanup.
-
-**Quarterly Reviews:**
-- Measure actual test execution time improvement vs. baseline.
-- Assess if connection pool size needs tuning based on concurrency patterns.
-- Evaluate if any new tests are breaking isolation assumptions.
+This plan intentionally omits commit and long-term process instructions.
 
 **When Adding New Tests:**
-1. Ensure tests extend `AbstractIntegrationTest` or `AbstractRestAssuredIntegrationTest`.
+1. Ensure tests extend `AbstractIntegrationTest` or `AbstractControllerIT`.
 2. Do NOT add `@ResourceLock` annotations.
 3. Do NOT use `DatabaseCleanupHelper`.
 4. Run tests locally with `./mvnw test -Dtest=YourNewTest` to verify schema isolation.
@@ -819,7 +598,8 @@ Mitigation: Use a TaskDecorator (or executor decoration) to propagate schema con
 ### 7.5 HikariCP Connection Pool and Parallel Schema Routing
 Risk: Under parallel test class execution, HikariCP's connection pooling can cause interference between concurrent tests' `SET search_path` commands, even with per-test schema isolation.
 Symptom: Tests pass individually but fail intermittently when run together (wrong schema, missing data, unexpected errors).
-Current Status (2026-01): Parallel class execution is disabled (`mode.classes.default=same_thread`) as a workaround.
+Current Status (2026-01): Parallel class execution is enabled (`mode.classes.default=concurrent`).
+If intermittent failures appear, temporarily switch to `mode.classes.default=same_thread` to stabilize and debug.
 Mitigation Options (future investigation):
 1. Connection-per-schema pooling: Maintain separate connection pools per active test schema.
 2. Connection affinity: Ensure a test class always gets the same physical connections throughout its lifecycle.
