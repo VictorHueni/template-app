@@ -50,7 +50,7 @@ export default defineConfig({
      * 5. Stops both servers when done
      */
     webServer: {
-        command: "npm run dev:mock",
+        command: "npm run dev:mock-real",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 60_000, // Allow time for both Prism and Vite to start

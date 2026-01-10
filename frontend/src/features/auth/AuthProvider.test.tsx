@@ -84,4 +84,27 @@ describe("AuthProvider", () => {
         expect(screen.getByTestId("username").textContent).toBe("mocky");
         expect(vi.mocked(getCurrentUser)).not.toHaveBeenCalled();
     });
+
+    it("clears state when auth:session-expired is dispatched", async () => {
+        vi.mocked(getCurrentUser).mockResolvedValue({
+            data: {
+                id: "u-1",
+                username: "johndoe",
+                roles: ["USER"],
+            },
+        } as any);
+
+        render(
+            <AuthProvider mode="real">
+                <Viewer />
+            </AuthProvider>,
+        );
+
+        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
+
+        window.dispatchEvent(new CustomEvent("auth:session-expired"));
+
+        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("anonymous"));
+        expect(screen.getByTestId("username").textContent).toBe("");
+    });
 });

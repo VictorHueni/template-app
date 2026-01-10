@@ -20,7 +20,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function resolveAuthMode(mode?: AuthMode): AuthMode {
     const envMode = (import.meta.env.VITE_AUTH_MODE as AuthMode | undefined) ?? "real";
-    return mode ?? envMode;
+    const requested = mode ?? envMode;
+    if (import.meta.env.PROD && requested === "mock") {
+        return "real";
+    }
+    return requested;
 }
 
 async function resolveLoginUri(): Promise<string> {
@@ -101,6 +105,23 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
     useEffect(() => {
         void load();
     }, [load]);
+
+    useEffect(() => {
+        if (resolvedMode === "mock" || typeof window === "undefined") {
+            return;
+        }
+
+        const onSessionExpired = () => {
+            setUser(null);
+            setStatus("anonymous");
+            setError(null);
+        };
+
+        window.addEventListener("auth:session-expired", onSessionExpired);
+        return () => {
+            window.removeEventListener("auth:session-expired", onSessionExpired);
+        };
+    }, [resolvedMode]);
 
     const refresh = useCallback(async () => {
         await load();

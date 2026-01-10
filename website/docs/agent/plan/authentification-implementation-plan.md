@@ -2100,7 +2100,7 @@ cd backend
 > **Alignment with Your Setup:** This section adapts to your existing patterns:
 > - **API Client:** `@hey-api/client-fetch` (not axios)
 > - **Feature Structure:** `src/features/auth/` following your greetings pattern
-> - **Hooks Pattern:** Custom hooks like `useAuth`, `useUser`
+> - **Hooks Pattern:** Keep current `AuthProvider` + `useAuth` (no extra extraction yet)
 > - **OpenAPI Types:** Generated from spec via `@hey-api/openapi-ts`
 
 ### Phase 5.0: Prereqs (Ports + Modes)
@@ -2135,9 +2135,9 @@ Use these environment variables:
 
 - `VITE_PROXY_TARGET` → where `/api/*` goes (Gateway in BFF mode, Prism in mock mode)
 - `VITE_USE_PRISM=true|false` → keeps your existing Prism rewrite (`/api/*` → `/*`)
-- `VITE_GATEWAY_TARGET` → where Gateway-only auth routes go (typically the Gateway)
+- `VITE_AUTH_PROXY_TARGET` → where Gateway-only auth routes go (typically the Gateway). Falls back to `VITE_PROXY_TARGET`.
 
-**Proposed snippet (merge into current file):**
+**Repo-aligned snippet (matches current `vite.config.ts` behavior):**
 
 ```typescript
 import { defineConfig } from "vite";
@@ -2149,6 +2149,35 @@ export default defineConfig(({ mode }) => ({
     proxy:
       mode === "development"
         ? {
+            "/login-options": {
+              target:
+                process.env.VITE_AUTH_PROXY_TARGET ||
+                process.env.VITE_PROXY_TARGET ||
+                "http://localhost:8080",
+              changeOrigin: true,
+            },
+            "/oauth2": {
+              target:
+                process.env.VITE_AUTH_PROXY_TARGET ||
+                process.env.VITE_PROXY_TARGET ||
+                "http://localhost:8080",
+              changeOrigin: true,
+            },
+            "/login": {
+              target:
+                process.env.VITE_AUTH_PROXY_TARGET ||
+                process.env.VITE_PROXY_TARGET ||
+                "http://localhost:8080",
+              changeOrigin: true,
+            },
+            "/logout": {
+              target:
+                process.env.VITE_AUTH_PROXY_TARGET ||
+                process.env.VITE_PROXY_TARGET ||
+                "http://localhost:8080",
+              changeOrigin: true,
+            },
+
             "/api": {
               target: process.env.VITE_PROXY_TARGET || "http://localhost:8080",
               changeOrigin: true,
@@ -2157,16 +2186,6 @@ export default defineConfig(({ mode }) => ({
                   ? (path) => path.replace(/^\/api/, "")
                   : undefined,
             },
-
-            // Gateway-only auth routes (only enable if a gateway target is provided)
-            ...(process.env.VITE_GATEWAY_TARGET
-              ? {
-                "/oauth2": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
-                "/login": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
-                "/logout": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
-                "/login-options": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
-              }
-              : {}),
           }
         : undefined,
   },
@@ -2177,7 +2196,7 @@ export default defineConfig(({ mode }) => ({
 
 - BFF mode:
   - `VITE_PROXY_TARGET=http://localhost:${GW_PORT:-8080}`
-  - `VITE_GATEWAY_TARGET=http://localhost:${GW_PORT:-8080}`
+  - `VITE_AUTH_PROXY_TARGET=http://localhost:${GW_PORT:-8080}`
 - Mock API mode:
   - `VITE_USE_PRISM=true`
   - `VITE_PROXY_TARGET=http://localhost:4010`
@@ -2186,7 +2205,7 @@ export default defineConfig(({ mode }) => ({
 #### ✅ Verification
 
 1. **BFF mode:** `http://localhost:5173/api/v1/greetings` returns JSON via Gateway, and `http://localhost:5173/login-options` returns JSON.
-2. **Mock API mode:** `http://localhost:5173/api/v1/greetings` returns Prism JSON. Auth UI can still show “logged in” via the mock-auth option (Step 5.11).
+2. **Mock API mode:** `http://localhost:5173/api/v1/greetings` returns Prism JSON. Auth UI can default to fake-auth (Step 5.11).
 
 ---
 
@@ -2205,6 +2224,8 @@ export default defineConfig(({ mode }) => ({
 3. add CSRF header (`X-XSRF-TOKEN`) for non-GET requests when the cookie `XSRF-TOKEN` is present
 4. stop configuring the client on module load
 5. call configuration exactly once from `frontend/src/main.tsx`
+
+**Also implemented:** dispatch a `CustomEvent("auth:session-expired")` when the API client receives a `401` response. This keeps auth state handling centralized in the `AuthProvider` without exposing any token material to the browser.
 
 Conceptual target shape:
 
@@ -2249,43 +2270,24 @@ export function configureApiClient(): void {
 
 ---
 
-### Step 5.3: Create Auth Feature Module
+### Step 5.3: Auth Feature Module (keep current structure)
 
-Create `frontend/src/features/auth/` following the `greetings` feature structure:
+**Decision (current):** keep the existing, simpler structure and avoid premature refactors.
 
-```
-frontend/src/features/auth/
-├── index.ts
-├── types.ts
-├── context/
-│   └── AuthContext.tsx
-├── hooks/
-│   ├── index.ts
-│   ├── useAuth.ts
-│   ├── useUser.ts
-│   └── useLoginOptions.ts
-└── components/
-  ├── index.ts
-  ├── LoginButton.tsx
-  ├── LogoutButton.tsx
-  └── UserMenu.tsx
-```
+The repo uses:
+
+- `frontend/src/features/auth/AuthProvider.tsx` (provider + context + `useAuth`)
+- `frontend/src/features/auth/index.ts` (re-export)
+
+Optional later refactor: extract `useUser`, `useLoginOptions`, and UI components once the auth UX stabilizes.
 
 ---
 
-### Step 5.4: Create Auth Types (keep `/login-options` manual)
+### Step 5.4: `/login-options` Contract (keep manual)
 
-**Location:** `frontend/src/features/auth/types.ts`
+This repo intentionally keeps `/login-options` out of the shared OpenAPI spec.
 
-```typescript
-export type { UserInfoResponse } from "../../api/generated";
-
-// Gateway-only endpoint contract (not in shared OpenAPI)
-export interface LoginOption {
-  label: string;
-  loginUri: string;
-}
-```
+**Frontend behavior (implemented):** `AuthProvider` calls `fetch("/login-options", { credentials: "include" })` and expects a minimal payload `{ loginUri?: string }`, falling back to `/oauth2/authorization/keycloak`.
 
 **Why not add `/login-options` to `api/specification/openapi.yaml`?**
 
@@ -2293,18 +2295,13 @@ This repository uses that spec to generate **backend** interfaces too. Adding a 
 
 ---
 
-### Step 5.5: Hooks (`useLoginOptions`, `useUser`, `useAuth`)
+### Step 5.5: Auth Hook (`useAuth`) and User Loading
 
-**`useLoginOptions`**
+**User loading (implemented):**
 
-- In `VITE_AUTH_MODE=mock`, return `[]` (or a placeholder) without calling the network.
-- In BFF mode, `fetch("/login-options", { credentials: "include" })` and parse as `LoginOption[]`.
-
-**`useUser`**
-
-- Use the generated OpenAPI function for `/v1/me`. In this repo’s spec it is `operationId: getCurrentUser`, so the generated function is expected to be `getCurrentUser()`.
+- Use the generated OpenAPI function `getCurrentUser()` for `/v1/me`.
 - Do **not** implement `exp` refresh scheduling: `UserInfoResponse` does not include it, and in BFF the session is opaque.
-- In `VITE_AUTH_MODE=mock`, return a stable fake user:
+- In `VITE_AUTH_MODE=mock`, provide a stable fake user.
 
 ```typescript
 {
@@ -2315,11 +2312,11 @@ This repository uses that spec to generate **backend** interfaces too. Adding a 
 }
 ```
 
-**`useAuth`**
+**`useAuth` (implemented via `AuthProvider`):**
 
-- `login()` in BFF mode: redirect to `loginOptions[0].loginUri`.
-- `logout()` in BFF mode: `POST /logout` with `credentials: "include"` and `X-XSRF-TOKEN` header if available.
-- In mock mode: make `login()`/`logout()` no-ops (the provider controls the fake user).
+- `login()` in real mode: redirect to `loginUri` from `/login-options` (if present), else fallback to `/oauth2/authorization/keycloak`.
+- `logout()` in real mode: redirect to `/logout` (Gateway handles logout flow).
+- In mock mode: `login()`/`logout()` manipulate local auth state only.
 
 ---
 
@@ -2328,15 +2325,17 @@ This repository uses that spec to generate **backend** interfaces too. Adding a 
 Use `AuthProvider` as the single place where:
 
 - user state is fetched once (and exposed to components)
-- the `auth:session-expired` event clears state
+- the `auth:session-expired` event clears state (triggered by API client on 401)
 
 This avoids duplicate `/v1/me` calls if multiple components mount auth hooks.
 
 ---
 
-### Step 5.7: Auth Components
+### Step 5.7: Auth UI
 
-Create `LoginButton`, `LogoutButton`, `UserMenu` as simple UI wrappers over the hook/context.
+**Current implementation:** auth UI lives in `frontend/src/App.tsx` header using `useAuth()`.
+
+Optional later refactor: extract a `UserMenu` component once styling/UX needs are clearer.
 
 ---
 
@@ -2348,7 +2347,7 @@ Export types/hooks/components from `frontend/src/features/auth/index.ts`.
 
 ### Step 5.9: Update `App.tsx`
 
-Wrap the application with `AuthProvider` and render `UserMenu` (do not initialize API client here).
+Use `useAuth()` to render login/logout state in the header (do not initialize API client here).
 
 ---
 
@@ -2383,7 +2382,12 @@ createRoot(document.getElementById("root")!).render(
 - `VITE_AUTH_MODE=mock` → provide a fake `UserInfoResponse`, no redirects
 - `VITE_AUTH_MODE=bff` (default) → use Gateway cookies + `/v1/me`
 
-**Recommended repo adaptation:** update the `dev:mock` script to set `VITE_AUTH_MODE=mock`, and move Prism off `:8080` (example `:4010`) so you can also run the real Gateway locally when needed.
+**Security best practice (implemented):** mock auth is automatically disabled in production builds (`import.meta.env.PROD`).
+
+**Repo adaptation (implemented):**
+
+- `dev:mock` defaults to fake-auth: `VITE_AUTH_MODE=mock` + Prism on `:4010`
+- `dev:mock-real` runs Prism on `:4010` but keeps real-auth (`VITE_AUTH_MODE=real`) so Playwright can deterministically mock `/api/v1/me`
 
 ---
 
