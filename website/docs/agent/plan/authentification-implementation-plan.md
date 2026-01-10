@@ -2103,875 +2103,388 @@ cd backend
 > - **Hooks Pattern:** Custom hooks like `useAuth`, `useUser`
 > - **OpenAPI Types:** Generated from spec via `@hey-api/openapi-ts`
 
-### Step 5.1: Add Auth Routes to Vite Proxy
+### Phase 5.0: Prereqs (Ports + Modes)
 
-**Why?** The `/api` proxy is already correctly pointing to the Gateway (8080). We just need to **add** the authentication-related routes.
+This repo supports two frontend development modes:
+
+1. **BFF mode (real auth)**: Frontend (Vite) → **Gateway** → Backend
+2. **Mock API mode (fast UI work)**: Frontend (Vite) → **Prism** (OpenAPI mock)
+
+**Port reality check (Docker Compose)**
+
+- **Gateway (BFF)** is the main entrypoint: `${GW_PORT}:8080` → typically `http://localhost:8080`
+- **Backend** runs on container `8081` (not the browser entrypoint in BFF mode)
+- **Keycloak** is `${KC_PORT}:8080`
+
+**Important repo caveat:** the current frontend `dev:mock` script starts Prism on `:8080`, which conflicts with the Gateway default port (`:8080`). To make the workflow reliable, this Phase assumes Prism runs on a dedicated port (example `:4010`) when mocking.
+
+---
+
+### Step 5.1: Update Vite Proxy (Gateway + Prism compatible)
+
+**Why?**
+
+- In **BFF mode**, the browser must proxy `/api/**` and auth routes (`/login`, `/logout`, `/oauth2`, `/login-options`) to the Gateway.
+- In **Mock API mode**, `/api/**` can go to Prism, but Gateway-only endpoints are not part of the OpenAPI spec and therefore won’t exist in Prism.
 
 **Location:** `frontend/vite.config.ts`
 
-**Action:** Add the `/oauth2`, `/login`, `/logout`, and `/login-options` proxies to the existing configuration:
+**Action:** Extend the existing proxy setup instead of replacing it.
+
+Use these environment variables:
+
+- `VITE_PROXY_TARGET` → where `/api/*` goes (Gateway in BFF mode, Prism in mock mode)
+- `VITE_USE_PRISM=true|false` → keeps your existing Prism rewrite (`/api/*` → `/*`)
+- `VITE_GATEWAY_TARGET` → where Gateway-only auth routes go (typically the Gateway)
+
+**Proposed snippet (merge into current file):**
 
 ```typescript
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 
 export default defineConfig(({ mode }) => ({
-    plugins: [react()],
-    server: {
-        proxy:
-            mode === "development"
-                ? {
-                      // ✅ Existing: /api requests already go to Gateway (8080)
-                      "/api": {
-                          target: process.env.VITE_PROXY_TARGET || "http://localhost:8080",
-                          changeOrigin: true,
-                          // Remove Prism rewrite if present - Gateway handles routing
-                      },
-                      // 🆕 Add these Auth Routes:
-                      "/oauth2": {
-                          target: "http://localhost:8080",
-                          changeOrigin: true,
-                      },
-                      "/login": {
-                          target: "http://localhost:8080",
-                          changeOrigin: true,
-                      },
-                      "/logout": {
-                          target: "http://localhost:8080",
-                          changeOrigin: true,
-                      },
-                      "/login-options": {
-                          target: "http://localhost:8080",
-                          changeOrigin: true,
-                      },
-                  }
-                : undefined,
-    },
-    // ... rest of config
+  plugins: [react()],
+  server: {
+    proxy:
+      mode === "development"
+        ? {
+            "/api": {
+              target: process.env.VITE_PROXY_TARGET || "http://localhost:8080",
+              changeOrigin: true,
+              rewrite:
+                process.env.VITE_USE_PRISM === "true"
+                  ? (path) => path.replace(/^\/api/, "")
+                  : undefined,
+            },
+
+            // Gateway-only auth routes (only enable if a gateway target is provided)
+            ...(process.env.VITE_GATEWAY_TARGET
+              ? {
+                "/oauth2": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
+                "/login": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
+                "/logout": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
+                "/login-options": { target: process.env.VITE_GATEWAY_TARGET, changeOrigin: true },
+              }
+              : {}),
+          }
+        : undefined,
+  },
+}));
 ```
 
-#### ✅ Verification: Frontend Proxy
-1. **Start Gateway:** Ensure `gateway` service is running (`mvn spring-boot:run` in gateway folder).
-2. **Start Frontend:**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-3. **Check Proxy:**
-   - Open `http://localhost:5173/api/v1/greetings` in browser.
-   - **Expected:** Should return JSON list of greetings (proxied through Gateway).
-   - If you see `Login Options` JSON when hitting `/login-options`, proxy works.
+**Suggested defaults (Docker Compose local):**
 
-**What changed?**
-- **Before:** `/api` → `http://localhost:8080` (backend direct, or Prism mock)
-- **After:** `/api` → `http://localhost:8080` (Gateway) + OAuth2/login routes
-- **Removed:** Prism rewrite - you can still use Prism for API mocking, but auth flows need Gateway
+- BFF mode:
+  - `VITE_PROXY_TARGET=http://localhost:${GW_PORT:-8080}`
+  - `VITE_GATEWAY_TARGET=http://localhost:${GW_PORT:-8080}`
+- Mock API mode:
+  - `VITE_USE_PRISM=true`
+  - `VITE_PROXY_TARGET=http://localhost:4010`
+  - omit `VITE_GATEWAY_TARGET` (unless you also run the Gateway)
+
+#### ✅ Verification
+
+1. **BFF mode:** `http://localhost:5173/api/v1/greetings` returns JSON via Gateway, and `http://localhost:5173/login-options` returns JSON.
+2. **Mock API mode:** `http://localhost:5173/api/v1/greetings` returns Prism JSON. Auth UI can still show “logged in” via the mock-auth option (Step 5.11).
 
 ---
 
-### Step 5.2: Update API Config for Session Cookies
+### Step 5.2: Update API Client Config (Session Cookies + CSRF)
 
-**Why?** The hey-api client needs to send session cookies with every request for BFF authentication.
+**Why?** In the Gateway BFF pattern, the browser never holds access tokens. It uses **HttpOnly cookies** and calls APIs with `credentials: "include"`.
 
 **Location:** `frontend/src/api/config.ts`
 
-Update the configuration:
+**Repo-specific current state:** this file currently injects a demo Bearer token and configures the client on module load.
+
+**Action:** refactor to:
+
+1. remove the demo `Authorization: Bearer ...` interceptor
+2. enable `credentials: "include"`
+3. add CSRF header (`X-XSRF-TOKEN`) for non-GET requests when the cookie `XSRF-TOKEN` is present
+4. stop configuring the client on module load
+5. call configuration exactly once from `frontend/src/main.tsx`
+
+Conceptual target shape:
 
 ```typescript
-/**
- * API Configuration Module
- *
- * This module provides centralized configuration for all API clients.
- * It handles:
- * - Base path configuration (environment-aware)
- * - Authentication via session cookies (BFF pattern)
- * - CSRF token handling for state-changing requests
- */
-
 import { client } from "./generated/client.gen";
 
-/**
- * Get the API base path from environment variables.
- */
 export function getApiBasePath(): string {
-    const baseUrl = import.meta.env.VITE_API_URL ?? "";
-    return `${baseUrl}/api`;
+  const baseUrl = import.meta.env.VITE_API_URL ?? "";
+  return `${baseUrl}/api`;
 }
 
-export const API_BASE_PATH = "/api/v1";
-
-/**
- * Get CSRF token from cookie (set by Gateway).
- * Required for POST, PUT, PATCH, DELETE requests.
- */
 export function getCsrfToken(): string | null {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
-/**
- * Initialize the hey-api client with BFF authentication.
- *
- * Key changes from token-based auth:
- * - Uses credentials: 'include' for session cookies
- * - Adds CSRF token header for state-changing requests
- * - No more Bearer token in Authorization header
- */
-export function initializeApiClient(): void {
-    client.setConfig({
-        baseUrl: getApiBasePath(),
-        credentials: "include", // 👈 Send session cookies with every request
-    });
+export function configureApiClient(): void {
+  client.setConfig({
+    baseUrl: getApiBasePath(),
+    credentials: "include",
+  });
 
-    // Add CSRF token to state-changing requests
-    client.interceptors.request.use((request) => {
-        const method = request.method?.toUpperCase();
-        if (method && !["GET", "HEAD", "OPTIONS"].includes(method)) {
-            const csrfToken = getCsrfToken();
-            if (csrfToken) {
-                request.headers.set("X-XSRF-TOKEN", csrfToken);
-            }
-        }
-        return request;
-    });
+  client.interceptors.request.use((request) => {
+    const method = request.method?.toUpperCase();
+    if (method && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        request.headers.set("X-XSRF-TOKEN", csrfToken);
+      }
+    }
+    return request;
+  });
 
-    // Handle 401 responses (session expired)
-    client.interceptors.response.use((response) => {
-        if (response.status === 401) {
-            // Session expired - trigger re-authentication
-            // The AuthContext will handle redirecting to login
-            window.dispatchEvent(new CustomEvent("auth:session-expired"));
-        }
-        return response;
-    });
+  client.interceptors.response.use((response) => {
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent("auth:session-expired"));
+    }
+    return response;
+  });
 }
-
-// Re-export generated SDK functions
-export * from "./generated";
 ```
-
-**Key Changes from Original Token-Based Setup:**
-
-| Before (Token-based)          | After (BFF Session-based)  |
-| ----------------------------- | -------------------------- |
-| `Authorization: Bearer <jwt>` | `Cookie: SESSION=abc123`   |
-| Token in localStorage         | HttpOnly cookie (XSS-safe) |
-| Manual token refresh          | Gateway handles refresh    |
-| Demo token hardcoded          | No tokens in frontend code |
 
 ---
 
 ### Step 5.3: Create Auth Feature Module
 
-**Why?** Following your existing feature structure (`src/features/greetings/`), we create a dedicated auth module.
-
-**Location:** Create `frontend/src/features/auth/` folder structure:
+Create `frontend/src/features/auth/` following the `greetings` feature structure:
 
 ```
 frontend/src/features/auth/
-├── index.ts                    # Public exports
-├── types.ts                    # Auth types (LoginOption, etc.)
+├── index.ts
+├── types.ts
 ├── context/
-│   └── AuthContext.tsx         # React context provider
+│   └── AuthContext.tsx
 ├── hooks/
-│   ├── index.ts                # Hook exports
-│   ├── useAuth.ts              # Main auth hook
-│   ├── useUser.ts              # Current user hook
-│   └── useLoginOptions.ts      # Login providers hook
+│   ├── index.ts
+│   ├── useAuth.ts
+│   ├── useUser.ts
+│   └── useLoginOptions.ts
 └── components/
-    ├── index.ts                # Component exports
-    ├── LoginButton.tsx         # Login trigger
-    ├── LogoutButton.tsx        # Logout trigger
-    └── UserMenu.tsx            # User info dropdown
+  ├── index.ts
+  ├── LoginButton.tsx
+  ├── LogoutButton.tsx
+  └── UserMenu.tsx
 ```
 
 ---
 
-### Step 5.4: Create Auth Types
+### Step 5.4: Create Auth Types (keep `/login-options` manual)
 
 **Location:** `frontend/src/features/auth/types.ts`
 
 ```typescript
-/**
- * Auth types - manually defined for gateway-specific endpoints.
- * 
- * Note: UserInfoResponse is generated from OpenAPI spec.
- * LoginOption is gateway-only, so we define it manually.
- */
-
-// Re-export generated type from OpenAPI spec
 export type { UserInfoResponse } from "../../api/generated";
 
-/**
- * Login option from /login-options endpoint.
- * Manually typed (not in OpenAPI spec - gateway internal endpoint).
- */
+// Gateway-only endpoint contract (not in shared OpenAPI)
 export interface LoginOption {
-    label: string;
-    loginUri: string;
-}
-
-/**
- * Auth state for context.
- */
-export interface AuthState {
-    user: UserInfoResponse | null;
-    isLoading: boolean;
-    isAuthenticated: boolean;
+  label: string;
+  loginUri: string;
 }
 ```
+
+**Why not add `/login-options` to `api/specification/openapi.yaml`?**
+
+This repository uses that spec to generate **backend** interfaces too. Adding a Gateway-only endpoint would force the backend to implement it (wrong service). If you want API-first governance for Gateway endpoints, prefer a separate Gateway OpenAPI spec generated into the frontend only.
 
 ---
 
-### Step 5.5: Create Auth Hooks
+### Step 5.5: Hooks (`useLoginOptions`, `useUser`, `useAuth`)
 
-**Location:** `frontend/src/features/auth/hooks/useLoginOptions.ts`
+**`useLoginOptions`**
+
+- In `VITE_AUTH_MODE=mock`, return `[]` (or a placeholder) without calling the network.
+- In BFF mode, `fetch("/login-options", { credentials: "include" })` and parse as `LoginOption[]`.
+
+**`useUser`**
+
+- Use the generated OpenAPI function for `/v1/me`. In this repo’s spec it is `operationId: getCurrentUser`, so the generated function is expected to be `getCurrentUser()`.
+- Do **not** implement `exp` refresh scheduling: `UserInfoResponse` does not include it, and in BFF the session is opaque.
+- In `VITE_AUTH_MODE=mock`, return a stable fake user:
 
 ```typescript
-import { useState, useEffect } from "react";
-import type { LoginOption } from "../types";
-
-/**
- * Hook to fetch available login options from Gateway.
- * 
- * Note: This endpoint is gateway-specific, not generated from OpenAPI.
- */
-export function useLoginOptions() {
-    const [loginOptions, setLoginOptions] = useState<LoginOption[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    useEffect(() => {
-        async function fetchLoginOptions() {
-            try {
-                const response = await fetch("/login-options", {
-                    credentials: "include",
-                });
-                if (!response.ok) {
-                    throw new Error("Failed to fetch login options");
-                }
-                const data = await response.json();
-                setLoginOptions(data);
-            } catch (err) {
-                setError(err instanceof Error ? err : new Error("Unknown error"));
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchLoginOptions();
-    }, []);
-
-    return { loginOptions, isLoading, error };
+{
+  id: "00000000-0000-0000-0000-000000000000",
+  username: "mock-user",
+  email: "mock-user@example.com",
+  roles: ["USER"],
 }
 ```
 
-**Location:** `frontend/src/features/auth/hooks/useUser.ts`
+**`useAuth`**
 
-```typescript
-import { useState, useEffect, useCallback } from "react";
-import { getMe } from "../../../api/generated";  // Generated from OpenAPI
-import type { UserInfoResponse } from "../types";
-
-/**
- * Hook to fetch and manage current user info.
- * 
- * Uses the generated API client from OpenAPI spec.
- */
-export function useUser() {
-    const [user, setUser] = useState<UserInfoResponse | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    const fetchUser = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const { data, error: apiError } = await getMe();
-            if (apiError) {
-                // Not authenticated or session expired
-                setUser(null);
-            } else {
-                setUser(data ?? null);
-                
-                // Schedule token refresh at 80% of lifetime
-                if (data?.exp) {
-                    scheduleRefresh(data.exp);
-                }
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err : new Error("Unknown error"));
-            setUser(null);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    // Refresh timer reference
-    const [refreshTimer, setRefreshTimer] = useState<NodeJS.Timeout | null>(null);
-
-    const scheduleRefresh = useCallback((exp: number) => {
-        // Clear existing timer
-        if (refreshTimer) {
-            clearTimeout(refreshTimer);
-        }
-
-        const now = Date.now() / 1000;
-        const expiresIn = exp - now;
-        
-        if (expiresIn <= 0) {
-            console.warn("Token already expired");
-            return;
-        }
-
-        // Refresh at 80% of lifetime
-        const refreshIn = expiresIn * 0.8 * 1000;
-        
-        if (refreshIn > 2000) {
-            console.log(`Scheduling user refresh in ${Math.round(refreshIn / 1000)}s`);
-            const timer = setTimeout(() => {
-                fetchUser();
-            }, refreshIn);
-            setRefreshTimer(timer);
-        }
-    }, [refreshTimer, fetchUser]);
-
-    // Fetch on mount
-    useEffect(() => {
-        fetchUser();
-        return () => {
-            if (refreshTimer) {
-                clearTimeout(refreshTimer);
-            }
-        };
-    }, []);
-
-    // Listen for session expiry events
-    useEffect(() => {
-        const handleSessionExpired = () => {
-            setUser(null);
-        };
-        window.addEventListener("auth:session-expired", handleSessionExpired);
-        return () => {
-            window.removeEventListener("auth:session-expired", handleSessionExpired);
-        };
-    }, []);
-
-    return {
-        user,
-        isLoading,
-        error,
-        isAuthenticated: !!user?.username,
-        refetch: fetchUser,
-    };
-}
-```
-
-**Location:** `frontend/src/features/auth/hooks/useAuth.ts`
-
-```typescript
-import { useCallback } from "react";
-import { useUser } from "./useUser";
-import { useLoginOptions } from "./useLoginOptions";
-
-/**
- * Main authentication hook combining user state and auth actions.
- */
-export function useAuth() {
-    const { user, isLoading: userLoading, isAuthenticated, refetch } = useUser();
-    const { loginOptions, isLoading: optionsLoading } = useLoginOptions();
-
-    /**
-     * Redirect to OAuth2 login.
-     */
-    const login = useCallback((returnUrl?: string) => {
-        if (loginOptions.length === 0) {
-            console.error("No login options available");
-            return;
-        }
-
-        const loginUrl = new URL(loginOptions[0].loginUri);
-        
-        // Add return URL as query param if provided
-        if (returnUrl) {
-            loginUrl.searchParams.append("post_login_success_uri", returnUrl);
-        }
-
-        window.location.href = loginUrl.toString();
-    }, [loginOptions]);
-
-    /**
-     * Logout and redirect to home.
-     */
-    const logout = useCallback(async () => {
-        try {
-            // POST to /logout triggers RP-initiated logout
-            await fetch("/logout", {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "X-XSRF-TOKEN": getCsrfTokenFromCookie() ?? "",
-                },
-            });
-        } catch (error) {
-            console.error("Logout failed:", error);
-        }
-        // Redirect to home (will trigger Keycloak logout flow)
-        window.location.href = "/";
-    }, []);
-
-    return {
-        user,
-        isLoading: userLoading || optionsLoading,
-        isAuthenticated,
-        login,
-        logout,
-        refetch,
-    };
-}
-
-// Helper to get CSRF token
-function getCsrfTokenFromCookie(): string | null {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
-}
-```
-
-**Location:** `frontend/src/features/auth/hooks/index.ts`
-
-```typescript
-export { useAuth } from "./useAuth";
-export { useUser } from "./useUser";
-export { useLoginOptions } from "./useLoginOptions";
-```
+- `login()` in BFF mode: redirect to `loginOptions[0].loginUri`.
+- `logout()` in BFF mode: `POST /logout` with `credentials: "include"` and `X-XSRF-TOKEN` header if available.
+- In mock mode: make `login()`/`logout()` no-ops (the provider controls the fake user).
 
 ---
 
-### Step 5.6: Create Auth Context (Optional)
+### Step 5.6: Auth Context (recommended)
 
-**Why?** If you need to share auth state across many components without prop drilling.
+Use `AuthProvider` as the single place where:
 
-**Location:** `frontend/src/features/auth/context/AuthContext.tsx`
+- user state is fetched once (and exposed to components)
+- the `auth:session-expired` event clears state
 
-```typescript
-import React, { createContext, useContext, type ReactNode } from "react";
-import { useAuth } from "../hooks";
-import type { UserInfoResponse } from "../types";
-
-interface AuthContextType {
-    user: UserInfoResponse | null;
-    isLoading: boolean;
-    isAuthenticated: boolean;
-    login: (returnUrl?: string) => void;
-    logout: () => Promise<void>;
-    refetch: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-    const auth = useAuth();
-
-    return (
-        <AuthContext.Provider value={auth}>
-            {children}
-        </AuthContext.Provider>
-    );
-}
-
-/**
- * Hook to access auth context.
- * Throws if used outside AuthProvider.
- */
-export function useAuthContext() {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error("useAuthContext must be used within an AuthProvider");
-    }
-    return context;
-}
-```
+This avoids duplicate `/v1/me` calls if multiple components mount auth hooks.
 
 ---
 
-### Step 5.7: Create Auth Components
+### Step 5.7: Auth Components
 
-**Location:** `frontend/src/features/auth/components/LoginButton.tsx`
-
-```typescript
-import { useAuth } from "../hooks";
-
-interface LoginButtonProps {
-    returnUrl?: string;
-    className?: string;
-    children?: React.ReactNode;
-}
-
-export function LoginButton({ returnUrl, className, children }: LoginButtonProps) {
-    const { login, isLoading } = useAuth();
-
-    return (
-        <button
-            onClick={() => login(returnUrl ?? window.location.href)}
-            disabled={isLoading}
-            className={className}
-        >
-            {children ?? "Login"}
-        </button>
-    );
-}
-```
-
-**Location:** `frontend/src/features/auth/components/LogoutButton.tsx`
-
-```typescript
-import { useAuth } from "../hooks";
-
-interface LogoutButtonProps {
-    className?: string;
-    children?: React.ReactNode;
-}
-
-export function LogoutButton({ className, children }: LogoutButtonProps) {
-    const { logout, isLoading } = useAuth();
-
-    return (
-        <button
-            onClick={logout}
-            disabled={isLoading}
-            className={className}
-        >
-            {children ?? "Logout"}
-        </button>
-    );
-}
-```
-
-**Location:** `frontend/src/features/auth/components/UserMenu.tsx`
-
-```typescript
-import { useAuth } from "../hooks";
-import { LoginButton } from "./LoginButton";
-import { LogoutButton } from "./LogoutButton";
-
-export function UserMenu() {
-    const { user, isLoading, isAuthenticated } = useAuth();
-
-    if (isLoading) {
-        return <div className="user-menu loading">Loading...</div>;
-    }
-
-    if (!isAuthenticated) {
-        return <LoginButton />;
-    }
-
-    return (
-        <div className="user-menu">
-            <span className="user-info">
-                {user?.username}
-                {user?.roles && user.roles.length > 0 && (
-                    <span className="user-roles">
-                        ({user.roles.join(", ")})
-                    </span>
-                )}
-            </span>
-            <LogoutButton />
-        </div>
-    );
-}
-```
-
-**Location:** `frontend/src/features/auth/components/index.ts`
-
-```typescript
-export { LoginButton } from "./LoginButton";
-export { LogoutButton } from "./LogoutButton";
-export { UserMenu } from "./UserMenu";
-```
+Create `LoginButton`, `LogoutButton`, `UserMenu` as simple UI wrappers over the hook/context.
 
 ---
 
-### Step 5.8: Create Feature Index
+### Step 5.8: Feature Index
 
-**Location:** `frontend/src/features/auth/index.ts`
-
-```typescript
-// Types
-export type { LoginOption, UserInfoResponse, AuthState } from "./types";
-
-// Hooks
-export { useAuth, useUser, useLoginOptions } from "./hooks";
-
-// Context
-export { AuthProvider, useAuthContext } from "./context/AuthContext";
-
-// Components
-export { LoginButton, LogoutButton, UserMenu } from "./components";
-```
+Export types/hooks/components from `frontend/src/features/auth/index.ts`.
 
 ---
 
-### Step 5.9: Update App.tsx
+### Step 5.9: Update `App.tsx`
 
-**Location:** `frontend/src/App.tsx`
-
-Add the AuthProvider wrapper:
-
-```typescript
-import { AuthProvider, UserMenu } from "./features/auth";
-import { initializeApiClient } from "./api/config";
-// ... your existing imports
-
-// Initialize API client on app load
-initializeApiClient();
-
-function App() {
-    return (
-        <AuthProvider>
-            <div className="App">
-                <header>
-                    <UserMenu />
-                </header>
-                {/* Your existing app content */}
-            </div>
-        </AuthProvider>
-    );
-}
-
-export default App;
-```
+Wrap the application with `AuthProvider` and render `UserMenu` (do not initialize API client here).
 
 ---
 
-### Step 5.10: Initialize API Client in main.tsx
+### Step 5.10: Initialize API client in `main.tsx` (exactly once)
 
-**Location:** `frontend/src/main.tsx`
+Call `configureApiClient()` one time at startup.
 
 ```typescript
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { initializeApiClient } from "./api/config";
+import { configureApiClient } from "./api/config";
 import App from "./App";
 import "./index.css";
 
-// Initialize API client with session cookie support
-initializeApiClient();
+configureApiClient();
 
 createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-        <App />
-    </StrictMode>
+  <StrictMode>
+    <App />
+  </StrictMode>
 );
 ```
 
 ---
 
-## Phase 6: API-First - OpenAPI Spec Updates
+### Step 5.11: Mock-auth (fake logged-in user) for `dev:mock`
 
-> **Important:** This section adds the `/api/v1/me` endpoint to your OpenAPI spec, maintaining your API-first approach where the spec is the source of truth.
+**Goal:** Support a fake authenticated UI state without Gateway/Keycloak.
 
-### Step 6.1: Add User Tag to OpenAPI Spec
+**Mechanism:** an env flag read by the auth provider/hooks:
+
+- `VITE_AUTH_MODE=mock` → provide a fake `UserInfoResponse`, no redirects
+- `VITE_AUTH_MODE=bff` (default) → use Gateway cookies + `/v1/me`
+
+**Recommended repo adaptation:** update the `dev:mock` script to set `VITE_AUTH_MODE=mock`, and move Prism off `:8080` (example `:4010`) so you can also run the real Gateway locally when needed.
+
+---
+
+## Phase 6: API-First - Contract Alignment (Backend)
+
+> **Important:** The shared OpenAPI contract (`api/specification/openapi.yaml`) is the **backend resource-server API contract**. It must not absorb Gateway-only endpoints like `/login-options`.
+
+**Repo note (current state):** In this repository, `/v1/me` and the `User` tag already exist in `api/specification/openapi.yaml` and the operation is named `getCurrentUser`. Treat this phase as **verify & align**.
+
+### Step 6.1: Verify `User` Tag
+
 **Location:** `api/specification/openapi.yaml`
 
-Add a new `User` tag alongside the existing `Greetings` tag:
+- Confirm the `User` tag exists.
+- If it is missing, add it alongside `Greetings`.
 
-```yaml
-tags:
-  - name: Greetings
-    description: Operations for managing greeting resources
-  - name: User
-    description: Operations for current user information and authentication status
-```
+### Step 6.2: Verify `/v1/me` Endpoint (no token internals)
 
-### Step 6.2: Add /api/v1/me Endpoint
+**Location:** `api/specification/openapi.yaml`
 
-**Location:** `api/specification/openapi.yaml` - Add to `paths:` section:
+Verify these repo-aligned properties:
 
-```yaml
-paths:
-  # ... existing /v1/greetings paths ...
+- `operationId: getCurrentUser`
+- `security: [BearerAuth]` (the Gateway relays the JWT to the backend)
+- response type is `UserInfoResponse`
+- **no** `exp` field and **no** “token refresh scheduling” guidance (BFF keeps tokens away from the browser)
 
-  /v1/me:
-    get:
-      tags:
-        - User
-      summary: Get current user info
-      description: |
-        Returns information about the currently authenticated user.
-        This endpoint requires authentication - the Gateway adds the JWT 
-        from the session cookie to the Authorization header.
-        
-        Use this endpoint to:
-        - Display user info in the UI
-        - Check authentication status
-        - Get token expiration for refresh scheduling
-      operationId: getMe
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Current user information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserInfoResponse'
-              examples:
-                authenticated:
-                  summary: Authenticated user
-                  value:
-                    username: "user"
-                    email: "user@example.com"
-                    roles: ["USER"]
-                    exp: 1735689600
-                admin:
-                  summary: Admin user with multiple roles
-                  value:
-                    username: "admin"
-                    email: "admin@example.com"
-                    roles: ["USER", "ADMIN"]
-                    exp: 1735689600
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-```
+### Step 6.3: Verify `UserInfoResponse` Schema
 
-### Step 6.3: Add UserInfoResponse Schema
+**Location:** `api/specification/openapi.yaml`
 
-**Location:** `api/specification/openapi.yaml` - Add to `components.schemas:` section:
+Verify the schema reflects stable identity information only (example fields already exist in this repo):
 
-```yaml
-components:
-  schemas:
-    # ... existing schemas ...
-
-    UserInfoResponse:
-      type: object
-      description: Current authenticated user information extracted from JWT
-      additionalProperties: false
-      properties:
-        username:
-          type: string
-          description: Username from JWT preferred_username claim
-          example: "john.doe"
-        email:
-          type: string
-          format: email
-          description: User's email address from JWT email claim
-          example: "john.doe@example.com"
-        roles:
-          type: array
-          description: User's roles extracted from JWT realm_access.roles claim
-          items:
-            type: string
-          example: ["USER", "ADMIN"]
-        exp:
-          type: integer
-          format: int64
-          description: |
-            Token expiration timestamp (Unix epoch seconds).
-            Frontend can use this to schedule token refresh at ~80% of lifetime.
-          example: 1735689600
-      required:
-        - username
-        - roles
-```
+- `id` (from `sub` claim)
+- `username`
+- optional `email`
+- `roles`
 
 ### Step 6.4: Regenerate Frontend API Client
 
-**Action:** Run the API client generation:
+**Action:**
 
 ```bash
 cd frontend
 npm run api:generate
 ```
 
-This will:
-1. Read the updated `openapi.yaml`
-2. Generate `UserInfoResponse` type in `src/api/generated/types.gen.ts`
-3. Generate `getMe()` function in `src/api/generated/sdk.gen.ts`
-
-**Verify generated code:**
-
-```typescript
-// In src/api/generated/types.gen.ts
-export type UserInfoResponse = {
-    username: string;
-    email?: string;
-    roles: string[];
-    exp?: number;
-};
-
-// In src/api/generated/sdk.gen.ts
-export const getMe = (options?: Options) => {
-    return (options?.client ?? client).get<GetMeResponse>({
-        url: '/v1/me',
-    });
-};
-```
-
-#### ✅ Verification: API Generation
-1. **Run Generation:**
-   ```bash
-   cd frontend
-   npm run api:generate
-   ```
-2. **Check File:**
-   - Verify `frontend/src/api/generated/sdk.gen.ts` contains `getMe`.
+**Verify generated code:** ensure the generated SDK contains `getCurrentUser()` for `/v1/me` and the `UserInfoResponse` type.
 
 ### Step 6.5: Update MSW Mock Handlers (Optional)
 
+**Why this needs updating:** In BFF mode, the browser does not send `Authorization: Bearer ...` to the API; it sends cookies. So frontend MSW mocks should not require an Authorization header.
+
 **Location:** `frontend/src/test/mocks/handlers.ts`
 
-Add mock handler for testing:
+Recommended approach:
+
+- Default to returning a mock user for `/api/v1/me` (keeps most UI tests simple).
+- For explicit “logged out” tests, gate on a test-only header such as `X-Test-Auth: none`.
+
+Example:
 
 ```typescript
 import { http, HttpResponse } from "msw";
 
 export const authHandlers = [
-    // Mock /api/v1/me endpoint
-    http.get("/api/v1/me", ({ request }) => {
-        const authHeader = request.headers.get("Authorization");
-        
-        if (!authHeader?.startsWith("Bearer ")) {
-            return HttpResponse.json(
-                {
-                    type: "about:blank",
-                    title: "Unauthorized",
-                    status: 401,
-                    detail: "Missing or invalid authentication token",
-                    timestamp: new Date().toISOString(),
-                    traceId: "mock-trace-id",
-                },
-                { status: 401 }
-            );
-        }
+  http.get("/api/v1/me", ({ request }) => {
+    const testAuth = request.headers.get("X-Test-Auth");
+    if (testAuth === "none") {
+      return HttpResponse.json(
+        {
+          type: "about:blank",
+          title: "Unauthorized",
+          status: 401,
+          detail: "Not authenticated",
+          timestamp: new Date().toISOString(),
+          traceId: "mock-trace-id",
+        },
+        { status: 401 }
+      );
+    }
 
-        // Return mock authenticated user
-        return HttpResponse.json({
-            username: "test-user",
-            email: "test@example.com",
-            roles: ["USER"],
-            exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-        });
-    }),
+    return HttpResponse.json({
+      id: "00000000-0000-0000-0000-000000000000",
+      username: "test-user",
+      email: "test@example.com",
+      roles: ["USER"],
+    });
+  }),
 ];
 ```
 
-#### ✅ Verification: Mock Tests
-1. **Run Tests:**
-   ```bash
-   cd frontend
-   npm test
-   ```
-2. **Expected:** Tests using `getMe` (if any) should pass with mock data.
+### API-First Summary (Aligned)
 
-### API-First Summary
-
-| Component          | File                             | What's Added                                  |
-| ------------------ | -------------------------------- | --------------------------------------------- |
-| **OpenAPI Spec**   | `api/specification/openapi.yaml` | `/v1/me` endpoint + `UserInfoResponse` schema |
-| **Backend**        | `UserController.java`            | Implements the spec                           |
-| **Frontend Types** | Generated from spec              | `UserInfoResponse` type                       |
-| **Frontend SDK**   | Generated from spec              | `getMe()` function                            |
-| **MSW Mocks**      | `handlers.ts`                    | Mock for testing                              |
+| Component          | File                             | What to do                                  |
+| ------------------ | -------------------------------- | ------------------------------------------- |
+| **OpenAPI Spec**   | `api/specification/openapi.yaml` | Verify `/v1/me` + `UserInfoResponse`        |
+| **Backend**        | Backend controller/service       | Implement/keep `/v1/me` behavior            |
+| **Frontend Types** | Generated from spec              | Use `UserInfoResponse` (no `exp`)           |
+| **Frontend SDK**   | Generated from spec              | Use `getCurrentUser()` (not `getMe()`)      |
+| **MSW Mocks**      | `handlers.ts`                    | Mock cookie-based BFF behavior for UI/tests |
 
 ---
 
