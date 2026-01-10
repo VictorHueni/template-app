@@ -60,6 +60,29 @@ const emptyGreetingPage = {
     },
 };
 
+// ============================================================
+// Global Auth Mock
+// ============================================================
+
+test.beforeEach(async ({ page }) => {
+    // By default, treat the user as not authenticated.
+    // The frontend uses cookie-based auth via the Gateway BFF; in E2E we keep it deterministic.
+    await page.route("**/api/v1/me", (route) => {
+        route.fulfill({
+            status: 401,
+            contentType: "application/problem+json",
+            body: JSON.stringify({
+                type: "https://api.example.com/problems/unauthorized",
+                title: "Unauthorized",
+                status: 401,
+                detail: "Authentication is required",
+                timestamp: "2025-01-15T10:30:00Z",
+                traceId: "550e8400-e29b-41d4-a716-446655440000",
+            }),
+        });
+    });
+});
+
 /**
  * Helper to set up API mocking for the greetings list
  */
