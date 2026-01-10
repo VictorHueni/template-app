@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
+import { AuthProvider } from "./features/auth";
 import {
     createMockGreetingPage,
     mockGreetings,
@@ -55,7 +56,11 @@ describe("App", () => {
                 () => new Promise(() => {}) as Promise<Awaited<ReturnType<typeof listGreetings>>>,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
 
             expect(screen.getByRole("status", { name: /loading/i })).toBeInTheDocument();
         });
@@ -67,7 +72,11 @@ describe("App", () => {
                 >,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
 
             await waitFor(() => {
                 expect(screen.queryByRole("status", { name: /loading/i })).not.toBeInTheDocument();
@@ -83,7 +92,11 @@ describe("App", () => {
                 >,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
 
             await waitFor(() => {
                 expect(screen.getByText("Hello, World!")).toBeInTheDocument();
@@ -98,7 +111,11 @@ describe("App", () => {
                 >,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
 
             await waitFor(() => {
                 expect(screen.getByText(/no greetings found/i)).toBeInTheDocument();
@@ -110,7 +127,11 @@ describe("App", () => {
                 mockApiError(mockErrors.serverError) as Awaited<ReturnType<typeof listGreetings>>,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
 
             await waitFor(() => {
                 expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -125,7 +146,11 @@ describe("App", () => {
                     ReturnType<typeof listGreetings>
                 >,
             );
-            const { container } = render(<App />);
+            const { container } = render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
 
             const main = container.querySelector("main");
             expect(main).toHaveAttribute("data-theme", "light");
@@ -151,7 +176,11 @@ describe("App", () => {
                 >,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
             const user = userEvent.setup();
 
             await waitFor(() => {
@@ -182,7 +211,11 @@ describe("App", () => {
                 mockApiSuccess(newGreeting) as Awaited<ReturnType<typeof createGreeting>>,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
             const user = userEvent.setup();
 
             // Wait for initial load
@@ -232,7 +265,11 @@ describe("App", () => {
                 >,
             );
 
-            render(<App />);
+            render(
+                <AuthProvider mode="mock">
+                    <App />
+                </AuthProvider>,
+            );
             const user = userEvent.setup();
 
             // Wait for initial load
