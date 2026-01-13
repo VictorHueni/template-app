@@ -260,19 +260,20 @@ If Flyway-per-test becomes a bottleneck, keep Option 1 but introduce a faster mi
    *   Return a proxied `Connection` that runs `RESET search_path` on `close()` before returning to the pool.
    *   Quote (or strictly validate) schema identifiers to avoid SQL injection / invalid identifiers.
 *   Example (simplified):
+
     ```java
     Connection conn = super.getConnection();
     String schema = SchemaContext.getSchema();
-   if (schema == null) {
-      try (Statement stmt = conn.createStatement()) {
-         stmt.execute("RESET search_path");
-      }
-      return conn;
-   }
-   try (Statement stmt = conn.createStatement()) {
-      stmt.execute("SET search_path TO \"" + schema + "\", public");
-   }
-   return proxiedConnThatResetsOnClose(conn);
+    if (schema == null) {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("RESET search_path");
+        }
+        return conn;
+    }
+    try (Statement stmt = conn.createStatement()) {
+        stmt.execute("SET search_path TO \"" + schema + "\", public");
+    }
+    return proxiedConnThatResetsOnClose(conn);
     ```
 
 **Test:**
