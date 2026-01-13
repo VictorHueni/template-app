@@ -6,7 +6,13 @@
  */
 
 import { setupServer } from "msw/node";
-import { handlers, resetGreetingsStore } from "./handlers";
+import {
+    handlers,
+    resetGreetingsStore,
+    resetMockAuth,
+    setMockAuthenticatedUser,
+    getMockAuthenticatedUser,
+} from "./handlers";
 
 /**
  * Create the MSW server with default handlers.
@@ -15,14 +21,21 @@ import { handlers, resetGreetingsStore } from "./handlers";
 export const server = setupServer(...handlers);
 
 /**
- * Reset all handlers and data store.
+ * Reset all handlers, data store, and authentication state.
  * Call this in beforeEach() to ensure test isolation.
  */
 export function resetServer(): void {
     server.resetHandlers();
     resetGreetingsStore();
+    resetMockAuth();
 }
 
 // Re-export utilities for convenience
-export { resetGreetingsStore, getGreetingsStore } from "./handlers";
+export {
+    resetGreetingsStore,
+    getGreetingsStore,
+    setMockAuthenticatedUser,
+    getMockAuthenticatedUser,
+    resetMockAuth,
+} from "./handlers";
 export * from "./data";
