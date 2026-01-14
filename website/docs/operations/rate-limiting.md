@@ -156,4 +156,4 @@ Content-Type: application/json
 ## Related Documentation
 
 - [ADR-003: Authentication and Identity](../architecture/09-architecture-decisions/ADR-003-authentication-and-identity.md)
-- [Security Overview](../architecture/04-security.md)
+

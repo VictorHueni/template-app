@@ -200,7 +200,8 @@ BCK_MGMT_PORT=8082
 
 ---
 
-## 4. Phase 1: Keycloak Setup (✅ Completed)
+## 4. Phase 1: Keycloak Setup
+**(✅ Completed)**
 
 This phase focuses solely on setting up Keycloak as the Identity Provider. The Gateway (BFF) will be added in Phase 2.
 
@@ -496,7 +497,8 @@ keycloak:
 
 ---
 
-## 5. Phase 2: Gateway (BFF) Implementation (✅ Completed)
+## 5. Phase 2: Gateway (BFF) Implementation
+**(✅ Completed)**
 
 ### Step 2.0: Update `.env` for Gateway and Backend Ports
 
@@ -1382,7 +1384,8 @@ spring:
 
 ---
 
-## 6. Phase 3: Backend (Resource Server) (✅ Completed)
+## 6. Phase 3: Backend (Resource Server)
+**(✅ Completed)**
 
 The backend validates JWTs sent by the Gateway and serves protected resources.
 
@@ -1957,7 +1960,8 @@ services:
 
 ---
 
-## 7. Phase 4: Backend Testing (✅ Completed)
+## 7. Phase 4: Backend Testing
+**(✅ Completed)**
 
 This phase implements comprehensive **integration tests** for the backend authentication components **without Keycloak**. Instead, tests run against the real Spring Security Resource Server configuration, using locally minted HS256 JWTs under the `integration` profile.
 
