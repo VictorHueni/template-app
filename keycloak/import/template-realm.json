@@ -16,8 +16,11 @@
             "clientAuthenticatorType": "client-secret",
             "secret": "CHANGE_ME_GENERATE_IN_KEYCLOAK_UI",
             "redirectUris": [
+                "http://localhost/*",
+                "http://localhost:80/*",
                 "http://localhost:8080/*",
-                "http://localhost:8080/login/oauth2/code/keycloak"
+                "http://host.docker.internal/*",
+                "https://*.jcloud.ik-server.com/*"
             ],
             "webOrigins": [
                 "+"
@@ -29,7 +32,7 @@
             "publicClient": false,
             "protocol": "openid-connect",
             "attributes": {
-                "post.logout.redirect.uris": "http://localhost:8080/*",
+                "post.logout.redirect.uris": "http://localhost/*##http://localhost:80/*##http://localhost:8080/*##http://host.docker.internal/*##https://*.jcloud.ik-server.com/*",
                 "backchannel.logout.session.required": "true",
                 "backchannel.logout.revoke.offline.tokens": "false"
             },
