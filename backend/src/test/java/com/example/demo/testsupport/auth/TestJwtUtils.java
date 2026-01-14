@@ -58,15 +58,42 @@ public final class TestJwtUtils {
     }
 
     /**
-     * Creates a signed JWT token.
+     * Default audience matching the production Spring Addons configuration.
+     */
+    public static final String DEFAULT_AUDIENCE = "template-gateway";
+
+    /**
+     * Creates a signed JWT token with the default audience.
      *
      * @param username the preferred username
      * @param roles    the realm roles (e.g. USER, ADMIN)
      * @return signed JWT as compact string
      */
     public static String createToken(String username, List<String> roles) {
+        return createTokenWithAudience(username, roles, List.of(DEFAULT_AUDIENCE));
+    }
+
+    public static String getUserToken() {
+        return createToken(TEST_USER_USERNAME, List.of("USER"));
+    }
+
+    public static String getAdminToken() {
+        return createToken(TEST_ADMIN_USERNAME, List.of("USER", "ADMIN"));
+    }
+
+    /**
+     * Creates a signed JWT token with a specific audience claim.
+     * Used for testing audience validation.
+     *
+     * @param username  the preferred username
+     * @param roles     the realm roles (e.g. USER, ADMIN)
+     * @param audiences list of audience values for aud claim
+     * @return signed JWT as compact string
+     */
+    public static String createTokenWithAudience(String username, List<String> roles, List<String> audiences) {
         Objects.requireNonNull(username, "username");
         Objects.requireNonNull(roles, "roles");
+        Objects.requireNonNull(audiences, "audiences");
 
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(DEFAULT_TTL);
@@ -86,8 +113,55 @@ public final class TestJwtUtils {
                 .claim("preferred_username", username)
                 .claim("email", email)
                 .claim("realm_access", realmAccess)
+                .audience(audiences)
                 .build();
 
+        return signClaims(claims);
+    }
+
+    /**
+     * Creates a signed JWT token without any audience claim.
+     * Used for testing rejection of tokens missing audience.
+     *
+     * @param username the preferred username
+     * @param roles    the realm roles (e.g. USER, ADMIN)
+     * @return signed JWT as compact string without aud claim
+     */
+    public static String createTokenWithoutAudience(String username, List<String> roles) {
+        Objects.requireNonNull(username, "username");
+        Objects.requireNonNull(roles, "roles");
+
+        Instant issuedAt = Instant.now();
+        Instant expiresAt = issuedAt.plus(DEFAULT_TTL);
+
+        String email = defaultEmailFor(username);
+        String subject = UUID.nameUUIDFromBytes(username.getBytes(StandardCharsets.UTF_8)).toString();
+
+        Map<String, Object> realmAccess = new HashMap<>();
+        realmAccess.put("roles", List.copyOf(roles));
+
+        // Note: No .audience() call - intentionally omitted
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(TEST_ISSUER)
+                .subject(subject)
+                .issueTime(java.util.Date.from(issuedAt))
+                .expirationTime(java.util.Date.from(expiresAt))
+                .jwtID(UUID.randomUUID().toString())
+                .claim("preferred_username", username)
+                .claim("email", email)
+                .claim("realm_access", realmAccess)
+                .build();
+
+        return signClaims(claims);
+    }
+
+    /**
+     * Signs JWT claims with the test HS256 secret.
+     *
+     * @param claims the JWT claims to sign
+     * @return signed JWT as compact string
+     */
+    private static String signClaims(JWTClaimsSet claims) {
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.HS256)
                 .type(JOSEObjectType.JWT)
                 .build();
@@ -100,14 +174,6 @@ public final class TestJwtUtils {
         }
 
         return signedJwt.serialize();
-    }
-
-    public static String getUserToken() {
-        return createToken(TEST_USER_USERNAME, List.of("USER"));
-    }
-
-    public static String getAdminToken() {
-        return createToken(TEST_ADMIN_USERNAME, List.of("USER", "ADMIN"));
     }
 
     private static String defaultEmailFor(String username) {

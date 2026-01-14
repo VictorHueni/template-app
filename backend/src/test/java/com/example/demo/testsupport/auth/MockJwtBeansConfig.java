@@ -25,6 +25,12 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 @Profile("integration")
 public class MockJwtBeansConfig {
 
+    /**
+     * Expected audience for JWT tokens.
+     * Matches the Spring Addons configuration in application-*.properties.
+     */
+    public static final String EXPECTED_AUDIENCE = "template-gateway";
+
     @Bean
     public JwtDecoder jwtDecoder() {
         SecretKeySpec key = new SecretKeySpec(TestJwtUtils.TEST_HS256_SECRET, "HmacSHA256");
@@ -36,7 +42,26 @@ public class MockJwtBeansConfig {
                 value -> value instanceof String && !((String) value).isBlank()
         );
 
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, requiredClaimShape));
+        // Audience validation - prevents cross-client token reuse attacks
+        // JWT must contain our expected audience in its aud claim
+        OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<>(
+                "aud",
+                aud -> {
+                    if (aud instanceof List<?> audiences) {
+                        return audiences.contains(EXPECTED_AUDIENCE);
+                    }
+                    if (aud instanceof String audience) {
+                        return EXPECTED_AUDIENCE.equals(audience);
+                    }
+                    return false;
+                }
+        );
+
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                withIssuer,
+                requiredClaimShape,
+                audienceValidator
+        ));
         return decoder;
     }
 

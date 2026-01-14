@@ -1,0 +1,59 @@
+# ========================================
+# PRODUCTION PROFILE
+# ========================================
+# Production environments - ALL sensitive values via environment variables
+# Usage: java -jar app.jar --spring.profiles.active=prod
+
+# ========================================
+# 1. SCHEME & HOSTS (REQUIRED from environment)
+# ========================================
+scheme: https                                        # Force HTTPS in production
+keycloak-host: ${KEYCLOAK_HOST}
+backend-host: ${BACKEND_HOST}
+gateway-host: ${GATEWAY_HOST}
+gateway-port: ${GATEWAY_PORT:8080}
+backend-port: ${BACKEND_PORT:8081}
+keycloak-port: ${KEYCLOAK_PORT:443}
+
+# ========================================
+# 2. SESSION COOKIE SECURITY
+# ========================================
+server:
+  servlet:
+    session:
+      cookie:
+        http-only: true                              # Prevent XSS token theft
+        secure: true                                 # HTTPS only in production
+        same-site: lax                               # CSRF mitigation
+
+# ========================================
+# 3. OAUTH2 CLIENT SECRET (REQUIRED)
+# ========================================
+client-secret: ${KC_CLIENT_SECRET}
+
+# ========================================
+# 4. LOGGING (Minimal for production)
+# ========================================
+logging:
+  level:
+    root: WARN
+    org.springframework.security: WARN               # No DEBUG in production (prevents token leakage)
+    org.springframework.web: WARN
+    com.c4_soft.springaddons: WARN
+    com.example.gateway: INFO                        # Application logs at INFO
+
+  # JSON logging pattern for centralized logging (ELK, CloudWatch, etc.)
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","logger":"%logger{36}","message":"%msg"}%n'
+
+# ========================================
+# 5. ACTUATOR (Restricted in production)
+# ========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health                              # Only health endpoint exposed
+  endpoint:
+    health:
+      show-details: when-authorized                  # Require auth to see details

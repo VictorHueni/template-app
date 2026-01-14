@@ -1,5 +1,5 @@
 # Custom properties for easy configuration
-scheme: http
+scheme: ${SCHEME:http}
 keycloak-host: localhost
 backend-host: localhost
 gateway-host: localhost
@@ -12,6 +12,12 @@ client-secret: ${KC_CLIENT_SECRET}
 
 server:
   port: ${gateway-port}
+  servlet:
+    session:
+      cookie:
+        http-only: true                              # Prevent XSS token theft
+        secure: ${COOKIE_SECURE:false}               # true in production (HTTPS)
+        same-site: lax                               # CSRF mitigation (strict may break OAuth redirects)
 
 spring:
   application:
@@ -113,7 +119,7 @@ management:
 
 logging:
   level:
-    root: INFO
-    org.springframework.security: DEBUG          # 👈 Enable security debugging
-    org.springframework.web: INFO
-    com.c4_soft.springaddons: DEBUG              # 👈 Debug Spring Addons
+    root: ${LOG_LEVEL_ROOT:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}
+    org.springframework.web: ${LOG_LEVEL_WEB:INFO}
+    com.c4_soft.springaddons: ${LOG_LEVEL_ADDONS:INFO}
