@@ -19,6 +19,7 @@ keycloak-port: ${KEYCLOAK_PORT:443}
 # 2. SESSION COOKIE SECURITY
 # ========================================
 server:
+  forward-headers-strategy: framework
   servlet:
     session:
       cookie:

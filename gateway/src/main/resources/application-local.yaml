@@ -1,0 +1,27 @@
+# ========================================
+# LOCAL DEVELOPMENT PROFILE
+# ========================================
+# Usage: SPRING_PROFILES_ACTIVE=local (default for IDE/mvn spring-boot:run)
+
+scheme: http
+keycloak-host: ${KEYCLOAK_HOST:localhost}
+backend-host: ${BACKEND_HOST:localhost}
+gateway-host: ${GATEWAY_HOST:localhost}
+gateway-port: ${GATEWAY_PORT:8080}
+frontend-host: ${FRONTEND_HOST:localhost}
+frontend-port: ${FRONTEND_PORT:80}
+backend-port: ${BACKEND_PORT:8081}
+keycloak-port: ${KEYCLOAK_PORT:9000}
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    com.c4_soft.springaddons: DEBUG

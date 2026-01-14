@@ -1,0 +1,26 @@
+# ========================================
+# STAGING PROFILE (QA / Acceptance)
+# ========================================
+# Usage: SPRING_PROFILES_ACTIVE=staging
+
+scheme: ${SCHEME:https}
+keycloak-host: ${KEYCLOAK_HOST}
+backend-host: ${BACKEND_HOST}
+gateway-host: ${GATEWAY_HOST}
+gateway-port: ${GATEWAY_PORT:8080}
+backend-port: ${BACKEND_PORT:8081}
+keycloak-port: ${KEYCLOAK_PORT:443}
+
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        secure: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: WARN
+    org.springframework.web: INFO
+    com.c4_soft.springaddons: WARN

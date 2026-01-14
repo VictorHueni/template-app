@@ -1,11 +1,5 @@
 # Custom properties for easy configuration
 scheme: ${SCHEME:http}
-keycloak-host: localhost
-backend-host: localhost
-gateway-host: localhost
-gateway-port: 8080
-backend-port: 8081
-keycloak-port: 9000
 issuer: ${scheme}://${keycloak-host}:${keycloak-port}/realms/template-realm
 client-id: template-gateway
 client-secret: ${KC_CLIENT_SECRET}
@@ -39,26 +33,20 @@ spring:
             scope: openid,profile,email,offline_access
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
-  # Spring Cloud Gateway routing configuration
+  # Spring Cloud Gateway routing configuration (MVC Version)
   cloud:
     gateway:
-      routes:
-        # Route 1: Forward /api/** to backend API (with TokenRelay)
-        - id: backend-api-route
-          uri: ${scheme}://${backend-host}:${backend-port}
-          predicates:
-            - Path=/api/**
-          filters:
-            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
-            - TokenRelay=      # 👈 Automatically adds JWT to forwarded requests
-            - SaveSession      # 👈 Saves session after token relay
-            # No StripPrefix needed - /api/v1/greetings → /api/v1/greetings
-
-        # Route 2: Login options endpoint (handled by Gateway controller)
-        - id: login-options-route
-          uri: no://op  # Internal route - handled by Gateway controller
-          predicates:
-            - Path=/login-options
+      server:
+        webmvc:
+          routes:
+            # Route 1: Forward /api/** to backend API (with TokenRelay)
+            - id: backend-api-route
+              uri: ${scheme}://${backend-host}:${backend-port}
+              predicates:
+                - Path=/api/**
+              filters:
+                # - StripPrefix=1 # 👈 ADD: Remove /api prefix before forwarding to backend
+                - TokenRelay=
 
 # Spring Addons configuration - This is where the magic happens!
 com:
@@ -71,10 +59,22 @@ com:
             username-claim: $.preferred_username  # 👈 Extract username from JWT
             authorities:
               - path: $.realm_access.roles        # 👈 Extract roles from JWT
+        
+        # CORS Configuration (Spring Addons)
+        cors:
+          - path: /**
+            allowed-origin-patterns:
+              - "http://localhost"
+              - "http://localhost:80"
+              - "http://localhost:5173"
+              - "http://localhost:3000"
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
 
         # Client configuration (oauth2Login filter chain)
         client:
-          client-uri: ${scheme}://${gateway-host}:${gateway-port}
+          client-uri: ${scheme}://${frontend-host}:${frontend-port}
           security-matchers:
             - /api/**
             - /oauth2/**
@@ -91,6 +91,7 @@ com:
           csrf: cookie-accessible-from-js        # 👈 SPA can read CSRF token
           oauth2-redirections:
             rp-initiated-logout: ACCEPTED         # 👈 Enable proper logout flow
+            authentication-entry-point: UNAUTHORIZED 
           back-channel-logout:
             enabled: true                         # 👈 Multi-device logout support
 
