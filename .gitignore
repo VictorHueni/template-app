@@ -107,6 +107,7 @@ bck/
 # ===== LLM =====
 NUL
 tmpclaude*
+.claude/
 
 
 # GitHub App credentials
