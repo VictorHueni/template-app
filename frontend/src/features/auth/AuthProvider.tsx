@@ -154,7 +154,38 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
             return;
         }
 
-        window.location.assign("/logout");
+        try {
+            // Extract CSRF token from cookie (same pattern as api/config.ts)
+            const csrfToken = document.cookie
+                .split(";")
+                .map((c) => c.trim())
+                .find((c) => c.startsWith("XSRF-TOKEN="))
+                ?.substring("XSRF-TOKEN=".length);
+
+            const headers: Record<string, string> = {
+                "X-POST-LOGOUT-SUCCESS-URI": window.location.origin,
+            };
+
+            if (csrfToken) {
+                headers["X-XSRF-TOKEN"] = decodeURIComponent(csrfToken);
+            }
+
+            const response = await fetch("/logout", {
+                method: "POST",
+                credentials: "include",
+                headers,
+            });
+
+            const logoutUri = response.headers.get("Location");
+            if (logoutUri) {
+                window.location.href = logoutUri;
+            } else {
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error("Logout failed:", error);
+            window.location.href = "/";
+        }
     }, [resolvedMode]);
 
     const value: AuthContextValue = useMemo(
