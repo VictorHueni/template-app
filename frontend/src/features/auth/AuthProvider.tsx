@@ -73,10 +73,16 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
         setStatus("loading");
         setError(null);
 
-        const { data, error: responseError } = await getCurrentUser();
+        const result = await getCurrentUser();
 
-        if (responseError) {
-            const apiError = await parseApiError(responseError);
+        if (result.error !== undefined) {
+            // hey-api returns empty string when gateway returns no body (e.g., 401)
+            // In that case, pass the Response object to extract the status code
+            const errorToParse =
+                result.error === ("" as unknown) && result.response && !result.response.ok
+                    ? result.response
+                    : result.error;
+            const apiError = await parseApiError(errorToParse);
             if (isUnauthorizedError(apiError)) {
                 setUser(null);
                 setStatus("anonymous");
@@ -90,8 +96,8 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
             return;
         }
 
-        if (data) {
-            setUser(data);
+        if (result.data) {
+            setUser(result.data);
             setStatus("authenticated");
             setError(null);
             return;
