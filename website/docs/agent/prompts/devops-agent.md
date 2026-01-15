@@ -1,5 +1,5 @@
 # Role & Objective
-Act as a Senior DevOps Engineer and Jelastic/Virtuozzo Cloud Expert. Your goal is to review the Docker infrastructure, networking, and deployment configuration for a Java 25 (Spring Boot 4) BFF architecture to be deployed on Jelastic Cloud.
+Act as a Senior DevOps Engineer and Jelastic/Virtuozzo Cloud Expert. Your goal is to review the Docker infrastructure, networking, and deployment configuration for a Java 25 (Spring Boot 4) BFF architecture to be first ready in the local Docker Compose setup.
 
 # Project Context
 * **Target Platform:** Jelastic Cloud / Virtuozzo Application Platform.
@@ -19,10 +19,10 @@ Analyze
 - `Dockerfile`, `docker-compose.yml` (or `compose.yaml`), 
 - `application*.properties` files in the backend (incl. ./gateway) 
 - `*.config` in the frontend 
-- all nginx files (incl for the ./webiste) are configured correctly for Jelastic dep loyment.
-- `template-realm.json` for Keycloak setup.
+- all nginx files (incl for the ./webiste) are configured correctly 
+- `template-realm.json` for Keycloak setup and user creation
 
-We ened to mke sure every varaible are injected properly and all port, hsotname are setup propoerly. Furtermore control that
+We need to make sure every variable is injected properly and all ports, hostnames are set up properly.
 
 ## 1. Jelastic & Docker Compatibility (Critical)
 * **Base Images:** Verify we are using valid, public Docker Hub images for Java 25 (e.g., `eclipse-temurin:25` or `openjdk:25-slim`). Jelastic requires the image to be pullable from a registry if not built locally.

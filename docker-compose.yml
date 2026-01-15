@@ -56,7 +56,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SERVER_PORT: 8081
       MANAGEMENT_SERVER_PORT: 8082
-      KEYCLOAK_ISSUER: http://keycloak:8080/realms/template-realm
+      KEYCLOAK_ISSUER: http://host.docker.internal:9000/realms/template-realm
     depends_on:
       db:
         condition: service_healthy
