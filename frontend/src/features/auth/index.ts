@@ -1,2 +1,3 @@
-export { AuthProvider, useAuth } from "./AuthProvider";
-export type { AuthContextValue, AuthMode, AuthStatus } from "./AuthProvider";
+export { AuthProvider } from "./AuthProvider";
+export { useAuth } from "./hooks";
+export type { AuthContextValue, AuthMode, AuthStatus } from "./types";

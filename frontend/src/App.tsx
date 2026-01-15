@@ -23,13 +23,7 @@ import {
 type Theme = "light" | "dark";
 
 export default function App() {
-    const {
-        status: authStatus,
-        user,
-        login,
-        logout,
-        error: authError,
-    } = useAuth();
+    const { status: authStatus, user, login, logout, error: authError } = useAuth();
 
     const [theme, setTheme] = useState<Theme>("light");
     const [editingGreeting, setEditingGreeting] = useState<GreetingResponse | null>(null);
@@ -179,7 +173,9 @@ export default function App() {
                     {authStatus !== "loading" && (
                         <button
                             type="button"
-                            onClick={() => void (authStatus === "authenticated" ? logout() : login())}
+                            onClick={() =>
+                                void (authStatus === "authenticated" ? logout() : login())
+                            }
                         >
                             {authStatus === "authenticated" ? "Sign out" : "Sign in"}
                         </button>

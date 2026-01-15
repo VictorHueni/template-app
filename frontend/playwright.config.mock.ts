@@ -43,7 +43,7 @@ export default defineConfig({
      * Start Prism mock server + Vite dev server before running tests.
      *
      * This automatically:
-    * 1. Starts Prism on port 4010 (serving OpenAPI examples)
+     * 1. Starts Prism on port 4010 (serving OpenAPI examples)
      * 2. Starts Vite on port 5173 (with proxy to Prism)
      * 3. Waits for both to be ready
      * 4. Runs tests

@@ -16,7 +16,12 @@
  */
 
 import { http, HttpResponse, delay } from "msw";
-import { mockGreetings, createMockGreeting, createMockGreetingPage, mockErrors, mockUsers } from "./data";
+import {
+    mockGreetings,
+    createMockGreeting,
+    createMockGreetingPage,
+    mockErrors,
+} from "./data";
 import type { GreetingResponse, UserInfoResponse } from "../../api/generated";
 
 /**
@@ -264,7 +269,7 @@ export const handlers = [
      * DELETE /api/v1/greetings/:id - Delete a greeting
      * Requires authentication (session cookie in BFF pattern)
      */
-    http.delete(`${API_BASE}/greetings/:id`, async ({ params, request }) => {
+    http.delete(`${API_BASE}/greetings/:id`, async ({ params }) => {
         await delay(50);
 
         // Check for authenticated session (BFF uses cookies, not Bearer tokens)

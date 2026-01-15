@@ -81,7 +81,10 @@ async function mockLoginOptions(page: import("@playwright/test").Page) {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify([
-                { label: "keycloak", loginUri: "http://localhost:8080/oauth2/authorization/keycloak" },
+                {
+                    label: "keycloak",
+                    loginUri: "http://localhost:8080/oauth2/authorization/keycloak",
+                },
             ]),
         });
     });
@@ -274,10 +277,11 @@ test.describe("BFF Integration - OAuth2 Flow", () => {
 
         // Capture the navigation URL
         const [request] = await Promise.all([
-            page.waitForRequest(
-                (req) => req.url().includes("/oauth2/authorization/keycloak"),
-                { timeout: 5000 },
-            ).catch(() => null),
+            page
+                .waitForRequest((req) => req.url().includes("/oauth2/authorization/keycloak"), {
+                    timeout: 5000,
+                })
+                .catch(() => null),
             page.getByRole("button", { name: /sign in/i }).click(),
         ]);
 
@@ -316,7 +320,8 @@ test.describe("BFF Integration - OAuth2 Flow", () => {
             route.fulfill({
                 status: 202,
                 headers: {
-                    Location: "http://keycloak:9000/realms/test/protocol/openid-connect/logout?redirect_uri=http://localhost:3000",
+                    Location:
+                        "http://keycloak:9000/realms/test/protocol/openid-connect/logout?redirect_uri=http://localhost:3000",
                 },
             });
         });
@@ -363,9 +368,11 @@ test.describe("BFF Integration - OAuth2 Flow", () => {
         await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible();
 
         // Track navigation - we expect redirect to Keycloak logout URL
-        const navigationPromise = page.waitForURL((url) => url.href.includes("keycloak"), {
-            timeout: 5000,
-        }).catch(() => null);
+        const navigationPromise = page
+            .waitForURL((url) => url.href.includes("keycloak"), {
+                timeout: 5000,
+            })
+            .catch(() => null);
 
         await page.getByRole("button", { name: /sign out/i }).click();
 
@@ -392,6 +399,7 @@ test.describe("BFF Integration - Credentials Configuration", () => {
             },
         ]);
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         let requestMadeWithCredentials = false;
 
         await page.route("**/api/v1/greetings**", (route) => {
@@ -454,7 +462,9 @@ test.describe("BFF Integration - Auth State Display", () => {
         await page.goto("/");
 
         // Should fall back to anonymous state
-        await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible({
+            timeout: 10000,
+        });
     });
 
     test("handles /me network error gracefully", async ({ page }) => {
@@ -466,6 +476,8 @@ test.describe("BFF Integration - Auth State Display", () => {
         await page.goto("/");
 
         // Should fall back to anonymous state after error
-        await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible({
+            timeout: 10000,
+        });
     });
 });

@@ -13,8 +13,12 @@ describe("api/config initApiClient", () => {
     });
 
     it("sets baseUrl to /api and includes credentials", async () => {
-        const fetchStub = vi.fn(async () =>
-            new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }),
+        const fetchStub = vi.fn(
+            async () =>
+                new Response("{}", {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
         );
 
         initApiClient({ fetch: fetchStub as unknown as typeof fetch });
@@ -181,11 +185,12 @@ describe("api/config initApiClient", () => {
         const eventListener = vi.fn();
         window.addEventListener("auth:session-expired", eventListener);
 
-        const fetchStub = vi.fn(async () =>
-            new Response(
-                JSON.stringify({ error: "Unauthorized" }),
-                { status: 401, headers: { "Content-Type": "application/json" } },
-            ),
+        const fetchStub = vi.fn(
+            async () =>
+                new Response(JSON.stringify({ error: "Unauthorized" }), {
+                    status: 401,
+                    headers: { "Content-Type": "application/json" },
+                }),
         );
 
         initApiClient({ fetch: fetchStub as unknown as typeof fetch });

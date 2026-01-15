@@ -1,53 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getCurrentUser } from "../../api/config";
 import { parseApiError, isUnauthorizedError, type ApiError } from "../../api/errors";
 import type { UserInfoResponse } from "../../api/generated";
-
-export type AuthStatus = "loading" | "authenticated" | "anonymous";
-export type AuthMode = "real" | "mock";
-
-export interface AuthContextValue {
-    status: AuthStatus;
-    user: UserInfoResponse | null;
-    error: ApiError | null;
-    refresh: () => Promise<void>;
-    login: () => Promise<void>;
-    logout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-function resolveAuthMode(mode?: AuthMode): AuthMode {
-    const envMode = (import.meta.env.VITE_AUTH_MODE as AuthMode | undefined) ?? "real";
-    const requested = mode ?? envMode;
-    if (import.meta.env.PROD && requested === "mock") {
-        return "real";
-    }
-    return requested;
-}
-
-async function resolveLoginUri(): Promise<string> {
-    try {
-        const res = await fetch("/login-options", { credentials: "include" });
-        if (res.ok) {
-            const body = (await res.json()) as { loginUri?: string };
-            if (body.loginUri) {
-                return body.loginUri;
-            }
-        }
-    } catch {
-        // ignore - fallback below
-    }
-
-    return "/oauth2/authorization/keycloak";
-}
-
-export interface AuthProviderProps {
-    children: React.ReactNode;
-    mode?: AuthMode;
-    mockUser?: UserInfoResponse;
-}
+import { AuthContext } from "./hooks";
+import type { AuthContextValue, AuthProviderProps, AuthStatus } from "./types";
+import { resolveAuthMode, resolveLoginUri } from "./utils";
 
 export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
     const resolvedMode = resolveAuthMode(mode);
@@ -189,6 +147,7 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
                 window.location.reload();
             }
         } catch (error) {
+            // eslint-disable-next-line no-console
             console.error("Logout failed:", error);
             window.location.href = "/";
         }
@@ -200,12 +159,4 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthContextValue {
-    const ctx = useContext(AuthContext);
-    if (!ctx) {
-        throw new Error("useAuth must be used within AuthProvider");
-    }
-    return ctx;
 }

@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { AuthProvider, useAuth } from "./AuthProvider";
+import { AuthProvider } from "./AuthProvider";
+import { useAuth } from "./hooks";
 
 vi.mock("../../api/config", () => ({
     getCurrentUser: vi.fn(),
 }));
 
-import { getCurrentUser } from "../../api/config";
+import { getCurrentUser, type UserInfoResponse, type ProblemDetail } from "../../api/config";
 
 function Viewer() {
     const { status, user } = useAuth();
@@ -44,8 +45,11 @@ describe("AuthProvider", () => {
                 id: "u-1",
                 username: "johndoe",
                 roles: ["USER"],
-            },
-        } as any);
+            } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -58,16 +62,20 @@ describe("AuthProvider", () => {
     });
 
     it("becomes anonymous when /v1/me returns 401", async () => {
+        const error: ProblemDetail = {
+            type: "https://api.example.com/problems/unauthorized",
+            title: "Unauthorized",
+            status: 401,
+            timestamp: "2025-01-15T10:30:00Z",
+            traceId: "550e8400-e29b-41d4-a716-446655440000",
+            detail: "Authentication is required",
+        };
         vi.mocked(getCurrentUser).mockResolvedValue({
-            error: {
-                type: "https://api.example.com/problems/unauthorized",
-                title: "Unauthorized",
-                status: 401,
-                timestamp: "2025-01-15T10:30:00Z",
-                traceId: "550e8400-e29b-41d4-a716-446655440000",
-                detail: "Authentication is required",
-            },
-        } as any);
+            data: undefined,
+            error: error,
+            response: new Response(null, { status: 401 }),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -85,8 +93,11 @@ describe("AuthProvider", () => {
                 id: "u-should-not-be-used",
                 username: "should-not-be-used",
                 roles: ["USER"],
-            },
-        } as any);
+            } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="mock" mockUser={{ id: "m-1", username: "mocky", roles: ["ADMIN"] }}>
@@ -105,8 +116,11 @@ describe("AuthProvider", () => {
                 id: "u-1",
                 username: "johndoe",
                 roles: ["USER"],
-            },
-        } as any);
+            } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -188,8 +202,11 @@ describe("AuthProvider logout", () => {
         global.fetch = fetchSpy;
 
         vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] },
-        } as any);
+            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -221,8 +238,11 @@ describe("AuthProvider logout", () => {
         global.fetch = fetchSpy;
 
         vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] },
-        } as any);
+            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -248,14 +268,18 @@ describe("AuthProvider logout", () => {
 
     it("redirects to Location header URL on successful logout", async () => {
         const user = userEvent.setup();
-        const keycloakLogoutUrl = "http://keycloak:9000/realms/test/protocol/openid-connect/logout?redirect_uri=http://localhost:3000";
+        const keycloakLogoutUrl =
+            "http://keycloak:9000/realms/test/protocol/openid-connect/logout?redirect_uri=http://localhost:3000";
         global.fetch = vi.fn().mockResolvedValue({
             headers: new Headers({ Location: keycloakLogoutUrl }),
         });
 
         vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] },
-        } as any);
+            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -279,8 +303,11 @@ describe("AuthProvider logout", () => {
         });
 
         vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] },
-        } as any);
+            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">
@@ -303,8 +330,11 @@ describe("AuthProvider logout", () => {
         global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 
         vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] },
-        } as any);
+            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
+            error: undefined,
+            response: new Response(),
+            request: new Request("http://localhost"),
+        });
 
         render(
             <AuthProvider mode="real">

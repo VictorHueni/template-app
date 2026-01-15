@@ -287,18 +287,30 @@ describe("getErrorMessage", () => {
 
 describe("error type guards", () => {
     it("isUnauthorizedError returns true for 401", () => {
-        expect(isUnauthorizedError({ status: 401, title: "", detail: "", originalError: null })).toBe(true);
-        expect(isUnauthorizedError({ status: 403, title: "", detail: "", originalError: null })).toBe(false);
+        expect(
+            isUnauthorizedError({ status: 401, title: "", detail: "", originalError: null }),
+        ).toBe(true);
+        expect(
+            isUnauthorizedError({ status: 403, title: "", detail: "", originalError: null }),
+        ).toBe(false);
     });
 
     it("isForbiddenError returns true for 403", () => {
-        expect(isForbiddenError({ status: 403, title: "", detail: "", originalError: null })).toBe(true);
-        expect(isForbiddenError({ status: 401, title: "", detail: "", originalError: null })).toBe(false);
+        expect(isForbiddenError({ status: 403, title: "", detail: "", originalError: null })).toBe(
+            true,
+        );
+        expect(isForbiddenError({ status: 401, title: "", detail: "", originalError: null })).toBe(
+            false,
+        );
     });
 
     it("isNotFoundError returns true for 404", () => {
-        expect(isNotFoundError({ status: 404, title: "", detail: "", originalError: null })).toBe(true);
-        expect(isNotFoundError({ status: 500, title: "", detail: "", originalError: null })).toBe(false);
+        expect(isNotFoundError({ status: 404, title: "", detail: "", originalError: null })).toBe(
+            true,
+        );
+        expect(isNotFoundError({ status: 500, title: "", detail: "", originalError: null })).toBe(
+            false,
+        );
     });
 
     it("isValidationError returns true for 400 with field errors", () => {

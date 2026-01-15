@@ -131,6 +131,7 @@ export type {
     UpdateGreetingRequest,
     PatchGreetingRequest,
     ProblemDetail,
+    UserInfoResponse,
 } from "./generated";
 
 /**

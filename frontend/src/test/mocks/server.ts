@@ -6,13 +6,7 @@
  */
 
 import { setupServer } from "msw/node";
-import {
-    handlers,
-    resetGreetingsStore,
-    resetMockAuth,
-    setMockAuthenticatedUser,
-    getMockAuthenticatedUser,
-} from "./handlers";
+import { handlers, resetGreetingsStore, resetMockAuth } from "./handlers";
 
 /**
  * Create the MSW server with default handlers.
@@ -31,11 +25,5 @@ export function resetServer(): void {
 }
 
 // Re-export utilities for convenience
-export {
-    resetGreetingsStore,
-    getGreetingsStore,
-    setMockAuthenticatedUser,
-    getMockAuthenticatedUser,
-    resetMockAuth,
-} from "./handlers";
+export { resetGreetingsStore, getGreetingsStore, resetMockAuth } from "./handlers";
 export * from "./data";
