@@ -75,6 +75,10 @@ com:
         # Client configuration (oauth2Login filter chain)
         client:
           client-uri: ${scheme}://${frontend-host}:${frontend-port}
+          post-logout-allowed-uri-patterns:
+            - "^http://localhost(/.*)?$"      # Browser sends http://localhost (no port)
+            - "^http://localhost:80(/.*)?$"   # Explicit port 80 variant
+            - "^/.*$"                         # Relative paths (default)
           security-matchers:
             - /api/**
             - /oauth2/**
