@@ -103,9 +103,7 @@ describe("App", () => {
 
     it("displaying greetings: shows empty state when no greetings", async () => {
         mockListGreetings.mockResolvedValue(
-            mockApiSuccess(createMockGreetingPage([])) as Awaited<
-                ReturnType<typeof listGreetings>
-            >,
+            mockApiSuccess(createMockGreetingPage([])) as Awaited<ReturnType<typeof listGreetings>>,
         );
 
         render(
@@ -137,9 +135,7 @@ describe("App", () => {
 
     it("theme toggle: toggles between light and dark theme", async () => {
         mockListGreetings.mockResolvedValue(
-            mockApiSuccess(createMockGreetingPage([])) as Awaited<
-                ReturnType<typeof listGreetings>
-            >,
+            mockApiSuccess(createMockGreetingPage([])) as Awaited<ReturnType<typeof listGreetings>>,
         );
         const { container } = render(
             <AuthProvider mode="mock">
@@ -164,9 +160,7 @@ describe("App", () => {
 
     it("creating greetings: shows create form when clicking New Greeting button", async () => {
         mockListGreetings.mockResolvedValue(
-            mockApiSuccess(createMockGreetingPage([])) as Awaited<
-                ReturnType<typeof listGreetings>
-            >,
+            mockApiSuccess(createMockGreetingPage([])) as Awaited<ReturnType<typeof listGreetings>>,
         );
 
         render(
@@ -182,9 +176,7 @@ describe("App", () => {
 
         await user.click(screen.getByRole("button", { name: /new greeting/i }));
 
-        expect(
-            screen.getByRole("heading", { name: /create new greeting/i }),
-        ).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: /create new greeting/i })).toBeInTheDocument();
     });
 
     it("creating greetings: creates a new greeting and refreshes list", async () => {
@@ -196,9 +188,7 @@ describe("App", () => {
         };
 
         mockListGreetings.mockResolvedValue(
-            mockApiSuccess(createMockGreetingPage([])) as Awaited<
-                ReturnType<typeof listGreetings>
-            >,
+            mockApiSuccess(createMockGreetingPage([])) as Awaited<ReturnType<typeof listGreetings>>,
         );
         mockCreateGreeting.mockResolvedValue(
             mockApiSuccess(newGreeting) as Awaited<ReturnType<typeof createGreeting>>,
