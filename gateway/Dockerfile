@@ -19,7 +19,7 @@ RUN ./mvnw package -DskipTests
 # === STAGE 2: CI RUNTIME (Optimized for CI/CD) ===
 # Expects a pre-built JAR from CI artifacts (matches backend-ci pattern)
 # Usage: docker build --target ci ...
-FROM gcr.io/distroless/java25-debian13:latest AS ci
+FROM gcr.io/distroless/java25-debian13@sha256:cc3bb44755599d4c25c26c43b05761eeb1da2e779172cee258c2202ca071abfa AS ci
 WORKDIR /app
 ENV TZ=UTC LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \
@@ -34,7 +34,7 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 
 # === STAGE 3: PRODUCTION RUNTIME (Default) ===
 # Default stage for "docker compose up --build"
-FROM gcr.io/distroless/java25-debian13:latest AS production
+FROM gcr.io/distroless/java25-debian13@sha256:cc3bb44755599d4c25c26c43b05761eeb1da2e779172cee258c2202ca071abfa AS production
 WORKDIR /app
 ENV TZ=UTC LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50 -XX:+UseG1GC -XX:MaxDirectMemorySize=128m" \

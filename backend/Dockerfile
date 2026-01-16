@@ -36,7 +36,7 @@ RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true -Djacoco.skip=true
 # This stage uses a pre-built JAR artifact from the CI pipeline (backend_pipeline job)
 # Skips compilation entirely, making Docker builds ~3-6 minutes faster
 # Usage in CI: docker build --target ci -t demo-backend:ci .
-FROM gcr.io/distroless/java25-debian13:latest AS ci
+FROM gcr.io/distroless/java25-debian13@sha256:cc3bb44755599d4c25c26c43b05761eeb1da2e779172cee258c2202ca071abfa AS ci
 
 WORKDIR /app
 
