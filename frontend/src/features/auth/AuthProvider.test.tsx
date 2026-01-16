@@ -11,6 +11,40 @@ vi.mock("../../api/config", () => ({
 
 import { getCurrentUser, type UserInfoResponse, type ProblemDetail } from "../../api/config";
 
+const TEST_USER: UserInfoResponse = {
+    id: "u-1",
+    username: "johndoe",
+    roles: ["USER"],
+};
+
+const TEST_ERROR: ProblemDetail = {
+    type: "https://api.example.com/problems/unauthorized",
+    title: "Unauthorized",
+    status: 401,
+    timestamp: "2025-01-15T10:30:00Z",
+    traceId: "550e8400-e29b-41d4-a716-446655440000",
+    detail: "Authentication is required",
+};
+
+/**
+ * Helper to mock the getCurrentUser API response.
+ */
+function mockUserResponse(user: UserInfoResponse | null, error?: ProblemDetail) {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+        data: user ?? undefined,
+        error: error,
+        response: new Response(null, { status: error?.status ?? 200 }),
+        request: new Request("http://localhost"),
+    });
+}
+
+/**
+ * Helper to wait for the AuthProvider to reach a specific status.
+ */
+async function waitForStatus(status: "authenticated" | "anonymous" | "loading") {
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe(status));
+}
+
 function Viewer() {
     const { status, user } = useAuth();
     return (
@@ -27,7 +61,7 @@ function ViewerWithLogout() {
         <div>
             <span data-testid="status">{status}</span>
             <span data-testid="username">{user?.username ?? ""}</span>
-            <button data-testid="logout-btn" onClick={() => void logout()}>
+            <button data-testid="logout-btn" onClick={() => { logout(); }}>
                 Logout
             </button>
         </div>
@@ -40,16 +74,7 @@ describe("AuthProvider", () => {
     });
 
     it("authenticates when /v1/me returns user", async () => {
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: {
-                id: "u-1",
-                username: "johndoe",
-                roles: ["USER"],
-            } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
-        });
+        mockUserResponse(TEST_USER);
 
         render(
             <AuthProvider mode="real">
@@ -57,25 +82,12 @@ describe("AuthProvider", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
-        expect(screen.getByTestId("username").textContent).toBe("johndoe");
+        await waitForStatus("authenticated");
+        expect(screen.getByTestId("username").textContent).toBe(TEST_USER.username);
     });
 
     it("becomes anonymous when /v1/me returns 401", async () => {
-        const error: ProblemDetail = {
-            type: "https://api.example.com/problems/unauthorized",
-            title: "Unauthorized",
-            status: 401,
-            timestamp: "2025-01-15T10:30:00Z",
-            traceId: "550e8400-e29b-41d4-a716-446655440000",
-            detail: "Authentication is required",
-        };
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: undefined,
-            error: error,
-            response: new Response(null, { status: 401 }),
-            request: new Request("http://localhost"),
-        });
+        mockUserResponse(null, TEST_ERROR);
 
         render(
             <AuthProvider mode="real">
@@ -83,44 +95,26 @@ describe("AuthProvider", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("anonymous"));
+        await waitForStatus("anonymous");
         expect(screen.getByTestId("username").textContent).toBe("");
     });
 
     it("uses mock user in mock mode without calling API", async () => {
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: {
-                id: "u-should-not-be-used",
-                username: "should-not-be-used",
-                roles: ["USER"],
-            } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
-        });
+        mockUserResponse({ ...TEST_USER, username: "should-not-be-used" });
 
         render(
-            <AuthProvider mode="mock" mockUser={{ id: "m-1", username: "mocky", roles: ["ADMIN"] }}>
+            <AuthProvider mode="mock" mockUser={{ ...TEST_USER, username: "mocky" }}>
                 <Viewer />
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
+        await waitForStatus("authenticated");
         expect(screen.getByTestId("username").textContent).toBe("mocky");
         expect(vi.mocked(getCurrentUser)).not.toHaveBeenCalled();
     });
 
     it("clears state when auth:session-expired is dispatched", async () => {
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: {
-                id: "u-1",
-                username: "johndoe",
-                roles: ["USER"],
-            } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
-        });
+        mockUserResponse(TEST_USER);
 
         render(
             <AuthProvider mode="real">
@@ -128,11 +122,11 @@ describe("AuthProvider", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
+        await waitForStatus("authenticated");
 
         globalThis.dispatchEvent(new CustomEvent("auth:session-expired"));
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("anonymous"));
+        await waitForStatus("anonymous");
         expect(screen.getByTestId("username").textContent).toBe("");
     });
 });
@@ -141,10 +135,16 @@ describe("AuthProvider logout", () => {
     const originalFetch = global.fetch;
     const originalLocation = globalThis.location;
     let cookieValue = "";
+    let fetchSpy = vi.fn();
 
     beforeEach(() => {
         vi.clearAllMocks();
         cookieValue = "";
+        fetchSpy = vi.fn().mockResolvedValue({
+            headers: new Headers({ Location: "http://keycloak/logout" }),
+        });
+        global.fetch = fetchSpy;
+
         // Mock document.cookie
         Object.defineProperty(document, "cookie", {
             get: () => cookieValue,
@@ -163,6 +163,9 @@ describe("AuthProvider logout", () => {
             },
             writable: true,
         });
+
+        // Most logout tests start with an authenticated user
+        mockUserResponse(TEST_USER);
     });
 
     afterEach(() => {
@@ -175,38 +178,26 @@ describe("AuthProvider logout", () => {
 
     it("clears state in mock mode without network call", async () => {
         const user = userEvent.setup();
-        const fetchSpy = vi.fn();
-        global.fetch = fetchSpy;
+        fetchSpy.mockReset().mockResolvedValue({}); // Reset default fetch mock
 
         render(
-            <AuthProvider mode="mock" mockUser={{ id: "m-1", username: "mocky", roles: ["USER"] }}>
+            <AuthProvider mode="mock" mockUser={{ ...TEST_USER, username: "mocky" }}>
                 <ViewerWithLogout />
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
+        await waitForStatus("authenticated");
         expect(screen.getByTestId("username").textContent).toBe("mocky");
 
         await user.click(screen.getByTestId("logout-btn"));
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("anonymous"));
+        await waitForStatus("anonymous");
         expect(screen.getByTestId("username").textContent).toBe("");
         expect(fetchSpy).not.toHaveBeenCalled();
     });
 
     it("POSTs to /logout with X-POST-LOGOUT-SUCCESS-URI header in real mode", async () => {
         const user = userEvent.setup();
-        const fetchSpy = vi.fn().mockResolvedValue({
-            headers: new Headers({ Location: "http://keycloak/logout" }),
-        });
-        global.fetch = fetchSpy;
-
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
-        });
 
         render(
             <AuthProvider mode="real">
@@ -214,8 +205,7 @@ describe("AuthProvider logout", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
-
+        await waitForStatus("authenticated");
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
@@ -232,17 +222,6 @@ describe("AuthProvider logout", () => {
     it("includes X-XSRF-TOKEN header when CSRF cookie exists", async () => {
         const user = userEvent.setup();
         cookieValue = "XSRF-TOKEN=test-csrf-token-123; other-cookie=value";
-        const fetchSpy = vi.fn().mockResolvedValue({
-            headers: new Headers({ Location: "http://keycloak/logout" }),
-        });
-        global.fetch = fetchSpy;
-
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
-        });
 
         render(
             <AuthProvider mode="real">
@@ -250,8 +229,7 @@ describe("AuthProvider logout", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
-
+        await waitForStatus("authenticated");
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
@@ -268,17 +246,9 @@ describe("AuthProvider logout", () => {
 
     it("redirects to Location header URL on successful logout", async () => {
         const user = userEvent.setup();
-        const keycloakLogoutUrl =
-            "http://keycloak:9000/realms/test/protocol/openid-connect/logout?redirect_uri=http://localhost:3000";
-        global.fetch = vi.fn().mockResolvedValue({
+        const keycloakLogoutUrl = "http://keycloak/logout-redirect";
+        fetchSpy.mockResolvedValue({
             headers: new Headers({ Location: keycloakLogoutUrl }),
-        });
-
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
         });
 
         render(
@@ -287,8 +257,7 @@ describe("AuthProvider logout", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
-
+        await waitForStatus("authenticated");
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
@@ -298,15 +267,8 @@ describe("AuthProvider logout", () => {
 
     it("falls back to reload when no Location header", async () => {
         const user = userEvent.setup();
-        global.fetch = vi.fn().mockResolvedValue({
+        fetchSpy.mockResolvedValue({
             headers: new Headers({}), // No Location header
-        });
-
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
         });
 
         render(
@@ -315,8 +277,7 @@ describe("AuthProvider logout", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
-
+        await waitForStatus("authenticated");
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
@@ -327,14 +288,7 @@ describe("AuthProvider logout", () => {
     it("handles logout errors gracefully by redirecting to home", async () => {
         const user = userEvent.setup();
         const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-        global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
-
-        vi.mocked(getCurrentUser).mockResolvedValue({
-            data: { id: "u-1", username: "johndoe", roles: ["USER"] } as UserInfoResponse,
-            error: undefined,
-            response: new Response(),
-            request: new Request("http://localhost"),
-        });
+        fetchSpy.mockRejectedValue(new Error("Network error"));
 
         render(
             <AuthProvider mode="real">
@@ -342,8 +296,7 @@ describe("AuthProvider logout", () => {
             </AuthProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
-
+        await waitForStatus("authenticated");
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
