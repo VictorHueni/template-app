@@ -130,7 +130,7 @@ describe("AuthProvider", () => {
 
         await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authenticated"));
 
-        window.dispatchEvent(new CustomEvent("auth:session-expired"));
+        globalThis.dispatchEvent(new CustomEvent("auth:session-expired"));
 
         await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("anonymous"));
         expect(screen.getByTestId("username").textContent).toBe("");
@@ -139,7 +139,7 @@ describe("AuthProvider", () => {
 
 describe("AuthProvider logout", () => {
     const originalFetch = global.fetch;
-    const originalLocation = window.location;
+    const originalLocation = globalThis.location;
     let cookieValue = "";
 
     beforeEach(() => {
@@ -154,7 +154,7 @@ describe("AuthProvider logout", () => {
             configurable: true,
         });
         // Mock window.location for redirect testing
-        Object.defineProperty(window, "location", {
+        Object.defineProperty(globalThis, "location", {
             value: {
                 href: "http://localhost:3000",
                 origin: "http://localhost:3000",
@@ -167,7 +167,7 @@ describe("AuthProvider logout", () => {
 
     afterEach(() => {
         global.fetch = originalFetch;
-        Object.defineProperty(window, "location", {
+        Object.defineProperty(globalThis, "location", {
             value: originalLocation,
             writable: true,
         });
@@ -292,7 +292,7 @@ describe("AuthProvider logout", () => {
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
-            expect(window.location.href).toBe(keycloakLogoutUrl);
+            expect(globalThis.location.href).toBe(keycloakLogoutUrl);
         });
     });
 
@@ -320,7 +320,7 @@ describe("AuthProvider logout", () => {
         await user.click(screen.getByTestId("logout-btn"));
 
         await waitFor(() => {
-            expect(window.location.reload).toHaveBeenCalled();
+            expect(globalThis.location.reload).toHaveBeenCalled();
         });
     });
 
@@ -348,7 +348,7 @@ describe("AuthProvider logout", () => {
 
         await waitFor(() => {
             expect(consoleErrorSpy).toHaveBeenCalledWith("Logout failed:", expect.any(Error));
-            expect(window.location.href).toBe("/");
+            expect(globalThis.location.href).toBe("/");
         });
 
         consoleErrorSpy.mockRestore();

@@ -96,7 +96,7 @@ export default function App() {
 
     const handleDelete = useCallback(
         async (id: string) => {
-            if (window.confirm("Are you sure you want to delete this greeting?")) {
+            if (globalThis.confirm("Are you sure you want to delete this greeting?")) {
                 const success = await deleteGreeting(id);
                 if (success) {
                     await refreshList();

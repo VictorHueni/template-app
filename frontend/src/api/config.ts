@@ -37,7 +37,10 @@ export function getApiBasePath(): string {
 
     // Ensure absolute URL for environments where `Request` requires it (e.g., Vitest/node).
     // In the browser, same-origin absolute URLs work with Vite proxy and production nginx.
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const origin =
+        typeof globalThis !== "undefined" && globalThis.location
+            ? globalThis.location.origin
+            : "http://localhost";
     return new URL("/api", origin).toString();
 }
 
@@ -108,8 +111,12 @@ export function initApiClient(options: InitApiClientOptions = {}): void {
     });
 
     client.interceptors.response.use((response) => {
-        if (response.status === 401 && typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("auth:session-expired"));
+        if (
+            response.status === 401 &&
+            typeof globalThis !== "undefined" &&
+            globalThis.dispatchEvent
+        ) {
+            globalThis.dispatchEvent(new CustomEvent("auth:session-expired"));
         }
         return response;
     });
