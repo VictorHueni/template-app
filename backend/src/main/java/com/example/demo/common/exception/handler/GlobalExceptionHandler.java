@@ -1,7 +1,5 @@
 package com.example.demo.common.exception.handler;
 
-import java.net.URI;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -86,18 +84,6 @@ public class GlobalExceptionHandler {
 
     /**
      * Handles any DomainException not caught by module-specific handlers.
-     *
-     * <p>This handler acts as a fallback for domain exceptions that are not
-     * handled by module-specific {@code @RestControllerAdvice} handlers. It provides
-     * consistent RFC 7807 Problem Details responses for all domain exceptions.</p>
-     *
-     * <p>Module-specific handlers have higher precedence due to their
-     * {@code basePackages} restriction, so they will be invoked first.</p>
-     *
-     * @param ex the domain exception
-     * @param request the HTTP request that triggered the exception
-     * @return RFC 7807 Problem Detail response
-     * @since 1.1.0
      */
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ProblemDetail> handleDomainException(
@@ -125,15 +111,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Resource not found [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.NOT_FOUND,
-                ex.getMessage()
+                ProblemType.RESOURCE_NOT_FOUND,
+                "Resource Not Found",
+                ex.getMessage(),
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.RESOURCE_NOT_FOUND));
-        problemDetail.setTitle("Resource Not Found");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         if (ex.getResourceType() != null) {
             problemDetail.setProperty("resourceType", ex.getResourceType());
@@ -154,15 +139,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Business validation failed [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                ex.getMessage()
+                ProblemType.VALIDATION_ERROR,
+                "Validation Error",
+                ex.getMessage(),
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.VALIDATION_ERROR));
-        problemDetail.setTitle("Validation Error");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         if (!ex.getValidationErrors().isEmpty()) {
             problemDetail.setProperty("errors", ex.getValidationErrors());
@@ -182,15 +166,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Conflict [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.CONFLICT,
-                ex.getMessage()
+                ProblemType.CONFLICT,
+                "Conflict",
+                ex.getMessage(),
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.CONFLICT));
-        problemDetail.setTitle("Conflict");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         if (ex.getConflictReason() != null) {
             problemDetail.setProperty("reason", ex.getConflictReason());
@@ -219,15 +202,14 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                "Request validation failed"
+                ProblemType.VALIDATION_ERROR,
+                "Validation Error",
+                "Request validation failed",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.VALIDATION_ERROR));
-        problemDetail.setTitle("Validation Error");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
         problemDetail.setProperty("errors", errors);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
@@ -250,15 +232,14 @@ public class GlobalExceptionHandler {
             errors.put(propertyPath, violation.getMessage());
         }
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                "Constraint validation failed"
+                ProblemType.VALIDATION_ERROR,
+                "Validation Error",
+                "Constraint validation failed",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.VALIDATION_ERROR));
-        problemDetail.setTitle("Validation Error");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
         problemDetail.setProperty("errors", errors);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
@@ -275,15 +256,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Illegal argument [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                ex.getMessage()
+                ProblemType.BAD_REQUEST,
+                "Bad Request",
+                ex.getMessage(),
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
-        problemDetail.setTitle("Bad Request");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
@@ -305,15 +285,14 @@ public class GlobalExceptionHandler {
                 ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown"
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                detail
+                ProblemType.BAD_REQUEST,
+                "Bad Request",
+                detail,
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
-        problemDetail.setTitle("Bad Request");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
         problemDetail.setProperty("parameter", ex.getName());
         problemDetail.setProperty("rejectedValue", ex.getValue());
 
@@ -331,15 +310,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("No resource found [traceId={}]: {}", traceId, request.getRequestURI());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.NOT_FOUND,
-                "The requested resource was not found"
+                ProblemType.RESOURCE_NOT_FOUND,
+                "Resource Not Found",
+                "The requested resource was not found",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.RESOURCE_NOT_FOUND));
-        problemDetail.setTitle("Resource Not Found");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
     }
@@ -355,15 +333,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Authentication failed [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.UNAUTHORIZED,
-                "Authentication is required to access this resource"
+                ProblemType.UNAUTHORIZED,
+                "Unauthorized",
+                "Authentication is required to access this resource",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.UNAUTHORIZED));
-        problemDetail.setTitle("Unauthorized");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problemDetail);
     }
@@ -379,15 +356,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Access denied [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.FORBIDDEN,
-                "You do not have permission to access this resource"
+                ProblemType.FORBIDDEN,
+                "Forbidden",
+                "You do not have permission to access this resource",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.FORBIDDEN));
-        problemDetail.setTitle("Forbidden");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problemDetail);
     }
@@ -403,15 +379,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.error("Internal server error [traceId={}]: {}", traceId, ex.getMessage(), ex);
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "An unexpected error occurred. Please contact support with the trace ID."
+                ProblemType.INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "An unexpected error occurred. Please contact support with the trace ID.",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.INTERNAL_SERVER_ERROR));
-        problemDetail.setTitle("Internal Server Error");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problemDetail);
     }
@@ -427,13 +402,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Message not readable [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                "Invalid request content"
+                ProblemType.BAD_REQUEST,
+                "Bad Request",
+                "Invalid request content",
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
-        problemDetail.setTitle("Bad Request");
-        enrichProblemDetail(problemDetail, traceId, request);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
@@ -452,15 +428,14 @@ public class GlobalExceptionHandler {
         String detail = String.format("Required parameter '%s' of type '%s' is missing",
                 ex.getParameterName(), ex.getParameterType());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.BAD_REQUEST,
-                detail
+                ProblemType.BAD_REQUEST,
+                "Bad Request",
+                detail,
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.BAD_REQUEST));
-        problemDetail.setTitle("Bad Request");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
         problemDetail.setProperty("parameter", ex.getParameterName());
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
@@ -477,14 +452,14 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Method not supported [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.METHOD_NOT_ALLOWED,
-                String.format("Method '%s' is not supported for this endpoint", ex.getMethod())
+                ProblemType.METHOD_NOT_ALLOWED,
+                "Method Not Allowed",
+                String.format("Method '%s' is not supported for this endpoint", ex.getMethod()),
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.METHOD_NOT_ALLOWED));
-        problemDetail.setTitle("Method Not Allowed");
-
-        enrichProblemDetail(problemDetail, traceId, request);
+        problemDetail.setProperty("traceId", traceId);
 
         if (ex.getSupportedMethods() != null) {
             problemDetail.setProperty("supportedMethods", ex.getSupportedMethods());
@@ -504,31 +479,16 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Media type not supported [traceId={}]: {}", traceId, ex.getMessage());
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problemDetail = problemDetailFactory.createGenericProblem(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                String.format("Content type '%s' is not supported", ex.getContentType())
+                ProblemType.UNSUPPORTED_MEDIA_TYPE,
+                "Unsupported Media Type",
+                String.format("Content type '%s' is not supported", ex.getContentType()),
+                request.getRequestURI()
         );
-        problemDetail.setType(URI.create(ProblemType.UNSUPPORTED_MEDIA_TYPE));
-        problemDetail.setTitle("Unsupported Media Type");
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-
-        enrichProblemDetail(problemDetail, traceId);
+        problemDetail.setProperty("traceId", traceId);
 
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(problemDetail);
-    }
-
-    /**
-     * Adds common custom properties to all problem details
-     */
-    private void enrichProblemDetail(ProblemDetail problemDetail, String traceId) {
-        problemDetail.setProperty("timestamp", Instant.now());
-        problemDetail.setProperty("traceId", traceId);
-    }
-
-    private void enrichProblemDetail(ProblemDetail problemDetail, String traceId, HttpServletRequest request) {
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-        problemDetail.setProperty("timestamp", Instant.now());
-        problemDetail.setProperty("traceId", traceId);
     }
 
     /**

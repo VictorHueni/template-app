@@ -2,7 +2,6 @@ package com.example.demo.greeting.service;
 
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -17,7 +16,6 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 @SpringBootTest
 @ActiveProfiles({"test", "integration"})
 @Transactional
-@ResourceLock(value = "DB", mode = READ_WRITE)
 class GreetingServiceIT extends AbstractIntegrationTest {
     @Autowired
     private GreetingService greetingService;

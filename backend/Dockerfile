@@ -22,7 +22,7 @@ WORKDIR /app/backend
 
 # 4. Resolve dependencies
 # (We made sure mvnw is executable just in case permissions got lost)
-RUN chmod +x mvnw && ./mvnw dependency:go-offline
+RUN chmod +x mvnw && sed -i 's/\r$//' mvnw && ./mvnw dependency:go-offline
 
 # 5. Copy the source code
 COPY backend/src src
@@ -36,7 +36,7 @@ RUN ./mvnw package -DskipTests -DskipUTs=true -DskipITs=true -Djacoco.skip=true
 # This stage uses a pre-built JAR artifact from the CI pipeline (backend_pipeline job)
 # Skips compilation entirely, making Docker builds ~3-6 minutes faster
 # Usage in CI: docker build --target ci -t demo-backend:ci .
-FROM gcr.io/distroless/java25-debian13:latest AS ci
+FROM gcr.io/distroless/java25-debian13@sha256:cc3bb44755599d4c25c26c43b05761eeb1da2e779172cee258c2202ca071abfa AS ci
 
 WORKDIR /app
 
@@ -49,6 +49,7 @@ EXPOSE 8080 8081
 # Copy pre-built JAR from CI artifact (expects backend/target/*.jar to exist)
 COPY backend/target/*.jar /app/app.jar
 
+USER nonroot
 ENTRYPOINT ["java","-jar","/app/app.jar"]
 
 
@@ -79,4 +80,5 @@ EXPOSE 8080 8081
 COPY --from=builder /app/backend/target/*.jar /app/app.jar
 
 # Entrypoint: Run the application
+USER nonroot
 ENTRYPOINT ["java","-jar","/app/app.jar"]

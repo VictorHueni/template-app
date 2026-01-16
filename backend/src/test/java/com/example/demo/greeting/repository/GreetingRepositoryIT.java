@@ -9,7 +9,6 @@ import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,7 +40,6 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 @SpringBootTest
 @Transactional
 @ActiveProfiles({"test", "integration"})
-@ResourceLock(value = "DB", mode = READ_WRITE)
 class GreetingRepositoryIT extends AbstractIntegrationTest {
 
 

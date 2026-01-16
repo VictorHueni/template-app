@@ -2,6 +2,7 @@ package com.example.demo.greeting.controller;
 
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.api.v1.controller.GreetingsApi;
@@ -25,6 +26,7 @@ public class GreetingController implements GreetingsApi {
     private final GreetingMapper mapper;
 
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<GreetingResponse> createGreeting(CreateGreetingRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("CreateGreetingRequest cannot be null");
@@ -52,6 +54,7 @@ public class GreetingController implements GreetingsApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteGreeting(String id) {
         Long idLong = Long.parseLong(id);
         if (service.deleteGreeting(idLong)) {
@@ -72,6 +75,7 @@ public class GreetingController implements GreetingsApi {
     }
 
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<GreetingResponse> patchGreeting(String id, PatchGreetingRequest patchGreetingRequest) {
         Long idLong = Long.parseLong(id);
         Greeting greeting = service.patchGreeting(idLong,
@@ -82,6 +86,7 @@ public class GreetingController implements GreetingsApi {
     }
 
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<GreetingResponse> updateGreeting(String id, UpdateGreetingRequest updateGreetingRequest) {
         Long idLong = Long.parseLong(id);
         Greeting greeting = service.updateGreeting(idLong,

@@ -17,7 +17,38 @@
 
 import { http, HttpResponse, delay } from "msw";
 import { mockGreetings, createMockGreeting, createMockGreetingPage, mockErrors } from "./data";
-import type { GreetingResponse } from "../../api/generated";
+import type { GreetingResponse, UserInfoResponse } from "../../api/generated";
+
+/**
+ * Mock authentication state for BFF testing.
+ *
+ * The BFF pattern uses HttpOnly session cookies, NOT Bearer tokens.
+ * This configurable auth state simulates whether a user has a valid session.
+ */
+let mockAuthenticatedUser: UserInfoResponse | null = null;
+
+/**
+ * Set the authenticated user for mock requests.
+ * Pass null to simulate an anonymous/logged-out user.
+ */
+export function setMockAuthenticatedUser(user: UserInfoResponse | null): void {
+    mockAuthenticatedUser = user;
+}
+
+/**
+ * Get the current mock authenticated user.
+ */
+export function getMockAuthenticatedUser(): UserInfoResponse | null {
+    return mockAuthenticatedUser;
+}
+
+/**
+ * Reset mock authentication state to anonymous.
+ * Call this in beforeEach() along with resetGreetingsStore().
+ */
+export function resetMockAuth(): void {
+    mockAuthenticatedUser = null;
+}
 
 /**
  * Base URL for API endpoints.
@@ -57,6 +88,21 @@ let nextId = 506979954615550000;
  * These simulate the backend behavior as defined in the OpenAPI spec.
  */
 export const handlers = [
+    /**
+     * GET /api/v1/me - Get current user info
+     * Returns authenticated user or 401 if not authenticated.
+     * This endpoint is used by AuthProvider to check session state.
+     */
+    http.get(`${API_BASE}/me`, async () => {
+        await delay(50);
+
+        if (!mockAuthenticatedUser) {
+            return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
+        }
+
+        return HttpResponse.json(mockAuthenticatedUser);
+    }),
+
     /**
      * GET /api/v1/greetings - List greetings (paginated)
      * Public endpoint - no authentication required
@@ -103,14 +149,13 @@ export const handlers = [
 
     /**
      * POST /api/v1/greetings - Create a new greeting
-     * Requires authentication (BearerAuth)
+     * Requires authentication (session cookie in BFF pattern)
      */
     http.post(`${API_BASE}/greetings`, async ({ request }) => {
         await delay(50);
 
-        // Check for authorization header
-        const authHeader = request.headers.get("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        // Check for authenticated session (BFF uses cookies, not Bearer tokens)
+        if (!mockAuthenticatedUser) {
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 
@@ -143,14 +188,13 @@ export const handlers = [
 
     /**
      * PUT /api/v1/greetings/:id - Full update of a greeting
-     * Requires authentication (BearerAuth)
+     * Requires authentication (session cookie in BFF pattern)
      */
     http.put(`${API_BASE}/greetings/:id`, async ({ params, request }) => {
         await delay(50);
 
-        // Check for authorization header
-        const authHeader = request.headers.get("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        // Check for authenticated session (BFF uses cookies, not Bearer tokens)
+        if (!mockAuthenticatedUser) {
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 
@@ -186,14 +230,13 @@ export const handlers = [
 
     /**
      * PATCH /api/v1/greetings/:id - Partial update of a greeting
-     * Requires authentication (BearerAuth)
+     * Requires authentication (session cookie in BFF pattern)
      */
     http.patch(`${API_BASE}/greetings/:id`, async ({ params, request }) => {
         await delay(50);
 
-        // Check for authorization header
-        const authHeader = request.headers.get("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        // Check for authenticated session (BFF uses cookies, not Bearer tokens)
+        if (!mockAuthenticatedUser) {
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 
@@ -219,14 +262,13 @@ export const handlers = [
 
     /**
      * DELETE /api/v1/greetings/:id - Delete a greeting
-     * Requires authentication (BearerAuth)
+     * Requires authentication (session cookie in BFF pattern)
      */
-    http.delete(`${API_BASE}/greetings/:id`, async ({ params, request }) => {
+    http.delete(`${API_BASE}/greetings/:id`, async ({ params }) => {
         await delay(50);
 
-        // Check for authorization header
-        const authHeader = request.headers.get("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        // Check for authenticated session (BFF uses cookies, not Bearer tokens)
+        if (!mockAuthenticatedUser) {
             return HttpResponse.json(mockErrors.unauthorized, { status: 401 });
         }
 

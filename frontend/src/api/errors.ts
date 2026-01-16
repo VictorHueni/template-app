@@ -50,12 +50,55 @@ export function isProblemDetail(value: unknown): value is ProblemDetail {
 }
 
 /**
+ * Get a default user-friendly message for common HTTP status codes.
+ * These messages match the backend's RFC 7807 ProblemDetail responses.
+ */
+function getDefaultMessageForStatus(status: number): string {
+    switch (status) {
+        case 401:
+            return "Authentication is required to access this resource";
+        case 403:
+            return "You do not have permission to access this resource";
+        case 404:
+            return "The requested resource was not found";
+        default:
+            return `HTTP error ${status}`;
+    }
+}
+
+/**
+ * Get a default title for common HTTP status codes.
+ */
+function getDefaultTitleForStatus(status: number, statusText: string): string {
+    if (statusText) {
+        return statusText;
+    }
+    switch (status) {
+        case 400:
+            return "Bad Request";
+        case 401:
+            return "Unauthorized";
+        case 403:
+            return "Forbidden";
+        case 404:
+            return "Not Found";
+        case 409:
+            return "Conflict";
+        case 500:
+            return "Internal Server Error";
+        default:
+            return `Error ${status}`;
+    }
+}
+
+/**
  * Parse an error into a structured ApiError object.
  *
  * This function handles:
- * 1. hey-api response objects with error property
- * 2. Standard Error objects (network errors, etc.)
- * 3. Unknown error types (fallback)
+ * 1. Response objects (from gateway 401 without JSON body)
+ * 2. hey-api response objects with ProblemDetail
+ * 3. Standard Error objects (network errors, etc.)
+ * 4. Unknown error types (fallback)
  *
  * @param error - The caught error (unknown type for safety)
  * @returns Structured ApiError with all available information
@@ -74,6 +117,36 @@ export function isProblemDetail(value: unknown): value is ProblemDetail {
  * ```
  */
 export async function parseApiError(error: unknown): Promise<ApiError> {
+    // Handle Response objects (from hey-api when gateway returns 401 without JSON body)
+    if (error instanceof Response) {
+        const status = error.status;
+        const title = getDefaultTitleForStatus(status, error.statusText);
+
+        // Try to parse body as ProblemDetail (if the backend returned JSON)
+        try {
+            const body = await error.json();
+            if (isProblemDetail(body)) {
+                return {
+                    status: body.status,
+                    title: body.title,
+                    detail: body.detail ?? body.title,
+                    fieldErrors: body.errors,
+                    problemDetail: body,
+                    originalError: error,
+                };
+            }
+        } catch {
+            // No JSON body or parse error - use status from Response
+        }
+
+        return {
+            status,
+            title,
+            detail: getDefaultMessageForStatus(status),
+            originalError: error,
+        };
+    }
+
     // Handle hey-api error responses (ProblemDetail objects)
     if (isProblemDetail(error)) {
         return {
@@ -100,12 +173,15 @@ export async function parseApiError(error: unknown): Promise<ApiError> {
     if (typeof error === "object" && error !== null) {
         const obj = error as Record<string, unknown>;
         const status = typeof obj.status === "number" ? obj.status : 0;
-        const message =
-            typeof obj.message === "string"
-                ? obj.message
-                : typeof obj.detail === "string"
-                  ? obj.detail
-                  : String(error);
+
+        let message: string;
+        if (typeof obj.message === "string") {
+            message = obj.message;
+        } else if (typeof obj.detail === "string") {
+            message = obj.detail;
+        } else {
+            message = String(error);
+        }
 
         return {
             status,

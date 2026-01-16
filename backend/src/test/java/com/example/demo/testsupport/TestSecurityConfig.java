@@ -16,23 +16,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.example.demo.common.config.WebSecurityConfig;
 
-/**
- * Minimal security configuration for integration tests.
- * <p>
- * This configuration is ONLY active when the "test" profile is active.
- * It provides a simple setup where:
- * <ul>
- *     <li>CSRF is disabled (simplifies REST API testing)</li>
- *     <li>All API endpoints are public (no authentication required)</li>
- *     <li>Actuator health endpoint is public</li>
- *     <li>CORS allows all localhost origins</li>
- * </ul>
- * <p>
- * For production security configuration, see {@link WebSecurityConfig}.
- */
 @Configuration
 @EnableWebSecurity
-@Profile("test")
+@Profile("test & !integration")
 public class TestSecurityConfig {
 
     @Bean

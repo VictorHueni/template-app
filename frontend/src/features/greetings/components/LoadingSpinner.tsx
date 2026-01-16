@@ -22,8 +22,7 @@ export function LoadingSpinner({ message = "Loading...", size = "medium" }: Load
     const dimension = sizeMap[size];
 
     return (
-        <div
-            role="status"
+        <output
             aria-label="Loading"
             style={{
                 display: "flex",
@@ -51,6 +50,6 @@ export function LoadingSpinner({ message = "Loading...", size = "medium" }: Load
                     to { transform: rotate(360deg); }
                 }
             `}</style>
-        </div>
+        </output>
     );
 }

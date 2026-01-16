@@ -1,0 +1,26 @@
+# ========================================
+# DEVELOPMENT PROFILE (Docker Compose / Shared Env)
+# ========================================
+# Usage: SPRING_PROFILES_ACTIVE=dev
+
+scheme: ${SCHEME:http}
+keycloak-host: ${KEYCLOAK_HOST:keycloak}
+backend-host: ${BACKEND_HOST:backend}
+gateway-host: ${GATEWAY_HOST:gateway}
+gateway-port: ${GATEWAY_PORT:8080}
+backend-port: ${BACKEND_PORT:8081}
+keycloak-port: ${KEYCLOAK_PORT:8080}
+
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        secure: ${COOKIE_SECURE:false}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    com.c4_soft.springaddons: INFO

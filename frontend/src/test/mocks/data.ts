@@ -11,7 +11,13 @@
  * to preserve precision for large 64-bit integers in JavaScript).
  */
 
-import type { GreetingResponse, GreetingPage, PageMeta, ProblemDetail } from "../../api/generated";
+import type {
+    GreetingResponse,
+    GreetingPage,
+    PageMeta,
+    ProblemDetail,
+    UserInfoResponse,
+} from "../../api/generated";
 
 /**
  * Sample greetings for testing list views and CRUD operations.
@@ -179,3 +185,22 @@ export function mockApiError(error: ProblemDetail) {
         response: new Response(null, { status: error.status }),
     };
 }
+
+/**
+ * Mock users for authentication testing.
+ * These match the Keycloak realm users defined in template-realm.json.
+ */
+export const mockUsers: Record<string, UserInfoResponse> = {
+    user: {
+        id: "mock-user-1",
+        username: "testuser",
+        email: "test@example.com",
+        roles: ["USER"],
+    },
+    admin: {
+        id: "mock-admin-1",
+        username: "testadmin",
+        email: "admin@example.com",
+        roles: ["USER", "ADMIN"],
+    },
+};

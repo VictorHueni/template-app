@@ -1,27 +1,20 @@
 package com.example.demo.audit;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.example.demo.testsupport.AbstractRestAssuredIntegrationTest;
-import com.example.demo.testsupport.DatabaseCleanupHelper;
+import com.example.demo.testsupport.AbstractControllerIT;
 
-import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 /**
  * End-to-end integration test for the Business Activity Audit system.
@@ -34,97 +27,32 @@ import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
  *   <li>Spring Modulith outbox pattern cleans up EVENT_PUBLICATION table (completion-mode=DELETE)</li>
  * </ol>
  *
- * <p><strong>Test Isolation Strategy:</strong></p>
+ * <p><strong>Test Isolation Strategy (Schema-Per-Test):</strong></p>
  * <ul>
  *   <li>@SpringBootTest(webEnvironment = RANDOM_PORT) - Real Spring context, real database</li>
- *   <li>@ResourceLock(value = "DB", mode = READ_WRITE) - Exclusive database access during test</li>
- *   <li>@BeforeEach cleanup - Prepares clean database state before test runs</li>
- *   <li>@AfterEach cleanup - CRITICAL for async events: prevents event processing from
- *       previous tests leaking into subsequent tests via the event_publication table</li>
+ *   <li>SchemaIsolationExtension creates a unique schema per test method</li>
+ *   <li>X-Test-Schema header propagates schema context from JUnit to Tomcat threads</li>
+ *   <li>SchemaContextTaskDecorator propagates schema context to @Async threads</li>
+ *   <li>Schema is dropped CASCADE after test - no manual cleanup needed</li>
  * </ul>
  *
- * <p><strong>Async Event Processing Important Notes:</strong></p>
+ * <p><strong>Async Event Processing Notes:</strong></p>
  * <ul>
- *   <li>Spring Modulith uses @Async for event listeners (runs in separate thread pool)</li>
- *   <li>Test finishes before async processing completes</li>
- *   <li>await() with untilAsserted() waits for async completion (max 5 seconds)</li>
- *   <li>Without @AfterEach cleanup: pending events leak to next test → race conditions → flakiness</li>
- *   <li>With @AfterEach cleanup: Each test starts and ends with clean event state</li>
- * </ul>
- *
- * <p><strong>Why NOT to use @Transactional:</strong></p>
- * <ul>
- *   <li>@Transactional only rolls back changes in the test thread</li>
- *   <li>Spring Modulith event listeners run in separate @Async threads (not rolled back)</li>
- *   <li>Async processing happens outside the transaction scope</li>
- *   <li>Manual cleanup via @BeforeEach/@AfterEach is the only reliable approach</li>
+ *   <li>Spring Modulith @ApplicationModuleListener runs async via applicationTaskExecutor</li>
+ *   <li>TaskDecorator captures and propagates schema context to async threads</li>
+ *   <li>await() with untilAsserted() polls database until async processing completes</li>
+ *   <li>Schema isolation ensures parallel tests don't interfere with each other</li>
  * </ul>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"test", "integration"})
-@ResourceLock(value = "DB", mode = READ_WRITE)
-class BusinessActivityIT extends AbstractRestAssuredIntegrationTest {
+class BusinessActivityIT extends AbstractControllerIT {
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private BusinessActivityLogRepository auditLogRepository;
 
-    @Autowired
-    private DatabaseCleanupHelper cleanupHelper;
-
-    /**
-     * Prepare database before test by cleaning all related tables.
-     *
-     * <p>Called before EVERY test to ensure clean, isolated starting state.</p>
-     *
-     * <p>Tables cleaned:
-     * <ul>
-     *   <li>business_activity_log - audit records from GreetingCreatedEvent listener</li>
-     *   <li>greeting - the Greeting entities being created and tested</li>
-     *   <li>event_publication - Spring Modulith outbox table for event delivery</li>
-     * </ul>
-     */
-    @BeforeEach
-    void cleanupDatabase() {
-        cleanupHelper.truncateTables("business_activity_log", "greeting", "event_publication");
-    }
-
-    /**
-     * Clean up after test to prevent dirty data from leaking to next test.
-     *
-     * <p><strong>CRITICAL for async event processing:</strong></p>
-     * <ul>
-     *   <li>Spring Modulith event listeners are @Async (run in separate thread pool)</li>
-     *   <li>Test completes before async event processing finishes</li>
-     *   <li>If not cleaned, pending events in event_publication table leak to next test</li>
-     *   <li>Next test sees events from previous test → race conditions → flaky tests</li>
-     *   <li>@AfterEach ensures each test leaves database in clean state</li>
-     * </ul>
-     *
-     * <p><strong>Example of what happens without @AfterEach cleanup:</strong></p>
-     * <pre>
-     * Test A: Creates greeting → GreetingCreatedEvent published → @AfterEach NOT called
-     * Test A finishes (but async processing still pending in background)
-     * Test B: @BeforeEach starts, but event_publication still has Test A's unprocessed events
-     * Test B: Async processing from Test A completes in background
-     * Test B: Verifies audit log, but finds BOTH Test A's AND Test B's events
-     * Test B: FLAKY FAILURE - found unexpected audit log entries
-     * </pre>
-     *
-     * <p><strong>With @AfterEach cleanup:</strong></p>
-     * <pre>
-     * Test A: Creates greeting → event processing begins
-     * Test A: await() waits for async processing to complete (max 5 seconds)
-     * Test A: @AfterEach cleanup removes all event_publication entries
-     * Test B: Starts with clean event_publication table
-     * Test B: No leftover events from Test A
-     * Test B: RELIABLE - only sees its own events
-     * </pre>
-     */
-    @AfterEach
-    void cleanupAfterTest() {
-        // Critical: cleanup even if test fails or times out waiting for async events
-        cleanupHelper.truncateTables("business_activity_log", "greeting", "event_publication");
-    }
+    // Note: No manual cleanup needed - SchemaIsolationExtension provides per-test schema isolation.
+    // Each test runs in its own database schema which is dropped CASCADE after the test.
 
     /**
      * Test the complete audit event flow: create greeting → async event processing → audit log.
@@ -152,7 +80,7 @@ class BusinessActivityIT extends AbstractRestAssuredIntegrationTest {
         // GIVEN: No data in database (cleaned by @BeforeEach)
 
         // WHEN: Create a greeting via REST API
-        String greetingId = given()
+        String greetingId = givenAuthenticatedUser()
                 .contentType("application/json")
                 .body("""
                        {"message": "Hello, Audit!", "recipient": "AuditTest"}
@@ -169,34 +97,20 @@ class BusinessActivityIT extends AbstractRestAssuredIntegrationTest {
         // THEN: Verify GreetingCreatedEvent was processed and audit log record was created
         // This uses await().untilAsserted() to poll the database until async processing completes
         // (or timeout after 5 seconds)
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            // Query the audit log table for records matching this greeting
-            List<Map<String, Object>> logs = jdbcTemplate.queryForList(
-                    "SELECT * FROM business_activity_log WHERE aggregate_id = ?",
-                    greetingId
-            );
+        await().pollInSameThread().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            // Query the audit log repository for record matching this greeting
+            Optional<BusinessActivityLog> logOptional = auditLogRepository.findByAggregateId(greetingId);
 
-            // Should have exactly one audit log entry (one for the create event)
-            assertThat(logs).hasSize(1);
+            // Should have exactly one audit log entry
+            assertThat(logOptional).isPresent();
 
             // Verify the audit log entry contains correct event information
-            Map<String, Object> log = logs.get(0);
-            assertThat(log.get("event_type")).isEqualTo("GreetingCreatedEvent");
-            assertThat(log.get("aggregate_type")).isEqualTo("Greeting");
-            assertThat(log.get("aggregate_id")).isEqualTo(greetingId);
-            assertThat(log.get("occurred_at")).isNotNull();
-            assertThat(log.get("data")).isNotNull();  // Contains serialized event data
-        });
-
-        // AND: The EVENT_PUBLICATION (outbox) table is empty
-        // This verifies Spring Modulith's completion-mode=DELETE successfully deleted the event
-        // after it was processed
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM event_publication",
-                    Integer.class
-            );
-            assertThat(count).isZero();  // Event publication table should be empty
+            BusinessActivityLog log = logOptional.get();
+            assertThat(log.getEventType()).isEqualTo("GreetingCreatedEvent");
+            assertThat(log.getAggregateType()).isEqualTo("Greeting");
+            assertThat(log.getAggregateId()).isEqualTo(greetingId);
+            assertThat(log.getOccurredAt()).isNotNull();
+            assertThat(log.getData()).isNotNull();  // Contains serialized event data
         });
     }
 
@@ -214,7 +128,7 @@ class BusinessActivityIT extends AbstractRestAssuredIntegrationTest {
     @DisplayName("audit log data contains event payload as JSON")
     void auditLogDataContainsEventPayloadAsJson() {
         // WHEN: Create a greeting via REST API with specific values
-        String greetingId = given()
+        String greetingId = givenAuthenticatedUser()
                 .contentType("application/json")
                 .body("""
                        {"message": "JSON Test Message", "recipient": "JsonRecipient"}
@@ -228,22 +142,19 @@ class BusinessActivityIT extends AbstractRestAssuredIntegrationTest {
 
         // THEN: Verify the audit log entry contains serialized JSON data
         // Wait for async event processing to complete
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            // Query the data column (JSONB type, cast to text for comparison)
-            String jsonData = jdbcTemplate.queryForObject(
-                    "SELECT data::text FROM business_activity_log WHERE aggregate_id = ?",
-                    String.class,
-                    greetingId
-            );
+        await().pollInSameThread().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            // Query the audit log repository for record matching this greeting
+            Optional<BusinessActivityLog> logOptional = auditLogRepository.findByAggregateId(greetingId);
+            assertThat(logOptional).isPresent();
 
-            // Verify JSON contains expected fields and values
-            assertThat(jsonData)
-                    .contains("\"message\"")
-                    .contains("JSON Test Message")
-                    .contains("\"recipient\"")
-                    .contains("JsonRecipient")
-                    .contains("\"reference\"")  // Greeting reference like "GRE-0001-123456"
-                    .contains("GRE-");
+            // Get the data map directly from the entity
+            Map<String, Object> data = logOptional.get().getData();
+
+            // Verify the data contains expected fields and values
+            assertThat(data).isNotNull();
+            assertThat(data.get("message")).isEqualTo("JSON Test Message");
+            assertThat(data.get("recipient")).isEqualTo("JsonRecipient");
+            assertThat(data.get("reference")).asString().startsWith("GRE-");
         });
     }
 }

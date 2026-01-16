@@ -47,9 +47,10 @@ import static org.mockito.Mockito.when;
 @DisplayName("GlobalExceptionHandler")
 class GlobalExceptionHandlerTest {
 
+    private static final String BASE_URI = "https://api.test.com/problems";
+
     private GlobalExceptionHandler handler;
 
-    @Mock
     private ProblemDetailFactory problemDetailFactory;
 
     @Mock
@@ -59,9 +60,14 @@ class GlobalExceptionHandlerTest {
 
     @BeforeEach
     void setUp() {
+        problemDetailFactory = new ProblemDetailFactory(BASE_URI);
         handler = new GlobalExceptionHandler(problemDetailFactory);
         when(request.getRequestURI()).thenReturn("/api/v1/test");
         webRequest = new ServletWebRequest(request);
+    }
+
+    private String expectedUri(String typeSlug) {
+        return BASE_URI + "/" + typeSlug;
     }
 
     @Nested
@@ -83,7 +89,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(404);
             assertThat(response.getBody().getTitle()).isEqualTo("Resource Not Found");
             assertThat(response.getBody().getDetail()).contains("User", "123");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.RESOURCE_NOT_FOUND);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.RESOURCE_NOT_FOUND));
             assertThat(response.getBody().getInstance().toString()).isEqualTo("/api/v1/test");
         }
 
@@ -171,7 +177,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(400);
             assertThat(response.getBody().getTitle()).isEqualTo("Validation Error");
             assertThat(response.getBody().getDetail()).isEqualTo("Validation failed");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.VALIDATION_ERROR);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.VALIDATION_ERROR));
         }
 
         @Test
@@ -247,7 +253,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(409);
             assertThat(response.getBody().getTitle()).isEqualTo("Conflict");
             assertThat(response.getBody().getDetail()).isEqualTo("Resource already exists");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.CONFLICT);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.CONFLICT));
         }
 
         @Test
@@ -317,7 +323,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(400);
             assertThat(response.getBody().getTitle()).isEqualTo("Validation Error");
             assertThat(response.getBody().getDetail()).isEqualTo("Request validation failed");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.VALIDATION_ERROR);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.VALIDATION_ERROR));
         }
 
         @Test
@@ -384,7 +390,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(400);
             assertThat(response.getBody().getTitle()).isEqualTo("Validation Error");
             assertThat(response.getBody().getDetail()).isEqualTo("Constraint validation failed");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.VALIDATION_ERROR);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.VALIDATION_ERROR));
         }
 
         @Test
@@ -438,7 +444,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(400);
             assertThat(response.getBody().getTitle()).isEqualTo("Bad Request");
             assertThat(response.getBody().getDetail()).isEqualTo("Invalid parameter value");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.BAD_REQUEST);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.BAD_REQUEST));
             assertThat(response.getBody().getInstance().toString()).isEqualTo("/api/v1/test");
         }
 
@@ -477,7 +483,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().getStatus()).isEqualTo(400);
             assertThat(response.getBody().getTitle()).isEqualTo("Bad Request");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.BAD_REQUEST);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.BAD_REQUEST));
         }
 
         @Test
@@ -535,7 +541,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(404);
             assertThat(response.getBody().getTitle()).isEqualTo("Resource Not Found");
             assertThat(response.getBody().getDetail()).isEqualTo("The requested resource was not found");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.RESOURCE_NOT_FOUND);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.RESOURCE_NOT_FOUND));
         }
 
         @Test
@@ -573,7 +579,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(401);
             assertThat(response.getBody().getTitle()).isEqualTo("Unauthorized");
             assertThat(response.getBody().getDetail()).isEqualTo("Authentication is required to access this resource");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.UNAUTHORIZED);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.UNAUTHORIZED));
         }
 
         @Test
@@ -611,7 +617,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody().getStatus()).isEqualTo(403);
             assertThat(response.getBody().getTitle()).isEqualTo("Forbidden");
             assertThat(response.getBody().getDetail()).isEqualTo("You do not have permission to access this resource");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.FORBIDDEN);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.FORBIDDEN));
         }
 
         @Test
@@ -648,7 +654,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().getStatus()).isEqualTo(500);
             assertThat(response.getBody().getTitle()).isEqualTo("Internal Server Error");
-            assertThat(response.getBody().getType().toString()).isEqualTo(ProblemType.INTERNAL_SERVER_ERROR);
+            assertThat(response.getBody().getType().toString()).isEqualTo(expectedUri(ProblemType.INTERNAL_SERVER_ERROR));
         }
 
         @Test

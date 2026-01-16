@@ -27,3 +27,10 @@ Various options:
 - more detailed in form of separate sections per decision
 
 - ADR (architecture decision record) for every important decision
+
+## Decisions
+
+- [001. Functional Auditing Strategy](./ADR-001-functional-auditing)
+- [002. Database Migration Strategy](./ADR-002-database-migration)
+- [003. Authentication & Identity Strategy](./ADR-003-authentication-and-identity)
+- [004. Integration Test Strategy](./ADR-004-integration-test-strategy)

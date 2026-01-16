@@ -1,0 +1,130 @@
+# Custom properties for easy configuration
+scheme: ${SCHEME:http}
+issuer: ${scheme}://${keycloak-host}:${keycloak-port}/realms/template-realm
+client-id: template-gateway
+client-secret: ${KC_CLIENT_SECRET}
+
+server:
+  port: ${gateway-port}
+  servlet:
+    session:
+      cookie:
+        http-only: true                              # Prevent XSS token theft
+        secure: ${COOKIE_SECURE:false}               # true in production (HTTPS)
+        same-site: lax                               # CSRF mitigation (strict may break OAuth redirects)
+
+spring:
+  application:
+    name: gateway
+
+  # Standard Spring Security OAuth2 Client configuration
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: ${issuer}
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: ${client-id}
+            client-secret: ${client-secret}
+            authorization-grant-type: authorization_code
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+  # Spring Cloud Gateway routing configuration (MVC Version)
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            # Route 1: Forward /api/** to backend API (with TokenRelay)
+            - id: backend-api-route
+              uri: ${scheme}://${backend-host}:${backend-port}
+              predicates:
+                - Path=/api/**
+              filters:
+                # - StripPrefix=1 # 👈 ADD: Remove /api prefix before forwarding to backend
+                - TokenRelay=
+
+# Spring Addons configuration - This is where the magic happens!
+com:
+  c4-soft:
+    springaddons:
+      oidc:
+        # OpenID Provider configuration
+        ops:
+          - iss: ${issuer}
+            username-claim: $.preferred_username  # 👈 Extract username from JWT
+            authorities:
+              - path: $.realm_access.roles        # 👈 Extract roles from JWT
+        
+        # CORS Configuration (Spring Addons)
+        cors:
+          - path: /**
+            allowed-origin-patterns:
+              - "http://localhost"
+              - "http://localhost:80"
+              - "http://localhost:5173"
+              - "http://localhost:3000"
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
+
+        # Client configuration (oauth2Login filter chain)
+        client:
+          client-uri: ${scheme}://${frontend-host}:${frontend-port}
+          post-logout-allowed-uri-patterns:
+            - "^http://localhost(/.*)?$"      # Browser sends http://localhost (no port)
+            - "^http://localhost:80(/.*)?$"   # Explicit port 80 variant
+            - "^/.*$"                         # Relative paths (default)
+          security-matchers:
+            - /api/**
+            - /oauth2/**
+            - /login/**
+            - /logout/**
+          permit-all:
+            - /api/v1/greetings          # 👈 Public: list greetings
+            - /api/v1/greetings/*        # 👈 Public: get single greeting
+            - /oauth2/**
+            - /login/**
+            - /logout/connect/back-channel/keycloak
+          # post-logout-redirect-host removed - uses client-uri by default
+          # post-logout-redirect-host: ${hostname}
+          csrf: cookie-accessible-from-js        # 👈 SPA can read CSRF token
+          oauth2-redirections:
+            rp-initiated-logout: ACCEPTED         # 👈 Enable proper logout flow
+            authentication-entry-point: UNAUTHORIZED 
+          back-channel-logout:
+            enabled: true                         # 👈 Multi-device logout support
+
+        # Resource Server configuration (oauth2ResourceServer filter chain)
+        resourceserver:
+          permit-all:
+            - /login-options                      # 👈 Public endpoint (Gateway)
+            - /error
+            - /actuator/health/**
+
+# Actuator configuration
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}
+    org.springframework.web: ${LOG_LEVEL_WEB:INFO}
+    com.c4_soft.springaddons: ${LOG_LEVEL_ADDONS:INFO}

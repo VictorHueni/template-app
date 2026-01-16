@@ -9,6 +9,34 @@ export default defineConfig(({ mode }) => ({
         proxy:
             mode === "development"
                 ? {
+                      "/login-options": {
+                          target:
+                              process.env.VITE_AUTH_PROXY_TARGET ||
+                              process.env.VITE_PROXY_TARGET ||
+                              "http://localhost:8080",
+                          changeOrigin: true,
+                      },
+                      "/oauth2": {
+                          target:
+                              process.env.VITE_AUTH_PROXY_TARGET ||
+                              process.env.VITE_PROXY_TARGET ||
+                              "http://localhost:8080",
+                          changeOrigin: true,
+                      },
+                      "/login": {
+                          target:
+                              process.env.VITE_AUTH_PROXY_TARGET ||
+                              process.env.VITE_PROXY_TARGET ||
+                              "http://localhost:8080",
+                          changeOrigin: true,
+                      },
+                      "/logout": {
+                          target:
+                              process.env.VITE_AUTH_PROXY_TARGET ||
+                              process.env.VITE_PROXY_TARGET ||
+                              "http://localhost:8080",
+                          changeOrigin: true,
+                      },
                       "/api": {
                           target: process.env.VITE_PROXY_TARGET || "http://localhost:8080",
                           changeOrigin: true,

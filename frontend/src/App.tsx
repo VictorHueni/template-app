@@ -6,6 +6,7 @@ import type {
     UpdateGreetingRequest,
 } from "./api/generated";
 import { API_BASE_PATH } from "./api/config";
+import { useAuth } from "./features/auth";
 import {
     useGreetings,
     useCreateGreeting,
@@ -22,6 +23,8 @@ import {
 type Theme = "light" | "dark";
 
 export default function App() {
+    const { status: authStatus, user, login, logout, error: authError } = useAuth();
+
     const [theme, setTheme] = useState<Theme>("light");
     const [editingGreeting, setEditingGreeting] = useState<GreetingResponse | null>(null);
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -150,9 +153,38 @@ export default function App() {
             {/* Header */}
             <header style={{ marginBottom: 24, display: "flex", gap: 12, alignItems: "center" }}>
                 <h1 style={{ margin: 0, fontSize: 28 }}>Greetings App</h1>
-                <button type="button" onClick={toggleTheme} style={{ marginLeft: "auto" }}>
-                    {isDark ? "☀️ Light" : "🌙 Dark"}
-                </button>
+
+                <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+                    <div style={{ textAlign: "right", lineHeight: 1.2 }}>
+                        <div style={{ fontSize: 14, opacity: 0.9 }}>
+                            {authStatus === "loading"
+                                ? "Checking session…"
+                                : authStatus === "authenticated"
+                                  ? `Signed in as ${user?.username ?? ""}`
+                                  : "Not signed in"}
+                        </div>
+                        {authError && (
+                            <div style={{ fontSize: 12, color: isDark ? "#fca5a5" : "#b91c1c" }}>
+                                Auth error: {authError.title}
+                            </div>
+                        )}
+                    </div>
+
+                    {authStatus !== "loading" && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                void (authStatus === "authenticated" ? logout() : login())
+                            }
+                        >
+                            {authStatus === "authenticated" ? "Sign out" : "Sign in"}
+                        </button>
+                    )}
+
+                    <button type="button" onClick={toggleTheme}>
+                        {isDark ? "☀️ Light" : "🌙 Dark"}
+                    </button>
+                </div>
             </header>
 
             {/* API Info */}

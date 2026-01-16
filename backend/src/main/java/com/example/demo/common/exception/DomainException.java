@@ -54,7 +54,7 @@ public abstract class DomainException extends RuntimeException {
     /**
      * Returns the RFC 7807 problem type URI.
      *
-     * <p>Example: {@code https://api.example.com/problems/greeting/not-found}</p>
+     * <p>Example: {@code https://api.template.com/problems/greeting/not-found}</p>
      *
      * <p>Use {@link ProblemType#buildModuleProblemType(String, String)} for consistent URIs.</p>
      *

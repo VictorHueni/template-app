@@ -1,0 +1,26 @@
+# Test profile configuration for Gateway
+# Activated via @ActiveProfiles("test") in test classes
+
+spring:
+  application:
+    name: gateway-test
+  cloud:
+    gateway:
+      enabled: false  # Disable gateway routing in unit tests
+
+# Minimal Spring Addons config for tests
+# Spring Addons test annotations handle security context
+com:
+  c4-soft:
+    springaddons:
+      oidc:
+        ops: []  # No real OIDC provider needed
+        client:
+          client-uri: http://localhost:8080
+          security-matchers:
+            - /**
+          permit-all:
+            - /**
+        resourceserver:
+          permit-all:
+            - /**

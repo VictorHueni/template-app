@@ -5,9 +5,11 @@
     "type": "module",
     "scripts": {
         "api:generate": "openapi-ts",
-        "mock-api": "prism mock ../api/specification/openapi.yaml --port 8080 --host 0.0.0.0 --cors",
+        "mock-api": "prism mock ../api/specification/openapi.yaml --port 4010 --host 0.0.0.0 --cors",
         "dev": "npm run api:generate && vite",
-        "dev:mock": "cross-env VITE_USE_PRISM=true concurrently \"npm run mock-api\" \"npm run dev\" --names \"prism,vite\" --prefix-colors \"cyan,green\"",
+        "dev:mock": "cross-env VITE_AUTH_MODE=mock VITE_USE_PRISM=true VITE_PROXY_TARGET=http://localhost:4010 VITE_AUTH_PROXY_TARGET=http://localhost:8080 concurrently \"npm run mock-api\" \"npm run dev\" --names \"prism,vite\" --prefix-colors \"cyan,green\"",
+        "dev:mock-real": "cross-env VITE_AUTH_MODE=real VITE_USE_PRISM=true VITE_PROXY_TARGET=http://localhost:4010 VITE_AUTH_PROXY_TARGET=http://localhost:8080 concurrently \"npm run mock-api\" \"npm run dev\" --names \"prism,vite\" --prefix-colors \"cyan,green\"",
+        "dev:mock-auth": "npm run dev:mock",
         "build": "npm run api:generate && tsc -b && vite build",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",

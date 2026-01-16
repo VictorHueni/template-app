@@ -18,38 +18,6 @@
 import { client } from "./generated/client.gen";
 
 /**
- * Get the demo authentication token for development.
- * This should NEVER be used in production.
- *
- * Priority:
- * 1. VITE_DEMO_TOKEN from .env (allows per-developer customization)
- * 2. Hardcoded fallback for quick setup
- *
- * In a real application, tokens would come from:
- * - OAuth/OIDC flow
- * - Session storage after login
- * - Auth context provider
- *
- * SECURITY NOTE: This is a mock JWT with obvious fake values.
- * Real production tokens come from OAuth/OIDC providers.
- */
-function getDemoToken(): string {
-    // Check environment variable first
-    const envToken = import.meta.env.VITE_DEMO_TOKEN;
-    if (envToken) {
-        return envToken;
-    }
-
-    // Fallback to hardcoded demo token
-    // This is a mock JWT with "demo-signature" suffix and impossible expiration (year 2030)
-    // NOT a real secret - see .gitleaks.toml and .gitleaksignore for allowlist rules
-    // nosemgrep: generic.secrets.security.detected-jwt-token, generic.secrets.security.detected-generic-secret
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJuYW1lIjoiRGVtbyBVc2VyIiwiaWF0IjoxNzMzNjY1NjAwLCJleHAiOjE4OTk5OTk5OTl9.demo-signature";
-}
-
-const DEMO_AUTH_TOKEN = getDemoToken();
-
-/**
  * Get the API base path from environment variables.
  * Falls back to empty string for relative URLs (works with Vite proxy).
  *
@@ -61,8 +29,16 @@ const DEMO_AUTH_TOKEN = getDemoToken();
  * so we only add "/api" here to match the server URL from the OpenAPI spec.
  */
 export function getApiBasePath(): string {
-    const baseUrl = import.meta.env.VITE_API_URL ?? "";
-    return `${baseUrl}/api`;
+    const configured = import.meta.env.VITE_API_URL;
+
+    if (configured) {
+        return configured.endsWith("/api") ? configured : `${configured}/api`;
+    }
+
+    // Ensure absolute URL for environments where `Request` requires it (e.g., Vitest/node).
+    // In the browser, same-origin absolute URLs work with Vite proxy and production nginx.
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    return new URL("/api", origin).toString();
 }
 
 /**
@@ -71,52 +47,73 @@ export function getApiBasePath(): string {
  */
 export const API_BASE_PATH = "/api/v1";
 
-/**
- * Check if authentication is enabled.
- * Can be toggled via environment variable for testing unauthenticated flows.
- */
-export function isAuthEnabled(): boolean {
-    return import.meta.env.VITE_AUTH_ENABLED !== "false";
-}
-
-/**
- * Get the current authentication token.
- * In this demo, returns a hardcoded token.
- *
- * TODO: Replace with real auth implementation:
- * - Read from auth context
- * - Refresh token if expired
- * - Redirect to login if no token
- */
-export function getAuthToken(): string | null {
-    if (!isAuthEnabled()) {
-        return null;
+function getCookieValue(name: string): string | undefined {
+    if (typeof document === "undefined") {
+        return undefined;
     }
-    // In production, this would fetch from auth state/storage
-    return DEMO_AUTH_TOKEN;
+
+    const cookie = document.cookie
+        .split(";")
+        .map((c) => c.trim())
+        .find((c) => c.startsWith(`${name}=`));
+
+    if (!cookie) {
+        return undefined;
+    }
+
+    return decodeURIComponent(cookie.substring(name.length + 1));
+}
+
+function isStateChangingMethod(method: string): boolean {
+    return ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
+}
+
+let interceptorsRegistered = false;
+
+export interface InitApiClientOptions {
+    fetch?: typeof globalThis.fetch;
 }
 
 /**
- * Configure the hey-api client with base URL and auth.
- * This is called once at app startup.
+ * Initialize the generated API client.
+ *
+ * For the BFF architecture, the browser authenticates via HttpOnly session cookies.
+ * Therefore we must:
+ * - send requests with `credentials: "include"`
+ * - send the CSRF header for state-changing requests (Spring Security defaults)
  */
-export function configureApiClient(): void {
+export function initApiClient(options: InitApiClientOptions = {}): void {
     client.setConfig({
         baseUrl: getApiBasePath(),
+        credentials: "include",
+        ...(options.fetch ? { fetch: options.fetch } : {}),
     });
 
-    // Add auth interceptor to include Bearer token for authenticated requests
+    if (interceptorsRegistered) {
+        return;
+    }
+    interceptorsRegistered = true;
+
     client.interceptors.request.use((request) => {
-        const token = getAuthToken();
-        if (token) {
-            request.headers.set("Authorization", `Bearer ${token}`);
+        if (!isStateChangingMethod(request.method)) {
+            return request;
         }
+
+        const csrfToken = getCookieValue("XSRF-TOKEN");
+        if (csrfToken) {
+            request.headers.set("X-XSRF-TOKEN", csrfToken);
+        }
+
         return request;
     });
-}
 
-// Configure the client on module load
-configureApiClient();
+    client.interceptors.response.use((response) => {
+        if (response.status === 401 && typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("auth:session-expired"));
+        }
+        return response;
+    });
+}
 
 /**
  * Export the configured client for direct access if needed
@@ -134,6 +131,7 @@ export type {
     UpdateGreetingRequest,
     PatchGreetingRequest,
     ProblemDetail,
+    UserInfoResponse,
 } from "./generated";
 
 /**
@@ -146,4 +144,5 @@ export {
     updateGreeting,
     patchGreeting,
     deleteGreeting,
+    getCurrentUser,
 } from "./generated";
