@@ -399,7 +399,6 @@ test.describe("BFF Integration - Credentials Configuration", () => {
             },
         ]);
 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         let requestMadeWithCredentials = false;
 
         await page.route("**/api/v1/greetings**", (route) => {
@@ -423,10 +422,8 @@ test.describe("BFF Integration - Credentials Configuration", () => {
         await page.goto("/");
         await page.waitForTimeout(1000);
 
-        // Note: Playwright route interception may not show cookies in all cases,
-        // but the application is configured with credentials: "include"
-        // This is verified in unit tests (config.test.ts)
-        expect(true).toBe(true); // Placeholder assertion - see config.test.ts for full verification
+        // Verify that the request actually included the credentials
+        expect(requestMadeWithCredentials).toBe(true);
     });
 });
 
