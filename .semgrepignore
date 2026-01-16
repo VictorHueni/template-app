@@ -128,10 +128,15 @@ Gemfile.lock
 Pipfile.lock
 
 
-# ===== Demo/Development Files with Mock Secrets =====
+# Demo/Development Files with Mock Secrets
 # API config contains intentionally invalid demo JWT for local development
 # The token has signature "demo-signature" which is cryptographically invalid
 frontend/src/api/config.ts
+
+# ===== Test Infrastructure (False Positives) =====
+# These files perform Database DDL (Create Schema) which requires String concatenation.
+# PreparedStatement (the remediation) is not supported for DDL identifiers.
+backend/src/test/java/com/example/demo/testsupport/persistence/
 
 # ===== Configuration Files (adjust based on security needs) =====
 # Skip config if they contain no code logic, only data
