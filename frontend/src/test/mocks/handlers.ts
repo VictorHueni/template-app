@@ -16,12 +16,7 @@
  */
 
 import { http, HttpResponse, delay } from "msw";
-import {
-    mockGreetings,
-    createMockGreeting,
-    createMockGreetingPage,
-    mockErrors,
-} from "./data";
+import { mockGreetings, createMockGreeting, createMockGreetingPage, mockErrors } from "./data";
 import type { GreetingResponse, UserInfoResponse } from "../../api/generated";
 
 /**
