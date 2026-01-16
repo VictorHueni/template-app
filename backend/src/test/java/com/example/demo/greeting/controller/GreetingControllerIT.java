@@ -180,7 +180,7 @@ class GreetingControllerIT extends AbstractControllerIT {
                 .then()
                 .statusCode(404)
                 .contentType("application/problem+json")
-                .body("type", equalTo("https://api.example.com/problems/greetings/resource-not-found"))
+                .body("type", equalTo("https://api.template.com/problems/greetings/resource-not-found"))
                 .body("title", equalTo("Greeting Not Found"))
                 .body("status", equalTo(404))
                 .body("traceId", notNullValue());
@@ -351,7 +351,7 @@ class GreetingControllerIT extends AbstractControllerIT {
                 .then()
                 .statusCode(404)
                 .contentType("application/problem+json")
-                .body("type", equalTo("https://api.example.com/problems/greetings/resource-not-found"))
+                .body("type", equalTo("https://api.template.com/problems/greetings/resource-not-found"))
                 .body("title", equalTo("Greeting Not Found"))
                 .body("status", equalTo(404))
                 .body("traceId", notNullValue());

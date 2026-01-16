@@ -19,59 +19,54 @@ public final class ProblemType {
     }
 
     /**
-     * Base URI for all problem types in this API
-     */
-    private static final String BASE_URI = "https://api.example.com/problems";
-
-    /**
      * Resource not found (HTTP 404)
      */
-    public static final String RESOURCE_NOT_FOUND = BASE_URI + "/resource-not-found";
+    public static final String RESOURCE_NOT_FOUND = "resource-not-found";
 
     /**
      * Business validation failed (HTTP 400)
      */
-    public static final String VALIDATION_ERROR = BASE_URI + "/validation-error";
+    public static final String VALIDATION_ERROR = "validation-error";
 
     /**
      * Request validation failed (HTTP 400)
      */
-    public static final String BAD_REQUEST = BASE_URI + "/bad-request";
+    public static final String BAD_REQUEST = "bad-request";
 
     /**
      * Resource conflict (HTTP 409)
      */
-    public static final String CONFLICT = BASE_URI + "/conflict";
+    public static final String CONFLICT = "conflict";
 
     /**
      * Authentication required (HTTP 401)
      */
-    public static final String UNAUTHORIZED = BASE_URI + "/unauthorized";
+    public static final String UNAUTHORIZED = "unauthorized";
 
     /**
      * Insufficient permissions (HTTP 403)
      */
-    public static final String FORBIDDEN = BASE_URI + "/forbidden";
+    public static final String FORBIDDEN = "forbidden";
 
     /**
      * Method not allowed (HTTP 405)
      */
-    public static final String METHOD_NOT_ALLOWED = BASE_URI + "/method-not-allowed";
+    public static final String METHOD_NOT_ALLOWED = "method-not-allowed";
 
     /**
      * Unsupported media type (HTTP 415)
      */
-    public static final String UNSUPPORTED_MEDIA_TYPE = BASE_URI + "/unsupported-media-type";
+    public static final String UNSUPPORTED_MEDIA_TYPE = "unsupported-media-type";
 
     /**
      * Internal server error (HTTP 500)
      */
-    public static final String INTERNAL_SERVER_ERROR = BASE_URI + "/internal-server-error";
+    public static final String INTERNAL_SERVER_ERROR = "internal-server-error";
 
     /**
-     * Builds a module-specific problem type URI.
+     * Builds a module-specific problem type URI slug.
      *
-     * <p>This helper method creates consistent problem type URIs for module-specific exceptions.
+     * <p>This helper method creates consistent problem type URI slugs for module-specific exceptions.
      * Modules should use this method to define their own problem types rather than adding
      * constants to this class.</p>
      *
@@ -82,17 +77,16 @@ public final class ProblemType {
      * public String getProblemTypeUri() {
      *     return ProblemType.buildModuleProblemType("greeting", "not-found");
      * }
-     * // Result: "https://api.example.com/problems/greeting/not-found"
+     * // Result: "greeting/not-found"
      * }
      * </pre>
      *
      * @param module the module name (e.g., "greeting", "user", "audit")
      * @param problemType the problem type within the module (e.g., "not-found", "conflict", "invalid-state")
-     * @return the complete problem type URI
+     * @return the relative problem type slug
      * @since 1.1.0
      */
     public static String buildModuleProblemType(String module, String problemType) {
-        return BASE_URI + "/" + module + "/" + problemType;
+        return module + "/" + problemType;
     }
 }
-
