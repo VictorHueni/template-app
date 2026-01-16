@@ -80,7 +80,7 @@ class UserControllerIT extends AbstractControllerIT {
                     .statusCode(200)
                     .body("id", notNullValue())
                     .body("username", equalTo("testuser"))
-                    .body("email", equalTo("test@example.com"))
+                    .body("email", equalTo("test@template.com"))
                     .body("roles", hasSize(1))
                     .body("roles[0]", equalTo("USER"));
         }
@@ -97,7 +97,7 @@ class UserControllerIT extends AbstractControllerIT {
                     .statusCode(200)
                     .body("id", notNullValue())
                     .body("username", equalTo("adminuser"))
-                    .body("email", equalTo("admin@example.com"))
+                    .body("email", equalTo("admin@template.com"))
                     .body("roles", hasSize(2))
                     .body("roles", containsInAnyOrder("USER", "ADMIN"));
         }

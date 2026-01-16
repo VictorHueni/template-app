@@ -68,7 +68,7 @@ class UserControllerTest {
             mockSecurityContext(
                     "f47ac10b-58cc-4372-a567-0e02b2c3d479",
                     "testuser",
-                    "test@example.com",
+                    "test@template.com",
                     List.of("USER")
             );
 
@@ -81,7 +81,7 @@ class UserControllerTest {
             assertThat(body).isNotNull();
             assertThat(body.getId()).isEqualTo("f47ac10b-58cc-4372-a567-0e02b2c3d479");
             assertThat(body.getUsername()).isEqualTo("testuser");
-            assertThat(body.getEmail()).isEqualTo("test@example.com");
+            assertThat(body.getEmail()).isEqualTo("test@template.com");
             assertThat(body.getRoles()).containsExactly(RolesEnum.USER);
         }
 
@@ -92,7 +92,7 @@ class UserControllerTest {
             mockSecurityContext(
                     "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                     "adminuser",
-                    "admin@example.com",
+                    "admin@template.com",
                     List.of("USER", "ADMIN")
             );
 
@@ -105,7 +105,7 @@ class UserControllerTest {
             assertThat(body).isNotNull();
             assertThat(body.getId()).isEqualTo("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
             assertThat(body.getUsername()).isEqualTo("adminuser");
-            assertThat(body.getEmail()).isEqualTo("admin@example.com");
+            assertThat(body.getEmail()).isEqualTo("admin@template.com");
             assertThat(body.getRoles()).containsExactlyInAnyOrder(RolesEnum.USER, RolesEnum.ADMIN);
         }
 
@@ -137,7 +137,7 @@ class UserControllerTest {
             mockSecurityContext(
                     "user-with-unknown-role",
                     "moderator",
-                    "mod@example.com",
+                    "mod@template.com",
                     List.of("USER", "MODERATOR", "UNKNOWN")
             );
 

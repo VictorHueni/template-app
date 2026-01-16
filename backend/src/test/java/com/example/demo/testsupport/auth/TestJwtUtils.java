@@ -47,10 +47,10 @@ public final class TestJwtUtils {
             "test-hs256-secret-32-bytes-minimum!!".getBytes(StandardCharsets.UTF_8);
 
     public static final String TEST_USER_USERNAME = "testuser";
-    public static final String TEST_USER_EMAIL = "test@example.com";
+    public static final String TEST_USER_EMAIL = "test@template.com";
 
     public static final String TEST_ADMIN_USERNAME = "adminuser";
-    public static final String TEST_ADMIN_EMAIL = "admin@example.com";
+    public static final String TEST_ADMIN_EMAIL = "admin@template.com";
 
     private static final Duration DEFAULT_TTL = Duration.ofMinutes(30);
 
@@ -183,6 +183,6 @@ public final class TestJwtUtils {
         if (TEST_ADMIN_USERNAME.equals(username)) {
             return TEST_ADMIN_EMAIL;
         }
-        return username + "@example.com";
+        return username + "@template.com";
     }
 }
