@@ -130,7 +130,7 @@ async function mockAllGreetingsApis(page: Page) {
         } else if (method === "PUT" || method === "PATCH") {
             // Extract ID from URL
             const idMatch = url.match(/\/greetings\/(\d+)/);
-            const id = idMatch ? parseInt(idMatch[1]) : 1001;
+            const id = idMatch ? Number.parseInt(idMatch[1]) : 1001;
             route.fulfill({
                 status: 200,
                 contentType: "application/json",
@@ -484,7 +484,7 @@ test.describe("Pagination", () => {
         await page.route("**/api/v1/greetings**", (route) => {
             const url = new URL(route.request().url());
             const pageParam = url.searchParams.get("page");
-            currentPage = pageParam ? parseInt(pageParam) : 0;
+            currentPage = pageParam ? Number.parseInt(pageParam) : 0;
 
             route.fulfill({
                 status: 200,
