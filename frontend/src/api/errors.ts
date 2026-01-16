@@ -173,12 +173,15 @@ export async function parseApiError(error: unknown): Promise<ApiError> {
     if (typeof error === "object" && error !== null) {
         const obj = error as Record<string, unknown>;
         const status = typeof obj.status === "number" ? obj.status : 0;
-        const message =
-            typeof obj.message === "string"
-                ? obj.message
-                : typeof obj.detail === "string"
-                  ? obj.detail
-                  : String(error);
+
+        let message: string;
+        if (typeof obj.message === "string") {
+            message = obj.message;
+        } else if (typeof obj.detail === "string") {
+            message = obj.detail;
+        } else {
+            message = String(error);
+        }
 
         return {
             status,
