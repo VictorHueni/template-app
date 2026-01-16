@@ -17,14 +17,14 @@ externalDocs:
 
 servers:
   # Production (first = default in most SDK generators)
-  - url: https://api.example.com/api
+  - url: https://api.template.com/api
     description: Production API - stable, live data
 
   # Pre-production environments
-  - url: https://staging.api.example.com/api
+  - url: https://staging.api.template.com/api
     description: Staging - integration testing before production
 
-  - url: https://dev.api.example.com/api
+  - url: https://dev.api.template.com/api
     description: Development - latest features, may be unstable
 
   # Local development
