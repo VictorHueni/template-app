@@ -67,7 +67,7 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
     }, [mockUser, resolvedMode]);
 
     useEffect(() => {
-        void load();
+        load();
     }, [load]);
 
     useEffect(() => {

@@ -27,7 +27,7 @@ function ViewerWithLogout() {
         <div>
             <span data-testid="status">{status}</span>
             <span data-testid="username">{user?.username ?? ""}</span>
-            <button data-testid="logout-btn" onClick={() => void logout()}>
+            <button data-testid="logout-btn" onClick={() => { logout(); }}>
                 Logout
             </button>
         </div>
