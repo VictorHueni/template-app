@@ -7,7 +7,7 @@ import { AuthContext } from "./hooks";
 import type { AuthContextValue, AuthProviderProps, AuthStatus } from "./types";
 import { resolveAuthMode, resolveLoginUri } from "./utils";
 
-export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
+export function AuthProvider({ children, mode, mockUser }: Readonly<AuthProviderProps>) {
     const resolvedMode = resolveAuthMode(mode);
 
     const [status, setStatus] = useState<AuthStatus>("loading");
