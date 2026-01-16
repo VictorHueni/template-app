@@ -73,6 +73,13 @@ function isStateChangingMethod(method: string): boolean {
 
 let interceptorsRegistered = false;
 
+/**
+ * Internal use only: resets the interceptors flag for testing
+ */
+export function resetInterceptors() {
+    interceptorsRegistered = false;
+}
+
 export interface InitApiClientOptions {
     fetch?: typeof globalThis.fetch;
 }
