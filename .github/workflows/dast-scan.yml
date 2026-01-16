@@ -75,21 +75,29 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/demo
           SPRING_DATASOURCE_USERNAME: demo
           SPRING_DATASOURCE_PASSWORD: demo
-          SERVER_PORT: 8080
+          SPRING_SERVER_PORT: 8080
           MANAGEMENT_SERVER_PORT: 8081
           SPRING_JPA_HIBERNATE_DDL_AUTO: update
+          SPRING_PROFILES_ACTIVE: local
+          # Point issuer to a reachable URL to avoid connection timeouts during startup discovery
+          # Note: The app might still log errors if it can't parse OIDC metadata, 
+          # but it shouldn't block startup if configured correctly.
+          KEYCLOAK_ISSUER: http://localhost:8081/management/health
 
       - name: Wait for backend readiness
         run: |
           echo "Waiting for Spring Boot health endpoint (http://localhost:8081/management/health)..."
-          for i in {1..40}; do
+          for i in {1..60}; do
             if curl -s http://localhost:8081/management/health | grep -q "UP"; then
               echo "Backend is ready!"
               exit 0
             fi
-            sleep 1
+            echo "Waiting... (attempt $i)"
+            sleep 2
           done
-          echo "Backend did not become ready after 40 seconds." >&2
+          echo "Backend did not become ready after 120 seconds." >&2
+          echo "--- LAST 50 LINES OF BACKEND LOG ---"
+          tail -n 50 backend/backend.log
           exit 1
 
       - name: Print Backend Startup Logs for Debug
