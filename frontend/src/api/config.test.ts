@@ -183,7 +183,7 @@ describe("api/config initApiClient", () => {
 
     it("dispatches session-expired event on 401 response", async () => {
         const eventListener = vi.fn();
-        window.addEventListener("auth:session-expired", eventListener);
+        globalThis.addEventListener("auth:session-expired", eventListener);
 
         const fetchStub = vi.fn(
             async () =>
@@ -203,6 +203,6 @@ describe("api/config initApiClient", () => {
 
         expect(eventListener).toHaveBeenCalled();
 
-        window.removeEventListener("auth:session-expired", eventListener);
+        globalThis.removeEventListener("auth:session-expired", eventListener);
     });
 });

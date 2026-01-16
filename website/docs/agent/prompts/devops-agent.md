@@ -21,8 +21,18 @@ Analyze
 - `*.config` in the frontend 
 - all nginx files (incl for the ./webiste) are configured correctly 
 - `template-realm.json` for Keycloak setup and user creation
+- all `.github/workflows/*.yml` for CI/CD pipelines
 
 We need to make sure every variable is injected properly and all ports, hostnames are set up properly.
+I need a clear roadmap to move from local development to a infomaniak jelastic deployment. What do i need to implement ? configure etc... to be able to create then a complete CI/CD pipeline to deploy the app to jelastic from github actions.
+
+# Output Format
+Please provide the review in this Markdown format:
+1.  **Jelastic Compatibility Risks:** (e.g., Hardcoded memory settings, localhost usage).
+2.  **Dockerfile Optimization:** (e.g Layer caching, distroless suggestions).
+3.  **Network & SSL Config:** (e.gProxy settings for OAuth2).
+4.  **Ready-to-Deploy Fixes:** specific code blocks to update `compose.yaml` or `Dockerfile`.
+5.  **Manual tests procedure on local docker-compose:** (e.g curl commands to verify service connectivity).
 
 ## 1. Jelastic & Docker Compatibility (Critical)
 * **Base Images:** Verify we are using valid, public Docker Hub images for Java 25 (e.g., `eclipse-temurin:25` or `openjdk:25-slim`). Jelastic requires the image to be pullable from a registry if not built locally.
@@ -51,11 +61,3 @@ We need to make sure every variable is injected properly and all ports, hostname
 ## 4. Compose to Jelastic Translation
 * **Volume Mounts:** Check for local volume binds (e.g., `./config:/app/config`). These will break on Jelastic unless you are using specific "Add-on" storage configurations. Suggest converting these to Environment Variables or ConfigMaps where possible.
 * **Restart Policy:** Ensure `restart: always` or `unless-stopped` is defined.
-
-# Output Format
-Please provide the review in this Markdown format:
-1.  **Jelastic Compatibility Risks:** (e.g., Hardcoded memory settings, localhost usage).
-2.  **Dockerfile Optimization:** (e.g Layer caching, distroless suggestions).
-3.  **Network & SSL Config:** (e.gProxy settings for OAuth2).
-4.  **Ready-to-Deploy Fixes:** specific code blocks to update `compose.yaml` or `Dockerfile`.
-5.  **Manual tests procedure on local docker-compose:** (e.g curl commands to verify service connectivity).

@@ -58,7 +58,7 @@ ENTRYPOINT ["java","-jar","/app/app.jar"]
 # This drastically reduces CVE count and eliminates the shell/package manager.
 # This is the default stage when building without --target flag
 # Usage locally: docker build -t demo-backend:latest .
-FROM gcr.io/distroless/java25-debian13:latest AS production
+FROM gcr.io/distroless/java25-debian13@sha256:cc3bb44755599d4c25c26c43b05761eeb1da2e779172cee258c2202ca071abfa AS production
 
 # --- SECURITY & UTILITIES (AS NON-ROOT BY DEFAULT) ---
 # NOTE: No need to install wget or create a user. Distroless runs as 'nonroot'.

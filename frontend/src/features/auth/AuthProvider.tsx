@@ -7,7 +7,7 @@ import { AuthContext } from "./hooks";
 import type { AuthContextValue, AuthProviderProps, AuthStatus } from "./types";
 import { resolveAuthMode, resolveLoginUri } from "./utils";
 
-export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
+export function AuthProvider({ children, mode, mockUser }: Readonly<AuthProviderProps>) {
     const resolvedMode = resolveAuthMode(mode);
 
     const [status, setStatus] = useState<AuthStatus>("loading");
@@ -71,7 +71,7 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
     }, [load]);
 
     useEffect(() => {
-        if (resolvedMode === "mock" || typeof window === "undefined") {
+        if (resolvedMode === "mock" || typeof globalThis === "undefined") {
             return;
         }
 
@@ -81,9 +81,9 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
             setError(null);
         };
 
-        window.addEventListener("auth:session-expired", onSessionExpired);
+        globalThis.addEventListener("auth:session-expired", onSessionExpired);
         return () => {
-            window.removeEventListener("auth:session-expired", onSessionExpired);
+            globalThis.removeEventListener("auth:session-expired", onSessionExpired);
         };
     }, [resolvedMode]);
 
@@ -107,7 +107,7 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
         }
 
         const loginUri = await resolveLoginUri();
-        window.location.assign(loginUri);
+        globalThis.location.assign(loginUri);
     }, [mockUser, resolvedMode, user]);
 
     const logout = useCallback(async () => {
@@ -127,7 +127,7 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
                 ?.substring("XSRF-TOKEN=".length);
 
             const headers: Record<string, string> = {
-                "X-POST-LOGOUT-SUCCESS-URI": window.location.origin,
+                "X-POST-LOGOUT-SUCCESS-URI": globalThis.location.origin,
             };
 
             if (csrfToken) {
@@ -142,14 +142,14 @@ export function AuthProvider({ children, mode, mockUser }: AuthProviderProps) {
 
             const logoutUri = response.headers.get("Location");
             if (logoutUri) {
-                window.location.href = logoutUri;
+                globalThis.location.href = logoutUri;
             } else {
-                window.location.reload();
+                globalThis.location.reload();
             }
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error("Logout failed:", error);
-            window.location.href = "/";
+            globalThis.location.href = "/";
         }
     }, [resolvedMode]);
 
