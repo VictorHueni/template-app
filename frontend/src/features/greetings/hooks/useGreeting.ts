@@ -90,7 +90,7 @@ export function useGreeting(id: string | null | undefined): UseGreetingResult {
 
     useEffect(() => {
         if (id != null) {
-            void fetchGreeting();
+            fetchGreeting();
         } else {
             // Reset state when id becomes null/undefined
             setGreeting(null);

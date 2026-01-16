@@ -131,7 +131,7 @@ export function useGreetings(options: UseGreetingsOptions = {}): UseGreetingsRes
      */
     useEffect(() => {
         if (autoFetch) {
-            void fetchGreetings();
+            fetchGreetings();
         }
     }, [fetchGreetings, autoFetch]);
 
