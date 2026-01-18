@@ -12,11 +12,11 @@ export default defineConfig({
             reportsDirectory: "./coverage",
             exclude: [
                 ...(configDefaults.coverage.exclude || []), // Keep default excludes (node_modules, etc.)
-                "src/api/generated/**",             // Exclude generated API client
-                "src/vite-env.d.ts",                // Exclude type definitions
-                "src/main.tsx",                     // Exclude entry point (hard to unit test)
-                "e2e/**"                            // Exclude e2e tests from unit coverage
-            ]
+                "src/api/generated/**", // Exclude generated API client
+                "src/vite-env.d.ts", // Exclude type definitions
+                "src/main.tsx", // Exclude entry point (hard to unit test)
+                "e2e/**", // Exclude e2e tests from unit coverage
+            ],
         },
         include: ["src/**/*.{test,spec}.{ts,tsx}"],
         exclude: ["e2e/**", "node_modules/**", "dist/**", ".playwright/**"],
