@@ -170,6 +170,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate API Client
+        run: npm run api:generate
+
       # 1. GENERATE COVERAGE
       # This runs 'vitest run --coverage' defined in your package.json
       - name: Run Unit Tests with Coverage
