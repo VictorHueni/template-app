@@ -154,3 +154,5 @@ jobs:
             -Dsonar.sources=.
             -Dsonar.inclusions=**/*.yaml,**/*.json
             -Dsonar.exclusions=node_modules/**
+            -Dsonar.yaml.activate=true
+            -Dsonar.json.activate=true
