@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from "vitest";
 
 import { initApiClient, client, createGreeting, listGreetings, resetInterceptors } from "./config";
 
@@ -14,13 +14,43 @@ function clearCookie(name: string) {
     document.cookie = `${name}=; Max-Age=0; path=/`;
 }
 
+/**
+ * Helper to setup API client with a mocked fetch.
+ */
+async function setupApiTest(body: unknown = {}, status = 200) {
+    const fetchStub = vi.fn(async () => {
+        return new Response(JSON.stringify(body), {
+            status,
+            headers: { "Content-Type": "application/json" },
+        });
+    });
+
+    // We use globalThis.fetch because initApiClient defaults to it
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+    initApiClient({ fetch: globalThis.fetch });
+
+    return { fetchStub };
+}
+
+/**
+ * Helper to get the last request sent through the client.
+ */
+function getLastRequest(fetchStub: Mock): Request {
+    const lastCall = fetchStub.mock.lastCall;
+    if (!lastCall) {
+        throw new Error("No fetch calls recorded");
+    }
+    const [urlOrRequest, init] = lastCall;
+    return urlOrRequest instanceof Request ? urlOrRequest : new Request(urlOrRequest, init);
+}
+
 describe("api/config initApiClient", () => {
     const originalFetch = globalThis.fetch;
 
     beforeEach(() => {
         vi.restoreAllMocks();
         clearCookie("XSRF-TOKEN");
-        
+
         // Reset the singleton client state for each test
         resetInterceptors();
         client.interceptors.request.clear();
@@ -32,35 +62,6 @@ describe("api/config initApiClient", () => {
         globalThis.fetch = originalFetch;
     });
 
-    /**
-     * Helper to setup API client with a mocked fetch.
-     */
-    async function setupApiTest(body: unknown = {}, status = 200) {
-        const fetchStub = vi.fn(async (urlOrRequest: string | Request, init?: RequestInit) => {
-            const request = urlOrRequest instanceof Request ? urlOrRequest : new Request(urlOrRequest, init);
-            return new Response(JSON.stringify(body), {
-                status,
-                headers: { "Content-Type": "application/json" },
-            });
-        });
-
-        // We use globalThis.fetch because initApiClient defaults to it
-        globalThis.fetch = fetchStub as unknown as typeof fetch;
-        initApiClient({ fetch: globalThis.fetch });
-
-        return { fetchStub };
-    }
-
-    /**
-     * Helper to get the last request sent through the client.
-     */
-    function getLastRequest(fetchStub: any): Request {
-        const calls = fetchStub.mock.calls;
-        const lastCall = calls[calls.length - 1];
-        const arg = lastCall[0];
-        return arg instanceof Request ? arg : new Request(arg, lastCall[1]);
-    }
-
     it("sets baseUrl to /api and includes credentials", async () => {
         const { fetchStub } = await setupApiTest();
 
@@ -69,7 +70,7 @@ describe("api/config initApiClient", () => {
         const config = client.getConfig();
         expect(config.baseUrl).toBe("http://localhost:3000/api");
         expect(config.credentials).toBe("include");
-        
+
         const lastRequest = getLastRequest(fetchStub);
         expect(lastRequest.credentials).toBe("include");
     });
@@ -88,60 +89,57 @@ describe("api/config initApiClient", () => {
         expect(lastRequest.headers.get("Authorization")).toBeNull();
     });
 
-    it("adds CSRF header for state-changing requests when cookie exists", async () => {
-        document.cookie = "XSRF-TOKEN=test-csrf-token; path=/";
-        const { fetchStub } = await setupApiTest(MOCK_GREETING, 201);
+    it.each([
+        {
+            name: "adds CSRF header for state-changing requests when cookie exists",
+            method: "POST",
+            cookieValue: "test-csrf-token",
+            expectedHeader: "test-csrf-token",
+        },
+        {
+            name: "handles URL-encoded CSRF cookie values",
+            method: "POST",
+            cookieValue: "abc%3D123%26test",
+            expectedHeader: "abc=123&test",
+        },
+        {
+            name: "does not add CSRF header for GET requests",
+            method: "GET",
+            cookieValue: "test-csrf-token",
+            expectedHeader: null,
+        },
+        {
+            name: "does not add CSRF header when cookie is missing",
+            method: "POST",
+            cookieValue: null,
+            expectedHeader: null,
+        },
+    ])("$name", async ({ method, cookieValue, expectedHeader }) => {
+        if (cookieValue) {
+            document.cookie = `XSRF-TOKEN=${cookieValue}; path=/`;
+        } else {
+            clearCookie("XSRF-TOKEN");
+        }
 
-        await createGreeting({
-            body: {
-                message: "Hello",
-                recipient: "World",
-            },
-        });
+        const { fetchStub } = await setupApiTest(
+            method === "POST" ? MOCK_GREETING : { data: [] },
+            method === "POST" ? 201 : 200,
+        );
 
-        const lastRequest = getLastRequest(fetchStub);
-        expect(lastRequest.headers.get("X-XSRF-TOKEN")).toBe("test-csrf-token");
-    });
-
-    it("does not add CSRF header for GET requests", async () => {
-        document.cookie = "XSRF-TOKEN=test-csrf-token; path=/";
-        const { fetchStub } = await setupApiTest({ data: [] });
-
-        await listGreetings({ query: { page: 0, size: 5 } });
-
-        const lastRequest = getLastRequest(fetchStub);
-        expect(lastRequest.method).toBe("GET");
-        expect(lastRequest.headers.get("X-XSRF-TOKEN")).toBeNull();
-    });
-
-    it("handles URL-encoded CSRF cookie values", async () => {
-        document.cookie = "XSRF-TOKEN=abc%3D123%26test; path=/";
-        const { fetchStub } = await setupApiTest(MOCK_GREETING, 201);
-
-        await createGreeting({
-            body: {
-                message: "Hello",
-                recipient: "World",
-            },
-        });
-
-        const lastRequest = getLastRequest(fetchStub);
-        expect(lastRequest.headers.get("X-XSRF-TOKEN")).toBe("abc=123&test");
-    });
-
-    it("does not add CSRF header when cookie is missing", async () => {
-        clearCookie("XSRF-TOKEN");
-        const { fetchStub } = await setupApiTest(MOCK_GREETING, 201);
-
-        await createGreeting({
-            body: {
-                message: "Hello",
-                recipient: "World",
-            },
-        });
+        if (method === "POST") {
+            await createGreeting({
+                body: {
+                    message: "Hello",
+                    recipient: "World",
+                },
+            });
+        } else {
+            await listGreetings({ query: { page: 0, size: 5 } });
+        }
 
         const lastRequest = getLastRequest(fetchStub);
-        expect(lastRequest.headers.get("X-XSRF-TOKEN")).toBeNull();
+        expect(lastRequest.method).toBe(method);
+        expect(lastRequest.headers.get("X-XSRF-TOKEN")).toBe(expectedHeader);
     });
 
     it("dispatches session-expired event on 401 response", async () => {
