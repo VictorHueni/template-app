@@ -34,6 +34,15 @@
 		<spring-modulith.version>2.0.1</spring-modulith.version>
 		<skipUTs>false</skipUTs>
 		<jacoco.skip>false</jacoco.skip>
+
+		<sonar.organization>victorhueni</sonar.organization>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<sonar.java.binaries>target/classes</sonar.java.binaries>
+		<sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<sonar.exclusions>
+			**/com/example/demo/api/v1/**,
+			**/target/generated-sources/**
+		</sonar.exclusions>
 	</properties>
 
 	<dependencyManagement>
@@ -579,6 +588,12 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>5.5.0.6356</version>
 			</plugin>
 
 		</plugins>

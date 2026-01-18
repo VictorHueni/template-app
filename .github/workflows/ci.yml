@@ -7,7 +7,7 @@ on:
     paths-ignore:
       - "**.md"
   push:
-    branches: [main, feature/**, chore/**]
+    branches: [main, feature/**, chore/**, ci/**]
     paths-ignore:
       - "**.md"
 
@@ -55,7 +55,8 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.backend == 'true' }}
     uses: ./.github/workflows/api-governance.yml
-    secrets: inherit
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     with:
       NODE_VERSION: ${{ vars.NODE_VERSION }}
       JAVA_VERSION: ${{ vars.JAVA_VERSION }}

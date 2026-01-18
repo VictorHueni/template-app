@@ -16,7 +16,7 @@ on:
         required: true
         type: string
     secrets:
-      NVD_API_KEY:
+      SONAR_TOKEN:
         required: true
 
 jobs:
@@ -209,6 +209,57 @@ jobs:
           sarif_file: trivy-backend-deps.sarif
           category: backend-dependencies
 
+  backend_sonar_scan:
+    runs-on: ubuntu-latest
+    # Crucial: Needs compilation AND coverage reports to exist
+    needs: [compile_and_generate, backend_unit_tests]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for Sonar to detect new code vs old code
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.JAVA_VERSION }}
+          cache: maven
+
+      # --- RESTORE ARTIFACTS (Simulate a built environment) ---
+      - name: Download compiled main classes
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-compiled-classes
+          path: backend/target/classes
+
+      - name: Download compiled test classes
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-compiled-test-classes
+          path: backend/target/test-classes
+
+      - name: Download generated sources
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-generated-sources
+          path: backend/target/generated-sources
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-unit-test-coverage
+          path: backend/target/site/jacoco
+
+      # --- RUN SCAN ---
+      - name: SonarQube Cloud Scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./mvnw -B sonar:sonar -Dsonar.projectKey=template-app-backend
   # ============================================================================
   # PHASE 2: BUILD ARTIFACTS (After quality gates pass)
   # ============================================================================
