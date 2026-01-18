@@ -259,7 +259,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ./mvnw -B sonar:sonar -Dsonar.projectKey=YOUR_PROJECT_KEY_HERE
+          ./mvnw -B sonar:sonar -Dsonar.projectKey=template-app-backend
   # ============================================================================
   # PHASE 2: BUILD ARTIFACTS (After quality gates pass)
   # ============================================================================
