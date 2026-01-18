@@ -61,7 +61,12 @@ function ViewerWithLogout() {
         <div>
             <span data-testid="status">{status}</span>
             <span data-testid="username">{user?.username ?? ""}</span>
-            <button data-testid="logout-btn" onClick={() => { logout(); }}>
+            <button
+                data-testid="logout-btn"
+                onClick={() => {
+                    logout();
+                }}
+            >
                 Logout
             </button>
         </div>
@@ -132,7 +137,7 @@ describe("AuthProvider", () => {
 });
 
 describe("AuthProvider logout", () => {
-    const originalFetch = global.fetch;
+    const originalFetch = globalThis.fetch;
     const originalLocation = globalThis.location;
     let cookieValue = "";
     let fetchSpy = vi.fn();
@@ -143,7 +148,7 @@ describe("AuthProvider logout", () => {
         fetchSpy = vi.fn().mockResolvedValue({
             headers: new Headers({ Location: "http://keycloak/logout" }),
         });
-        global.fetch = fetchSpy;
+        globalThis.fetch = fetchSpy;
 
         // Mock document.cookie
         Object.defineProperty(document, "cookie", {
@@ -169,7 +174,7 @@ describe("AuthProvider logout", () => {
     });
 
     afterEach(() => {
-        global.fetch = originalFetch;
+        globalThis.fetch = originalFetch;
         Object.defineProperty(globalThis, "location", {
             value: originalLocation,
             writable: true,

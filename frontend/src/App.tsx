@@ -173,7 +173,13 @@ export default function App() {
                     {authStatus !== "loading" && (
                         <button
                             type="button"
-                            onClick={() => { if (authStatus === "authenticated") { logout(); } else { login(); } }}
+                            onClick={() => {
+                                if (authStatus === "authenticated") {
+                                    logout();
+                                } else {
+                                    login();
+                                }
+                            }}
                         >
                             {authStatus === "authenticated" ? "Sign out" : "Sign in"}
                         </button>
@@ -276,7 +282,9 @@ export default function App() {
                     <h2 style={{ margin: 0, fontSize: 20 }}>All Greetings</h2>
                     <button
                         type="button"
-                        onClick={() => { refreshList(); }}
+                        onClick={() => {
+                            refreshList();
+                        }}
                         disabled={isLoading}
                         style={{
                             padding: "6px 12px",
@@ -296,7 +304,12 @@ export default function App() {
                 )}
 
                 {listError && !listLoading && (
-                    <ErrorMessage error={listError} onRetry={() => { refreshList(); }} />
+                    <ErrorMessage
+                        error={listError}
+                        onRetry={() => {
+                            refreshList();
+                        }}
+                    />
                 )}
 
                 {!listError && (
