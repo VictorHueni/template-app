@@ -12,6 +12,7 @@
         "dev:mock-auth": "npm run dev:mock",
         "build": "npm run api:generate && tsc -b && vite build",
         "lint": "eslint .",
+        "lint:report": "eslint . --format json --output-file eslint-report.json",
         "typecheck": "tsc --noEmit",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
