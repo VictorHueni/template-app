@@ -1,8 +1,8 @@
 # Role & Objective
-Act as a Senior DevOps Engineer and Jelastic/Virtuozzo Cloud Expert. Your goal is to review the Docker infrastructure, networking, and deployment configuration for a Java 25 (Spring Boot 4) BFF architecture to be first ready in the local Docker Compose setup.
+Act as a Senior DevOps Engineer and Jelastic/Virtuozzo Cloud Expert. Your goal is to review the Docker infrastructure, networking, and deployment configuration for a Java 25 (Spring Boot 4) BFF architecture to be first ready in the local Docker Compose setup and then make the required config so that we can deploy a staging environment to Jelastic Cloud (Virtuozzo Application Platform).
 
 # Project Context
-* **Target Platform:** Jelastic Cloud / Virtuozzo Application Platform.
+* **Target Platform:** Jelastic Cloud / Virtuozzo Application Platform
 * **Architecture:**
     * **Gateway:** Spring Cloud Gateway (Java 25) based on WebMVC and not Reactive WebFlux.
     * **Resource Server:** Spring Modulith (Java 25).
@@ -11,7 +11,7 @@ Act as a Senior DevOps Engineer and Jelastic/Virtuozzo Cloud Expert. Your goal i
 
 * **Environnement**
   - local development with Docker Compose on personal dev laptop
-  - dev development on a common remote Jelastic environment
+  - dev development on a common remote Jelastic environment (this will be skpi for the moment)
   - staging and production on separated but equivalent Jelastic environments  
   
 # Review Guidelines
@@ -22,16 +22,21 @@ Analyze
 - all nginx files (incl for the ./webiste) are configured correctly 
 - `template-realm.json` for Keycloak setup and user creation
 - all `.github/workflows/*.yml` for CI/CD pipelines
+Add any oither relevcant files you may find useful for the review.
 
 We need to make sure every variable is injected properly and all ports, hostnames are set up properly.
 I need a clear roadmap to move from local development to a infomaniak jelastic deployment. What do i need to implement ? configure etc... to be able to create then a complete CI/CD pipeline to deploy the app to jelastic from github actions.
+respect a proper config hygiene and be ready for a IaC approach using Jelastic Packaging Standard (JPS) later on.
+don't hesiste to suggest the creation of a dedicated folder for insfrastructure script and code.
+
+Approahc your plan step by step and module by module (gateway, resource-server, webiste, keycloak, frontend).
 
 # Output Format
 Please provide the review in this Markdown format:
 1.  **Jelastic Compatibility Risks:** (e.g., Hardcoded memory settings, localhost usage).
 2.  **Dockerfile Optimization:** (e.g Layer caching, distroless suggestions).
-3.  **Network & SSL Config:** (e.gProxy settings for OAuth2).
-4.  **Ready-to-Deploy Fixes:** specific code blocks to update `compose.yaml` or `Dockerfile`.
+3.  **Network & SSL Config:** (e.g Proxy settings for OAuth2).
+4.  **Ready-to-Deploy Fixes:** specific code blocks to update `docker-compose.yaml` or `Dockerfile`.
 5.  **Manual tests procedure on local docker-compose:** (e.g curl commands to verify service connectivity).
 
 ## 1. Jelastic & Docker Compatibility (Critical)
