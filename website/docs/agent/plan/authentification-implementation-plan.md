@@ -1157,7 +1157,7 @@ const options = await response.json();
 // [{ label: "keycloak", loginUri: "http://localhost:8080/oauth2/authorization/keycloak" }]
 
 // Redirect to login
-window.location.href = options[0].loginUri;
+globalThis.location.href = options[0].loginUri;
 ```
 
 ---
@@ -2265,7 +2265,7 @@ export function configureApiClient(): void {
 
   client.interceptors.response.use((response) => {
     if (response.status === 401) {
-      window.dispatchEvent(new CustomEvent("auth:session-expired"));
+      globalThis.dispatchEvent(new CustomEvent("auth:session-expired"));
     }
     return response;
   });

@@ -4,7 +4,7 @@ Act as a Senior Frontend Developer specialized in React 19, TypeScript 5.9, and 
 # Project Context
 * **Architecture:** BFF Pattern (Cookie-based).
     * **Auth Strategy:** The frontend holds NO tokens (JWTs). It relies entirely on `HttpOnly` cookies managed by the browser.
-    * **401 Handling:** When the backend returns a 401, the frontend must redirect the browser window (`window.location.href`) to the backend login URL to trigger the OAuth2 flow.
+    * **401 Handling:** When the backend returns a 401, the frontend must redirect the browser window (`globalThis.location.href`) to the backend login URL to trigger the OAuth2 flow.
 * **Tech Stack:**
     * **Framework:** React 19.x
     * **Build:** Vite 7.x

@@ -237,9 +237,9 @@ test.describe("BFF Integration - Session Expiry", () => {
         });
 
         await page.addInitScript(() => {
-            window.addEventListener("auth:session-expired", () => {
+            globalThis.addEventListener("auth:session-expired", () => {
                 // @ts-expect-error - exposed function
-                window.onSessionExpired();
+                globalThis.onSessionExpired();
             });
         });
 

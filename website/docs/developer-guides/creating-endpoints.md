@@ -513,7 +513,7 @@ export function useProductMutations(): UseProductMutationsResult {
     const create = useCallback(async (data: CreateProductRequest): Promise<ProductResponse | null> => {
         // Redirect to login if not authenticated
         if (!isAuthenticated) {
-            login(window.location.href);
+            login(globalThis.location.href);
             return null;
         }
 
@@ -529,7 +529,7 @@ export function useProductMutations(): UseProductMutationsResult {
 
                 // Handle auth errors specifically
                 if (apiError.status === 401) {
-                    login(window.location.href);
+                    login(globalThis.location.href);
                     return null;
                 }
 
@@ -601,7 +601,7 @@ export function CreateProductForm({ onSuccess }: { onSuccess?: () => void }) {
         return (
             <div>
                 <p>Please log in to create products.</p>
-                <LoginButton returnUrl={window.location.href}>
+                <LoginButton returnUrl={globalThis.location.href}>
                     Log in
                 </LoginButton>
             </div>
@@ -744,7 +744,7 @@ public ResponseEntity<?> myEndpoint(Authentication auth) {
 // TypeScript: Check auth before mutation
 const { isAuthenticated, login } = useAuth();
 if (!isAuthenticated) {
-    login(window.location.href);
+    login(globalThis.location.href);
     return;
 }
 ```
